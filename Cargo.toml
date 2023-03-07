@@ -4,3 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+log = "0.4.8"
+env_logger = { version = "0.10.0", optional = false }
