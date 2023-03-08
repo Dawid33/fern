@@ -10,6 +10,7 @@ use std::thread::{JoinHandle, Scope, ScopedJoinHandle, spawn};
 use std::time::Instant;
 use crossbeam_deque::{Injector, Worker};
 use memmap::MmapOptions;
+use slab::Slab;
 
 mod lexer;
 mod error;
@@ -51,6 +52,7 @@ impl<'a> ParallelLexer<'a> {
             handles.push(scope.spawn(move || {
                 let worker: Worker<WorkUnit> = Worker::new_fifo();
 
+                let mut s = Slab::new();
                 let mut should_run = true;
                 while should_run {
                     let task: Option<WorkUnit<'a>> = worker.pop().or_else(|| {
@@ -59,7 +61,8 @@ impl<'a> ParallelLexer<'a> {
                         }).find(|s| !s.is_retry()).and_then(|s| s.success())
                     });
                     if let Some(task) = task {
-                        let mut lexer : JsonLexer = JsonLexer::new();
+                        s.();
+                        let mut lexer : JsonLexer = JsonLexer::new(&mut s);
 
                         for c in task.1 {
                             lexer.consume(c).unwrap();
@@ -126,15 +129,18 @@ fn parallel() -> Result<(), Box<dyn Error>> {
     let x: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
 
     let mut indices = vec![];
-    let mut i = x.len() / threads;
+    let step = 1000;
+    indices.push((0, step));
+    let mut i = 0;
     let mut prev = 0;
+
     while i < x.len() {
         if x[i] as char != '\n' {
             i += 1;
         } else {
             indices.push((prev, i));
             prev = i;
-            i += x.len() / threads;
+            i += step;
         }
     }
 

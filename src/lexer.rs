@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
+use slab::Slab;
 use crate::error::LexerError;
 
 #[derive(Debug)]
@@ -35,16 +36,16 @@ enum LexerState {
     InNumber,
 }
 
-pub struct JsonLexer {
-    pub tokens: Vec<JsonToken>,
+pub struct JsonLexer<'a> {
+    pub tokens: &'a mut Slab<JsonToken>,
     state: LexerState,
     buf: String,
 }
 
-impl JsonLexer {
-    pub fn new() -> JsonLexer {
+impl<'a> JsonLexer<'a> {
+    pub fn new(s: &'a mut Slab<JsonToken>) -> JsonLexer {
         JsonLexer {
-            tokens: vec![],
+            tokens: s,
             state: LexerState::InData,
             buf: String::new(),
         }
@@ -53,13 +54,13 @@ impl JsonLexer {
         let c = *c as char;
         let mut push = |t: JsonToken| {
             // println!("{:?}", t);
-            self.tokens.push(t);
+            self.tokens.insert(t);
         };
 
         match self.state {
             LexerState::InData => {
                 match c {
-                    'a'..='z' | 'A'..='Z' => self.tokens.push(JsonToken::Character(c)),
+                    'a'..='z' | 'A'..='Z' => {self.tokens.insert(JsonToken::Character(c)); ()}
                     '{' => push(JsonToken::LeftCurly),
                     '}' => push(JsonToken::RightCurly),
                     '[' => push(JsonToken::LeftSquareBracket),
