@@ -1,12 +1,15 @@
 use std::collections::{HashMap};
 use tinyrand::{StdRand, RandRange};
 use std::{fs, iter, thread};
+use std::error::Error;
+use std::fs::File;
 use std::slice::Chunks;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::Receiver;
 use std::thread::{JoinHandle, Scope, ScopedJoinHandle, spawn};
 use std::time::Instant;
 use crossbeam_deque::{Injector, Worker};
+use memmap::MmapOptions;
 
 mod lexer;
 mod error;
@@ -15,7 +18,7 @@ use lexer::*;
 
 struct LexerOutput {}
 
-struct WorkUnit<'a>(BatchId, &'a str);
+struct WorkUnit<'a>(BatchId, &'a [u8]);
 
 struct ParallelLexer<'a> {
     handles: Vec<ScopedJoinHandle<'a, ()>>,
@@ -58,7 +61,7 @@ impl<'a> ParallelLexer<'a> {
                     if let Some(task) = task {
                         let mut lexer : JsonLexer = JsonLexer::new();
 
-                        for c in task.1.chars() {
+                        for c in task.1 {
                             lexer.consume(c).unwrap();
                         }
                     } else if let Ok(_) = reciever.try_recv() {
@@ -97,7 +100,7 @@ impl<'a> ParallelLexer<'a> {
         BatchId(key)
     }
 
-    pub fn add_to_batch(&mut self, id: &BatchId, input: &'a str) {
+    pub fn add_to_batch(&mut self, id: &BatchId, input: &'a [u8]) {
         self.queue.push(WorkUnit(id.clone(), input));
     }
 
@@ -116,17 +119,17 @@ impl<'a> ParallelLexer<'a> {
     }
 }
 
-fn parallel() {
+fn parallel() -> Result<(), Box<dyn Error>> {
     let threads = 12;
     let now = Instant::now();
-    let contents = fs::read_to_string("json/10KB.json").expect("Cannot open test file.");
+    let file = File::open("json/1GB.json")?;
+    let x: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
 
-    let x : Vec<(usize, char)> = contents.char_indices().collect();
     let mut indices = vec![];
     let mut i = x.len() / threads;
     let mut prev = 0;
     while i < x.len() {
-        if x.get(i).unwrap().1 != '\n' {
+        if x[i] as char != '\n' {
             i += 1;
         } else {
             indices.push((prev, i));
@@ -134,11 +137,10 @@ fn parallel() {
             i += x.len() / threads;
         }
     }
-    drop(x);
 
     let mut units = vec![];
     for i in indices {
-        units.push(&contents[i.0..i.1]);
+        units.push(&x[i.0..i.1]);
     }
 
     println!("Reading file : {:?}", now.elapsed());
@@ -155,16 +157,22 @@ fn parallel() {
     });
 
     println!("Lexing : {:?}", now.elapsed());
+    Ok(())
 }
 
-fn main() {
-    let contents = fs::read_to_string("test.json").expect("Cannot open test file.");
+fn main() -> Result<(), Box<dyn Error>> {
+    parallel().unwrap();
 
-    thread::scope(|s| {
-        let mut lexer = ParallelLexer::new(s, 1);
-        let batch = lexer.new_batch();
-        lexer.add_to_batch(&batch, contents.as_str());
-        lexer.collect_batch(batch);
-        lexer.kill();
-    });
+    // let file = File::open("test.json")?;
+    // let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
+    //
+    // thread::scope(|s| {
+    //     let mut lexer = ParallelLexer::new(s, 1);
+    //     let batch = lexer.new_batch();
+    //     lexer.add_to_batch(&batch, &mmap[..]);
+    //     lexer.collect_batch(batch);
+    //     lexer.kill();
+    // });
+
+    Ok(())
 }
