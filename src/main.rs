@@ -10,7 +10,6 @@ use std::thread::{JoinHandle, Scope, ScopedJoinHandle, spawn};
 use std::time::Instant;
 use crossbeam_deque::{Injector, Worker};
 use memmap::MmapOptions;
-use slab::Slab;
 
 mod lexer;
 mod error;
@@ -52,7 +51,7 @@ impl<'a> ParallelLexer<'a> {
             handles.push(scope.spawn(move || {
                 let worker: Worker<WorkUnit> = Worker::new_fifo();
 
-                let mut s = Slab::new();
+                let mut token_buf = Vec::new();
                 let mut should_run = true;
                 while should_run {
                     let task: Option<WorkUnit<'a>> = worker.pop().or_else(|| {
@@ -61,12 +60,12 @@ impl<'a> ParallelLexer<'a> {
                         }).find(|s| !s.is_retry()).and_then(|s| s.success())
                     });
                     if let Some(task) = task {
-                        s.();
-                        let mut lexer : JsonLexer = JsonLexer::new(&mut s);
+                        let mut lexer : JsonLexer = JsonLexer::new(&mut token_buf);
 
                         for c in task.1 {
                             lexer.consume(c).unwrap();
                         }
+                        token_buf.clear();
                     } else if let Ok(_) = reciever.try_recv() {
                         should_run = false;
                     } else {
@@ -114,7 +113,7 @@ impl<'a> ParallelLexer<'a> {
 
     pub fn kill(self) {
         for _ in 0..self.handles.len() {
-            self.connection.send(true);
+            self.connection.send(true).unwrap();
         }
         for x in self.handles {
             let _ = x.join();
@@ -123,7 +122,7 @@ impl<'a> ParallelLexer<'a> {
 }
 
 fn parallel() -> Result<(), Box<dyn Error>> {
-    let threads = 12;
+    let threads = 1;
     let now = Instant::now();
     let file = File::open("json/1GB.json")?;
     let x: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
@@ -167,18 +166,21 @@ fn parallel() -> Result<(), Box<dyn Error>> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    parallel().unwrap();
+    // Test lexing in parallel
+    // parallel().unwrap();
 
-    // let file = File::open("test.json")?;
-    // let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
-    //
-    // thread::scope(|s| {
-    //     let mut lexer = ParallelLexer::new(s, 1);
-    //     let batch = lexer.new_batch();
-    //     lexer.add_to_batch(&batch, &mmap[..]);
-    //     lexer.collect_batch(batch);
-    //     lexer.kill();
-    // });
+    let file = File::open("json/1GB.json")?;
+    let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
+
+    let now = Instant::now();
+    thread::scope(|s| {
+        let mut lexer = ParallelLexer::new(s, 1);
+        let batch = lexer.new_batch();
+        lexer.add_to_batch(&batch, &mmap[..]);
+        lexer.collect_batch(batch);
+        lexer.kill();
+    });
+    println!("Lexing : {:?}", now.elapsed());
 
     Ok(())
 }
