@@ -13,6 +13,7 @@ use memmap::MmapOptions;
 
 mod lexer;
 mod error;
+mod grammar;
 
 use lexer::*;
 
@@ -65,7 +66,7 @@ impl<'a> ParallelLexer<'a> {
                         for c in task.1 {
                             lexer.consume(c).unwrap();
                         }
-                        println!("Created {} tokens.", token_buf.len());
+                        // println!("Created {} tokens.", token_buf.len());
                         token_buf.clear();
                     } else if let Ok(_) = reciever.try_recv() {
                         should_run = false;
@@ -170,7 +171,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Test lexing in parallel
     parallel().unwrap();
 
-    // let file = File::open("json/1GB.json")?;
+    // let file = File::open("test.json")?;
     // let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
     //
     // let now = Instant::now();
@@ -182,6 +183,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     //     lexer.kill();
     // });
     // println!("Lexing : {:?}", now.elapsed());
+
+    // grammar::Grammar::new();
 
     Ok(())
 }
