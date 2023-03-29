@@ -170,19 +170,20 @@ fn parallel() -> Result<(), Box<dyn Error>> {
 fn main() -> Result<(), Box<dyn Error>> {
     // Test lexing in parallel
     parallel().unwrap();
+    // parallel().unwrap();
 
-    // let file = File::open("test.json")?;
-    // let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
-    //
-    // let now = Instant::now();
-    // thread::scope(|s| {
-    //     let mut lexer = ParallelLexer::new(s, 1);
-    //     let batch = lexer.new_batch();
-    //     lexer.add_to_batch(&batch, &mmap[..]);
-    //     lexer.collect_batch(batch);
-    //     lexer.kill();
-    // });
-    // println!("Lexing : {:?}", now.elapsed());
+    let file = File::open("test.json")?;
+    let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
+
+    let now = Instant::now();
+    thread::scope(|s| {
+        let mut lexer = ParallelLexer::new(s, 1);
+        let batch = lexer.new_batch();
+        lexer.add_to_batch(&batch, &mmap[..]);
+        lexer.collect_batch(batch);
+        lexer.kill();
+    });
+    println!("Lexing : {:?}", now.elapsed());
 
     // grammar::Grammar::new();
 

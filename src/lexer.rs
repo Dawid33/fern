@@ -52,7 +52,7 @@ impl<'a> JsonLexer<'a> {
     pub fn consume(&mut self, c: &u8) -> Result<(), LexerError> {
         let c = *c as char;
         let mut push = |t: JsonToken| {
-            // println!("{:?}", t);
+            println!("{:?}", t);
             self.tokens.push(t);
         };
 
