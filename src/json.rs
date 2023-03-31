@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use crate::error::LexerError;
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
 #[allow(unused)]
 pub enum JsonToken {
     Delim,
@@ -30,7 +30,7 @@ pub enum JsonToken {
     Character(char),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
 pub enum LexerState {
     Start,
     InString,
@@ -39,7 +39,7 @@ pub enum LexerState {
 
 pub struct JsonLexer<'a> {
     pub tokens: &'a mut Vec<JsonToken>,
-    state: LexerState,
+    pub state: LexerState,
     buf: String,
 }
 

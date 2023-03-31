@@ -5,18 +5,20 @@ use crossbeam_deque::{Injector, Worker};
 use std::iter;
 use std::sync::Arc;
 use std::thread::{Scope, ScopedJoinHandle};
+use std::time::{Duration, Instant};
 use crossbeam_skiplist::SkipMap;
 use tinyrand::{RandRange, StdRand};
+use crate::json::JsonToken::{Start};
 use crate::json::LexerState::InString;
 
 pub struct LexerOutput {
-    lists: Vec<LexerPartialOutput>,
+    lists: HashMap<LexerState, LexerPartialOutput>,
 }
 
 #[allow(unused)]
 pub struct LexerPartialOutput {
     list: Vec<JsonToken>,
-    start_state: LexerState,
+    finish_state: LexerState,
     success: bool,
 }
 
@@ -72,12 +74,11 @@ impl<'a> ParallelLexer<'a> {
                             }
                         }
 
-                        task.2.insert(task.0, LexerOutput {
-                            lists: vec! [
-                                LexerPartialOutput {list: token_buf, start_state: LexerState::Start, success: start},
-                                LexerPartialOutput {list: token_buf_string, start_state: InString, success: string}
-                            ]
-                        });
+                        let mut map: HashMap<LexerState, LexerPartialOutput> = HashMap::new();
+                        map.insert(LexerState::Start, LexerPartialOutput {success: start, finish_state: lexer_start.state, list: token_buf});
+                        map.insert(InString, LexerPartialOutput {success: string, finish_state: lexer_string.state, list: token_buf_string});
+
+                        task.2.insert(task.0, LexerOutput { lists: map});
                     } else if let Ok(_) = reciever.try_recv() {
                         should_run = false;
                     } else {
@@ -130,21 +131,57 @@ impl<'a> ParallelLexer<'a> {
         self.queue.push(WorkUnit(order, input, (*batch).output.clone()));
     }
 
-    pub fn collect_batch(&mut self, id: String) -> Vec<LexerOutput> {
+    // Fix this mess
+    pub fn collect_batch(&mut self, id: String, time: &mut Instant) -> Vec<JsonToken> {
         let x : Batch = self.outputs.remove(id.as_str()).unwrap();
 
         // Spin until threads have finished lexing.
         while x.size != x.output.len() { }
+        println!("Workers lexing: {:?}", time.elapsed());
+        *time = Instant::now();
 
+        // Append first item in list to output
+        let mut result: Vec<JsonToken> = Vec::new();
+        // let first = x.output.pop_front().unwrap();
+        // let first = first.value();
+        // let mut start_state_output = &first.lists.get(&LexerState::Start).unwrap();
+        // result.append(&mut start_state_output.list.clone());
+        //
+        // for x in &start_state_output.list {
+        //     print!("{:?} ", x);
+        // }
+        // println!();
+
+        let mut previous_finish_state = LexerState::Start;
         for x in x.output.iter() {
             let val: &LexerOutput= x.value();
-            for list in &val.lists {
-                println!("{:?} -> {}", list.start_state, list.success);
+            let mut found_match = false;
+            for (start_state, partial_output) in &val.lists {
+                // print!("Checking {:?} -> {:?} : ", previous_finish_state, *start_state);
+                if previous_finish_state == *start_state {
+                    // println!("yes");
+
+                    // for x in &partial_output.list {
+                        // print!("{:?} ", x);
+                    // }
+                    // println!("\n");
+                    found_match = true;
+                    previous_finish_state = partial_output.finish_state;
+                    result.append(&mut partial_output.list.clone());
+                    break;
+                } else {
+                    // println!("no");
+                }
             }
-            println!();
+            if !found_match {
+                panic!("ERROR: finished on {:?}", previous_finish_state);
+            }
         }
 
-        return Vec::new();
+
+        println!("Joining up work: {:?}", time.elapsed());
+        *time = Instant::now();
+        return result;
     }
 
     pub fn kill(self) {

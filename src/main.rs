@@ -16,25 +16,30 @@ mod lexer;
 mod parser;
 
 fn parallel() -> Result<(), Box<dyn Error>> {
-    let threads = 2;
+    let threads = 12;
     let now = Instant::now();
     let file = File::open("json/1KB.json")?;
     let x: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
 
     let mut indices = vec![];
-    let step = 100;
-    indices.push((0, step));
+    let step = 10000;
     let mut i = 0;
     let mut prev = 0;
 
     while i < x.len() {
-        if x[i] as char != '\n' {
+        if x[i] as char != ' ' && x[i] as char != '\n' {
             i += 1;
         } else {
+            if i + 1 <= x.len() {
+                i += 1;
+            }
             indices.push((prev, i));
             prev = i;
             i += step;
         }
+    }
+    if prev < x.len() {
+        indices.push((prev, x.len()));
     }
 
     let mut units = vec![];
@@ -43,7 +48,7 @@ fn parallel() -> Result<(), Box<dyn Error>> {
     }
 
     println!("Reading file : {:?}", now.elapsed());
-    let now = Instant::now();
+    let mut now = Instant::now();
 
     thread::scope(|s| {
         let mut lexer = ParallelLexer::new(s, threads);
@@ -51,11 +56,19 @@ fn parallel() -> Result<(), Box<dyn Error>> {
         for task in units.iter().enumerate() {
             lexer.add_to_batch(&batch, task.1, task.0);
         }
-        lexer.collect_batch(batch);
+        let output = lexer.collect_batch(batch, &mut now);
         lexer.kill();
-    });
 
-    println!("Lexing : {:?}", now.elapsed());
+        // let mut lexer = ParallelLexer::new(s, 1);
+        // let batch = lexer.new_batch();
+        // for task in units.iter().enumerate() {
+        //     lexer.add_to_batch(&batch, task.1, task.0);
+        // }
+        // let sequential_output = lexer.collect_batch(batch);
+        // lexer.kill();
+        //
+        // assert_eq!(output, sequential_output);
+    });
     Ok(())
 }
 
