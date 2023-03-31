@@ -7,4 +7,5 @@ edition = "2021"
 tinyrand = { version = "0.5.0", optional = false }
 crossbeam-deque = { version = "0.8.3", optional = false }
 crossbeam-channel = { version = "0.5.7", optional = false }
+crossbeam-skiplist = { version = "0.1", optional = false }
 memmap = { version = "0.7.0", optional = false }

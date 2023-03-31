@@ -10,7 +10,7 @@ impl Error for LexerError {}
 
 impl LexerError {
     pub fn from(s: String) -> LexerError {
-        LexerError { message: s, }
+        LexerError { message: s }
     }
 }
 
@@ -19,4 +19,3 @@ impl<'a> Display for LexerError {
         write!(f, "Lexer Error: {}", self.message)
     }
 }
-
