@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::io::{stdout, Write};
-use crate::json::{JsonLexer, JsonToken, LexerState};
 use crossbeam_deque::{Injector, Worker};
 use std::iter;
 use std::sync::Arc;
@@ -8,8 +7,11 @@ use std::thread::{Scope, ScopedJoinHandle};
 use std::time::{Duration, Instant};
 use crossbeam_skiplist::SkipMap;
 use tinyrand::{RandRange, StdRand};
-use crate::json::JsonToken::{Start};
-use crate::json::LexerState::InString;
+pub mod json;
+
+use json::JsonToken::{Start};
+use json::LexerState::InString;
+use crate::lexer::json::{JsonLexer, JsonToken, LexerState};
 
 pub struct LexerOutput {
     lists: HashMap<LexerState, LexerPartialOutput>,

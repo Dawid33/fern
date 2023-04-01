@@ -1,42 +1,20 @@
 use crate::grammar::Associativity::{Equal, Left, Right};
 use std::collections::hash_map::HashMap;
 use std::collections::HashSet;
+use std::fmt::Debug;
+use std::hash::Hash;
+use crate::lexer::json::JsonToken;
+use crate::lexer::json::JsonToken::{Array, Bool, Character, Chars, Colon, Comma, Delim, Elements, LeftCurly, LeftSqrBracket, Members, Number, Object, Pair, Quote, RightCurly, RightSqrBracket, String, Value};
 
-#[derive(Eq, PartialEq, Hash, Copy, Clone, Debug)]
-#[allow(unused)]
-pub enum Token {
-    Delim,
-    Start,
-    Object,
-    Members,
-    Pair,
-    String,
-    Value,
-    Array,
-    Elements,
-    Chars,
-    Char,
-
-    RightCurly,
-    LeftCurly,
-    Colon,
-    Number,
-    Bool,
-    Quote,
-    LeftSqrBracket,
-    RightSqrBracket,
-    Comma,
-    Character,
-}
-
-pub struct Rule {
+#[derive(Clone, Debug)]
+pub struct Rule<Token> {
     pub left: Token,
     pub right: Vec<Token>,
 }
 
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
 #[allow(unused)]
-enum Associativity {
+pub enum Associativity {
     None,
     Left,
     Right,
@@ -45,25 +23,25 @@ enum Associativity {
 }
 
 #[allow(unused)]
-pub struct Grammar {
-    non_terminals: Vec<Token>,
-    terminals: Vec<Token>,
-    delim: Token,
-    axiom: Token,
-    inverse_rewrite_rules: HashMap<Token, Vec<Token>>,
-    rules: Vec<Rule>,
+pub struct Grammar<Token> {
+    pub non_terminals: Vec<Token>,
+    pub terminals: Vec<Token>,
+    pub delim: Token,
+    pub axiom: Token,
+    pub inverse_rewrite_rules: HashMap<Token, Vec<Token>>,
+    pub rules: Vec<Rule<Token>>,
     op_table: HashMap<Token, HashMap<Token, Associativity>>,
 }
 
 #[allow(unused)]
-impl Grammar {
+impl<Token> Grammar<Token> where Token: Copy + Debug + Eq + PartialEq + Hash {
     pub fn new(
-        rules: Vec<Rule>,
+        rules: Vec<Rule<Token>>,
         terminals: Vec<Token>,
         non_terminals: Vec<Token>,
         axiom: Token,
         delim: Token,
-    ) -> Grammar {
+    ) -> Grammar<Token> {
         let mut inverse_rewrite_rules: HashMap<Token, Vec<Token>> = HashMap::new();
         let mut op_table: HashMap<Token, HashMap<Token, Associativity>> = HashMap::new();
 
@@ -286,27 +264,23 @@ impl Grammar {
         }
     }
 
-    pub fn json_grammar() -> Grammar {
-        use crate::grammar::Token::{
-            Array, Bool, Character, Chars, Colon, Comma, Delim, Elements, LeftCurly,
-            LeftSqrBracket, Members, Number, Object, Pair, Quote, RightCurly, RightSqrBracket,
-            String, Value,
-        };
-        let terminals: Vec<Token> = vec![
+    pub fn json_grammar() -> Grammar<JsonToken> {
+
+        let terminals: Vec<JsonToken> = vec![
             LeftCurly,
             RightCurly,
             Colon,
             Comma,
-            Number,
+            Number(0),
             Bool,
             Quote,
-            Character,
+            Character(' '),
             LeftSqrBracket,
             RightSqrBracket,
         ];
-        let non_terminals: Vec<Token> =
+        let non_terminals: Vec<JsonToken> =
             vec![Object, Members, Pair, String, Value, Array, Elements, Chars];
-        let rules: Vec<Rule> = vec![
+        let rules: Vec<Rule<JsonToken>> = vec![
             Rule {
                 left: Object,
                 right: vec![LeftCurly, Members, RightCurly],
@@ -333,7 +307,7 @@ impl Grammar {
             },
             Rule {
                 left: Value,
-                right: vec![Number],
+                right: vec![Number(0)],
             },
             Rule {
                 left: Value,
@@ -373,19 +347,18 @@ impl Grammar {
             },
             Rule {
                 left: Chars,
-                right: vec![Character],
+                right: vec![Character(' ')],
             },
             Rule {
                 left: Chars,
-                right: vec![Character, Chars],
+                right: vec![Character(' '), Chars],
             },
         ];
 
         Grammar::new(rules, terminals, non_terminals, Object, Delim)
     }
 
-    #[allow(unused)]
-    fn get_precedence(&self, left: Token, right: Token) -> Associativity {
+    pub fn get_precedence(&self, left: Token, right: Token) -> Associativity {
         return self
             .op_table
             .get(&left)
