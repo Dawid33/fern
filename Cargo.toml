@@ -3,6 +3,14 @@ name = "fern"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "fern"
+path = "src/main.rs"
+
 [dependencies]
 tinyrand = { version = "0.5.0", optional = false }
 crossbeam-deque = { version = "0.8.3", optional = false }

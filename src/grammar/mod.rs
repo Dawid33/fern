@@ -6,7 +6,7 @@ use crate::grammar::Associativity::{Equal, Left, Right};
 use crate::lexer::json::JsonToken;
 use crate::lexer::json::JsonToken::{Array, Bool, Character, Chars, Colon, Comma, Delim, Elements, LeftCurly, LeftSqrBracket, Members, Number, Object, Pair, Quote, RightCurly, RightSqrBracket, String, Value};
 
-mod reader;
+pub mod reader;
 mod error;
 
 #[derive(Clone, Debug)]

@@ -1,13 +1,24 @@
+use std::collections::HashMap;
 use std::fs;
 use std::io::{BufReader, Read};
+use std::prelude::rust_2015;
 use crate::grammar::error::GrammarError;
 use crate::grammar::Grammar;
 use crate::grammar::reader::TokenTypes::{Axiom, NonTerminal, Terminal};
 
 #[derive(Clone, Debug)]
 pub struct Rule {
-    pub left: u32,
-    pub right: Vec<u32>,
+    pub left: u8,
+    pub right: Vec<u8>,
+}
+
+impl Rule {
+    pub fn new (left: u8) -> Self {
+        Self {
+            left,
+            right: Vec::new(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Copy)]
@@ -23,6 +34,15 @@ enum SymbolParserState {
     InIdent,
 }
 
+#[derive(Clone, Debug, Copy, PartialEq, Eq)]
+enum RuleParserState {
+    InData,
+    AwaitingRuleRight,
+    InRuleRight,
+    InRuleIdentifierRight,
+    InRuleLeft,
+}
+
 #[derive(Clone, Debug, Copy)]
 enum TokenTypes {
     Terminal,
@@ -34,10 +54,21 @@ enum TokenTypes {
 pub fn read_grammar_file(s: &str) -> Result<(), GrammarError> {
     let mut state = GeneralState::ParserSymbols;
     let mut symbol_parser_state = SymbolParserState::InData;
+    let mut rule_parser_state = RuleParserState::InData;
     let mut previous: char = 0 as char;
     let mut buf = String::new();
     let mut awaiting: Option<TokenTypes> = None;
-    let mut tokens: Vec<(TokenTypes, String)> = Vec::new();
+    let mut tokens: HashMap<String, (u8, TokenTypes)> = HashMap::new();
+
+    let mut highest_id: u8 = 0;
+
+    let mut gen_id = | | -> u8 {
+        highest_id += 1;
+        return highest_id;
+    };
+
+    let mut rules: Vec<Rule> = Vec::new();
+    let mut rule: Option<Rule> = None;
 
     for c in s.chars() {
         match state {
@@ -68,9 +99,9 @@ pub fn read_grammar_file(s: &str) -> Result<(), GrammarError> {
                             SymbolParserState::InIdent => {
                                 if let Some(t) = awaiting {
                                     match t {
-                                        Terminal => tokens.push((Terminal, buf.clone())),
-                                        Axiom => tokens.push((Axiom, buf.clone())),
-                                        NonTerminal => tokens.push((NonTerminal, buf.clone())),
+                                        Terminal => {tokens.insert(buf.clone(), (gen_id(), Terminal));},
+                                        Axiom => {tokens.insert(buf.clone(), (gen_id(), Axiom));},
+                                        NonTerminal => {tokens.insert(buf.clone(), (gen_id(), NonTerminal));},
                                     }
                                     awaiting = None;
                                     buf.clear();
@@ -82,7 +113,7 @@ pub fn read_grammar_file(s: &str) -> Result<(), GrammarError> {
                         }
                         symbol_parser_state = SymbolParserState::InData;
                     }
-                    'A' ..= 'Z' | 'a' ..= 'z' => {
+                    'A' ..= 'Z' | 'a' ..= 'z' | '0' ..= '9' => {
                         if symbol_parser_state == SymbolParserState::InData {
                             symbol_parser_state = SymbolParserState::InIdent;
                         }
@@ -94,7 +125,78 @@ pub fn read_grammar_file(s: &str) -> Result<(), GrammarError> {
                 }
             },
             GeneralState::Rules => {
-
+                match c {
+                    ' ' | '\t' => {
+                        match rule_parser_state {
+                            RuleParserState::InRuleLeft => {
+                                let (id, _) = tokens.get(&*buf).unwrap();
+                                rule = Some(Rule::new(*id));
+                                rule_parser_state = RuleParserState::AwaitingRuleRight;
+                            },
+                            RuleParserState::InRuleIdentifierRight => {
+                                let (id, _) = tokens.get(&*buf).unwrap();
+                                rule.as_mut().unwrap().right.push(*id);
+                                rule_parser_state = RuleParserState::InRuleRight;
+                            },
+                            RuleParserState::InRuleRight | RuleParserState::AwaitingRuleRight | RuleParserState::InData => (),
+                        }
+                    },
+                    ':' | '|' => {
+                        match rule_parser_state {
+                            RuleParserState::InData => { return Err(GrammarError::from("Identifier should precede :.".to_string()))}
+                            RuleParserState::InRuleLeft | RuleParserState::AwaitingRuleRight => {
+                                rule_parser_state = RuleParserState::InRuleRight;
+                                rule.as_mut().unwrap().right.clear();
+                            }
+                            RuleParserState::InRuleRight => { return Err(GrammarError::from("Illegal char : in right rule".to_string()))}
+                            RuleParserState::InRuleIdentifierRight => { return Err(GrammarError::from("Illegal char : in right rule".to_string()))}
+                        }
+                    },
+                    '\n' => {
+                        match rule_parser_state {
+                            RuleParserState::InData | RuleParserState::AwaitingRuleRight => (),
+                            RuleParserState::InRuleRight => {
+                                rule_parser_state = RuleParserState::AwaitingRuleRight;
+                                if let Some(r) = rule.clone() {
+                                    rules.push(r.clone());
+                                } else {
+                                    return Err(GrammarError::from("Semicolon used without rule preceding it.".to_string()));
+                                }
+                            }
+                            RuleParserState::InRuleIdentifierRight => {
+                                rule_parser_state = RuleParserState::AwaitingRuleRight;
+                                let (id, _) = tokens.get(&*buf).unwrap();
+                                rule.as_mut().unwrap().right.push(*id);
+                                rules.push(rule.as_mut().unwrap().clone());
+                            },
+                            RuleParserState::InRuleLeft => { return Err(GrammarError::from("Unexected new line after left rule.".to_string()))}
+                        }
+                    },
+                    ';' => {
+                        rule_parser_state = RuleParserState::InData;
+                        rule = None;
+                    },
+                    'A' ..= 'Z' | 'a' ..= 'z' | '0' ..= '9' => {
+                        match rule_parser_state {
+                            RuleParserState::InData => {
+                                rule_parser_state = RuleParserState::InRuleLeft;
+                                buf.clear();
+                                buf.push(c);
+                            },
+                            RuleParserState::InRuleRight => {
+                                rule_parser_state = RuleParserState::InRuleIdentifierRight;
+                                buf.clear();
+                                buf.push(c);
+                            },
+                            RuleParserState::InRuleLeft => buf.push(c),
+                            RuleParserState::InRuleIdentifierRight => buf.push(c),
+                            RuleParserState::AwaitingRuleRight => return Err(GrammarError::from("Expected :, | or ;, found start of identifier.".to_string())),
+                        }
+                    }
+                    _ => {
+                        return Err(GrammarError::from(format!("Invalid character in grammar definition: {}", c)))
+                    }
+                }
             }
         }
         previous = c;
@@ -102,15 +204,3 @@ pub fn read_grammar_file(s: &str) -> Result<(), GrammarError> {
 
     Ok(())
 }
-
-#[test]
-pub fn test_read_grammar_file() {
-    let mut file = fs::File::open("json.g").unwrap();
-    let mut buf = String::new();
-    file.read_to_string(&mut buf).unwrap();
-
-    read_grammar_file(buf.as_str()).unwrap();
-}
-/*
-
- */
