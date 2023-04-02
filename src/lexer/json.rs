@@ -1,6 +1,5 @@
 use std::fmt::Debug;
-
-use crate::error::LexerError;
+use crate::lexer::error::LexerError;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Copy)]
 #[allow(unused)]

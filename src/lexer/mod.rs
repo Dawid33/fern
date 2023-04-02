@@ -13,6 +13,8 @@ use json::JsonToken::{Start};
 use json::LexerState::InString;
 use crate::lexer::json::{JsonLexer, JsonToken, LexerState};
 
+pub mod error;
+
 pub struct LexerOutput {
     lists: HashMap<LexerState, LexerPartialOutput>,
 }

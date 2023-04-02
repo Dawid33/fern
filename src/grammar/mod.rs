@@ -1,10 +1,13 @@
-use crate::grammar::Associativity::{Equal, Left, Right};
 use std::collections::hash_map::HashMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
+use crate::grammar::Associativity::{Equal, Left, Right};
 use crate::lexer::json::JsonToken;
 use crate::lexer::json::JsonToken::{Array, Bool, Character, Chars, Colon, Comma, Delim, Elements, LeftCurly, LeftSqrBracket, Members, Number, Object, Pair, Quote, RightCurly, RightSqrBracket, String, Value};
+
+mod reader;
+mod error;
 
 #[derive(Clone, Debug)]
 pub struct Rule<Token> {
