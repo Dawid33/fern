@@ -9,9 +9,9 @@ use crossbeam_skiplist::SkipMap;
 use tinyrand::{RandRange, StdRand};
 pub mod json;
 
-use json::JsonToken::{Start};
 use json::LexerState::InString;
-use crate::lexer::json::{JsonLexer, JsonToken, LexerState};
+use crate::grammar::Grammar;
+use crate::lexer::json::{JsonLexer, LexerState};
 
 pub mod error;
 
@@ -21,7 +21,7 @@ pub struct LexerOutput {
 
 #[allow(unused)]
 pub struct LexerPartialOutput {
-    list: Vec<JsonToken>,
+    list: Vec<u8>,
     finish_state: LexerState,
     success: bool,
 }
@@ -41,7 +41,7 @@ pub struct Batch {
 }
 
 impl<'a> ParallelLexer<'a> {
-    pub fn new(scope: &'a Scope<'a, '_>, threads: usize) -> Self {
+    pub fn new(grammar: Grammar, scope: &'a Scope<'a, '_>, threads: usize) -> Self {
         let queue: Arc<Injector<WorkUnit>> = Arc::new(Injector::new());
         let (send, recv) = crossbeam_channel::bounded(threads);
         let outputs : HashMap<String, Batch> = HashMap::new();
@@ -50,6 +50,7 @@ impl<'a> ParallelLexer<'a> {
         for _ in 0..threads {
             let reciever = recv.clone();
             let global = queue.clone();
+            let grammar = grammar.clone();
 
             handles.push(scope.spawn(move || {
                 let worker: Worker<WorkUnit> = Worker::new_fifo();
@@ -64,8 +65,8 @@ impl<'a> ParallelLexer<'a> {
                     if let Some(task) = task {
                         let mut token_buf = Vec::new();
                         let mut token_buf_string = Vec::new();
-                        let mut lexer_start: JsonLexer = JsonLexer::new(&mut token_buf, LexerState::Start);
-                        let mut lexer_string: JsonLexer = JsonLexer::new(&mut token_buf_string, InString);
+                        let mut lexer_start: JsonLexer = JsonLexer::new(grammar.clone(), &mut token_buf, LexerState::Start);
+                        let mut lexer_string: JsonLexer = JsonLexer::new(grammar.clone(), &mut token_buf_string, InString);
                         let mut start = true;
                         let mut string = true;
 
@@ -136,7 +137,7 @@ impl<'a> ParallelLexer<'a> {
     }
 
     // Fix this mess
-    pub fn collect_batch(&mut self, id: String, time: &mut Instant) -> Vec<JsonToken> {
+    pub fn collect_batch(&mut self, id: String, time: &mut Instant) -> Vec<u8> {
         let x : Batch = self.outputs.remove(id.as_str()).unwrap();
 
         // Spin until threads have finished lexing.
@@ -145,7 +146,7 @@ impl<'a> ParallelLexer<'a> {
         *time = Instant::now();
 
         // Append first item in list to output
-        let mut result: Vec<JsonToken> = Vec::new();
+        let mut result: Vec<u8> = Vec::new();
         // let first = x.output.pop_front().unwrap();
         // let first = first.value();
         // let mut start_state_output = &first.lists.get(&LexerState::Start).unwrap();

@@ -1,18 +1,29 @@
 use std::collections::hash_map::HashMap;
 use std::collections::HashSet;
+use std::error::Error;
 use std::fmt::Debug;
 use std::hash::Hash;
 use crate::grammar::Associativity::{Equal, Left, Right};
-use crate::lexer::json::JsonToken;
-use crate::lexer::json::JsonToken::{Array, Bool, Character, Chars, Colon, Comma, Delim, Elements, LeftCurly, LeftSqrBracket, Members, Number, Object, Pair, Quote, RightCurly, RightSqrBracket, String, Value};
+use crate::grammar::error::GrammarError;
+use crate::grammar::reader::TokenTypes;
+use crate::grammar::reader::TokenTypes::{NonTerminal, Terminal};
 
 pub mod reader;
 mod error;
 
 #[derive(Clone, Debug)]
-pub struct Rule<Token> {
-    pub left: Token,
-    pub right: Vec<Token>,
+pub struct Rule {
+    pub left: u8,
+    pub right: Vec<u8>,
+}
+
+impl Rule {
+    pub fn new (left: u8) -> Self {
+        Self {
+            left,
+            right: Vec::new(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
@@ -25,32 +36,44 @@ pub enum Associativity {
     Undefined,
 }
 
-#[allow(unused)]
-pub struct Grammar<Token> {
-    pub non_terminals: Vec<Token>,
-    pub terminals: Vec<Token>,
-    pub delim: Token,
-    pub axiom: Token,
-    pub inverse_rewrite_rules: HashMap<Token, Vec<Token>>,
-    pub rules: Vec<Rule<Token>>,
-    op_table: HashMap<Token, HashMap<Token, Associativity>>,
+#[derive(Clone, Debug)]
+pub struct Grammar {
+    pub non_terminals: Vec<u8>,
+    pub terminals: Vec<u8>,
+    pub delim: u8,
+    pub axiom: u8,
+    pub inverse_rewrite_rules: HashMap<u8, Vec<u8>>,
+    pub rules: Vec<Rule>,
+    pub token_types: HashMap<u8, TokenTypes>,
+    pub token_raw: HashMap<u8, String>,
+    op_table: HashMap<u8, HashMap<u8, Associativity>>,
 }
 
 #[allow(unused)]
-impl<Token> Grammar<Token> where Token: Copy + Debug + Eq + PartialEq + Hash {
+impl Grammar {
     pub fn new(
-        rules: Vec<Rule<Token>>,
-        terminals: Vec<Token>,
-        non_terminals: Vec<Token>,
-        axiom: Token,
-        delim: Token,
-    ) -> Grammar<Token> {
-        let mut inverse_rewrite_rules: HashMap<Token, Vec<Token>> = HashMap::new();
-        let mut op_table: HashMap<Token, HashMap<Token, Associativity>> = HashMap::new();
+        rules: Vec<Rule>,
+        token_types: HashMap<u8, TokenTypes>,
+        token_raw: HashMap<u8, String>,
+        axiom: u8,
+        delim: u8,
+    ) -> Result<Grammar, GrammarError> {
+        let mut inverse_rewrite_rules: HashMap<u8, Vec<u8>> = HashMap::new();
+        let mut op_table: HashMap<u8, HashMap<u8, Associativity>> = HashMap::new();
+
+        let mut non_terminals = Vec::new();
+        let mut terminals = Vec::new();
+        for (id, v) in &token_types {
+            if *v == NonTerminal {
+                non_terminals.push(*id);
+            } else if *v == Terminal {
+                terminals.push(*id);
+            }
+        }
 
         // Create re-write rules
         // TODO : Figure out how this actually works.
-        let mut rewrite_rules: HashMap<Token, Vec<Token>> = HashMap::new();
+        let mut rewrite_rules: HashMap<u8, Vec<u8>> = HashMap::new();
         for t in &non_terminals {
             rewrite_rules.insert(*t, Vec::new());
         }
@@ -87,8 +110,8 @@ impl<Token> Grammar<Token> where Token: Copy + Debug + Eq + PartialEq + Hash {
             }
         }
 
-        let mut first_ops: HashMap<Token, HashSet<Token>> = HashMap::new();
-        let mut last_ops: HashMap<Token, HashSet<Token>> = HashMap::new();
+        let mut first_ops: HashMap<u8, HashSet<u8>> = HashMap::new();
+        let mut last_ops: HashMap<u8, HashSet<u8>> = HashMap::new();
 
         for r in &rules {
             if non_terminals.contains(&r.left) {
@@ -179,7 +202,7 @@ impl<Token> Grammar<Token> where Token: Copy + Debug + Eq + PartialEq + Hash {
         }
         println!();
 
-        let mut template: HashMap<Token, Associativity> = HashMap::new();
+        let mut template: HashMap<u8, Associativity> = HashMap::new();
         for t in &terminals {
             template.insert(*t, Associativity::None);
         }
@@ -256,7 +279,9 @@ impl<Token> Grammar<Token> where Token: Copy + Debug + Eq + PartialEq + Hash {
         }
         println!();
 
-        Grammar {
+        Ok(Grammar {
+            token_raw,
+            token_types,
             rules,
             terminals,
             non_terminals,
@@ -264,104 +289,10 @@ impl<Token> Grammar<Token> where Token: Copy + Debug + Eq + PartialEq + Hash {
             delim,
             inverse_rewrite_rules,
             op_table,
-        }
+        })
     }
 
-    pub fn json_grammar() -> Grammar<JsonToken> {
-
-        let terminals: Vec<JsonToken> = vec![
-            LeftCurly,
-            RightCurly,
-            Colon,
-            Comma,
-            Number(0),
-            Bool,
-            Quote,
-            Character(' '),
-            LeftSqrBracket,
-            RightSqrBracket,
-        ];
-        let non_terminals: Vec<JsonToken> =
-            vec![Object, Members, Pair, String, Value, Array, Elements, Chars];
-        let rules: Vec<Rule<JsonToken>> = vec![
-            Rule {
-                left: Object,
-                right: vec![LeftCurly, Members, RightCurly],
-            },
-            Rule {
-                left: Object,
-                right: vec![LeftCurly, RightCurly],
-            },
-            Rule {
-                left: Members,
-                right: vec![Pair],
-            },
-            Rule {
-                left: Members,
-                right: vec![Pair, Comma, Members],
-            },
-            Rule {
-                left: Pair,
-                right: vec![String, Colon, Value],
-            },
-            Rule {
-                left: Value,
-                right: vec![String],
-            },
-            Rule {
-                left: Value,
-                right: vec![Number(0)],
-            },
-            Rule {
-                left: Value,
-                right: vec![Object],
-            },
-            Rule {
-                left: Value,
-                right: vec![Array],
-            },
-            Rule {
-                left: Value,
-                right: vec![Bool],
-            },
-            Rule {
-                left: String,
-                right: vec![Quote, Quote],
-            },
-            Rule {
-                left: String,
-                right: vec![Quote, Chars, Quote],
-            },
-            Rule {
-                left: Array,
-                right: vec![LeftSqrBracket, RightSqrBracket],
-            },
-            Rule {
-                left: Array,
-                right: vec![LeftSqrBracket, Elements, RightSqrBracket],
-            },
-            Rule {
-                left: Elements,
-                right: vec![Value],
-            },
-            Rule {
-                left: Elements,
-                right: vec![Value, Comma, Elements],
-            },
-            Rule {
-                left: Chars,
-                right: vec![Character(' ')],
-            },
-            Rule {
-                left: Chars,
-                right: vec![Character(' '), Chars],
-            },
-        ];
-
-        Grammar::new(rules, terminals, non_terminals, Object, Delim)
-    }
-
-    pub fn get_precedence(&self, left: Token, right: Token) -> Associativity {
+    pub fn get_precedence(&self, left: u8, right: u8) -> Associativity {
         return self
             .op_table
             .get(&left)

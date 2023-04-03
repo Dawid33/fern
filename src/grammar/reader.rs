@@ -3,23 +3,9 @@ use std::fs;
 use std::io::{BufReader, Read};
 use std::prelude::rust_2015;
 use crate::grammar::error::GrammarError;
-use crate::grammar::Grammar;
+use crate::grammar::{Grammar, Rule};
 use crate::grammar::reader::TokenTypes::{Axiom, NonTerminal, Terminal};
 
-#[derive(Clone, Debug)]
-pub struct Rule {
-    pub left: u8,
-    pub right: Vec<u8>,
-}
-
-impl Rule {
-    pub fn new (left: u8) -> Self {
-        Self {
-            left,
-            right: Vec::new(),
-        }
-    }
-}
 
 #[derive(Clone, Debug, Copy)]
 enum GeneralState {
@@ -43,15 +29,16 @@ enum RuleParserState {
     InRuleLeft,
 }
 
-#[derive(Clone, Debug, Copy)]
-enum TokenTypes {
+#[derive(Clone, Debug, Copy, PartialEq)]
+pub enum TokenTypes {
     Terminal,
     Axiom,
     NonTerminal,
+    Delim,
 }
 
 /// Ad-hoc hand written parser for loading in .g grammar files.
-pub fn read_grammar_file(s: &str) -> Result<(), GrammarError> {
+pub fn read_grammar_file(s: &str) -> Result<Grammar, GrammarError> {
     let mut state = GeneralState::ParserSymbols;
     let mut symbol_parser_state = SymbolParserState::InData;
     let mut rule_parser_state = RuleParserState::InData;
@@ -59,6 +46,7 @@ pub fn read_grammar_file(s: &str) -> Result<(), GrammarError> {
     let mut buf = String::new();
     let mut awaiting: Option<TokenTypes> = None;
     let mut tokens: HashMap<String, (u8, TokenTypes)> = HashMap::new();
+    let mut axiom: Option<u8> = None;
 
     let mut highest_id: u8 = 0;
 
@@ -90,7 +78,7 @@ pub fn read_grammar_file(s: &str) -> Result<(), GrammarError> {
                                 } else if buf.eq("nonterminal") {
                                     awaiting = Some(NonTerminal);
                                 } else if buf.eq("axiom") {
-                                    awaiting = Some(Terminal);
+                                    awaiting = Some(Axiom);
                                 } else {
                                     return Err(GrammarError::from(format!("Invalid keyword : {}", buf.as_str())));
                                 }
@@ -100,8 +88,9 @@ pub fn read_grammar_file(s: &str) -> Result<(), GrammarError> {
                                 if let Some(t) = awaiting {
                                     match t {
                                         Terminal => {tokens.insert(buf.clone(), (gen_id(), Terminal));},
-                                        Axiom => {tokens.insert(buf.clone(), (gen_id(), Axiom));},
+                                        Axiom => {axiom = Some(tokens.get(buf.as_str()).unwrap().0)},
                                         NonTerminal => {tokens.insert(buf.clone(), (gen_id(), NonTerminal));},
+                                        _ => {}
                                     }
                                     awaiting = None;
                                     buf.clear();
@@ -202,5 +191,13 @@ pub fn read_grammar_file(s: &str) -> Result<(), GrammarError> {
         previous = c;
     }
 
-    Ok(())
+    let mut t_type: HashMap<u8, TokenTypes> = HashMap::new();
+    let mut t_raw: HashMap<u8, String> = HashMap::new();
+    for (raw, (id, token_type)) in tokens {
+        t_type.insert(id, token_type);
+        t_raw.insert(id, raw);
+    }
+    let axiom: u8 = axiom.expect("Need to specify and axiom.");
+
+     Grammar::new(rules, t_type, t_raw, axiom, gen_id())
 }

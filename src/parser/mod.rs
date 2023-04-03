@@ -5,7 +5,6 @@ use std::io::ErrorKind::AlreadyExists;
 use std::panic::{resume_unwind, set_hook};
 use std::thread::current;
 use crate::grammar::{Associativity, Grammar, Rule};
-use crate::lexer::json::JsonToken;
 
 #[allow(unused)]
 pub struct ParseTree {
@@ -22,12 +21,12 @@ impl ParseTree {
 }
 
 pub struct Node {
-    symbol: JsonToken,
+    symbol: u8,
     children: Option<Vec<Node>>,
 }
 
 impl Node {
-    pub fn new (symbol: JsonToken) -> Self {
+    pub fn new (symbol: u8) -> Self {
         Self { symbol, children: None }
     }
     pub fn append_child(&mut self, other: Node) {
@@ -40,13 +39,13 @@ impl Node {
 
 #[derive(Clone, Copy, Eq, PartialEq, Hash)]
 struct TokenGrammarTuple {
-    token: JsonToken,
+    token: u8,
     id: u64,
     associativity: Associativity
 }
 
 impl TokenGrammarTuple {
-    pub fn new(token: JsonToken, associativity: Associativity, parser: &mut ParallelParser) -> Self {
+    pub fn new(token: u8, associativity: Associativity, parser: &mut ParallelParser) -> Self {
         Self {
             token,
             associativity,
@@ -57,14 +56,14 @@ impl TokenGrammarTuple {
 
 pub struct ParallelParser {
     stack: Vec<TokenGrammarTuple>,
-    pub grammar: Grammar<JsonToken>,
+    pub grammar: Grammar,
     open_nodes: HashMap<u64, Node>,
     should_reconsume: bool,
     highest_id: u64,
 }
 
 impl ParallelParser {
-    pub fn new(grammar: Grammar<JsonToken>, threads: usize) -> Self {
+    pub fn new(grammar: Grammar, threads: usize) -> Self {
         let _ = threads;
         let parser = Self {
             stack: Vec::new(),
@@ -77,7 +76,7 @@ impl ParallelParser {
         return parser;
     }
 
-    pub fn parse(&mut self, tokens: &[JsonToken]) {
+    pub fn parse(&mut self, tokens: &[u8]) {
         for t in tokens {
             self.consume_token(&t).expect("Parser raised an exception.");
         }
@@ -88,7 +87,7 @@ impl ParallelParser {
         return self.highest_id;
     }
 
-    fn consume_token(&mut self, token: &JsonToken) -> Result<(), Box<dyn Error>>{
+    fn consume_token(&mut self, token: &u8) -> Result<(), Box<dyn Error>>{
 
         if self.stack.is_empty() {
             let t = TokenGrammarTuple::new(*token, Associativity::Left, self);
@@ -119,7 +118,7 @@ impl ParallelParser {
 
             let mut y: Option<TokenGrammarTuple> = None;
             for element in &self.stack {
-                if self.grammar.terminals.contains(&Self::standardize(element.token)) {
+                if self.grammar.terminals.contains(&element.token) {
                     y = Some(*element);
                 }
             }
@@ -134,7 +133,7 @@ impl ParallelParser {
             let precedence = if *token == self.grammar.delim {
                 Associativity::Right
             } else {
-                self.grammar.get_precedence(Self::standardize(y.token), Self::standardize(*token))
+                self.grammar.get_precedence(y.token, *token)
             };
 
             if precedence == Associativity::None {
@@ -162,7 +161,7 @@ impl ParallelParser {
                 return Ok(());
             }
 
-            if self.grammar.non_terminals.contains(&Self::standardize(*token)) {
+            if self.grammar.non_terminals.contains(token) {
                 let t = TokenGrammarTuple::new(*token, Associativity::Undefined, self);
                 self.stack.push(t);
                 // println!("Append\n");
@@ -186,9 +185,9 @@ impl ParallelParser {
                     if i - 1 >= 0 {
                         let xi_minus_one = self.stack.get((i - 1) as usize).unwrap();
 
-                        if self.grammar.terminals.contains(&Self::standardize(xi_minus_one.token)) {
+                        if self.grammar.terminals.contains(&xi_minus_one.token) {
                             self.process_terminal(i);
-                        } else if self.grammar.non_terminals.contains(&Self::standardize(xi_minus_one.token)) {
+                        } else if self.grammar.non_terminals.contains(&xi_minus_one.token) {
                             self.process_non_terminal(i);
                         } else {
                             return Err(Box::try_from("Should be able to reduce but cannot.").unwrap());
@@ -206,37 +205,30 @@ impl ParallelParser {
         Ok(())
     }
 
-    fn standardize(t: JsonToken) -> JsonToken {
-        match t {
-            JsonToken::Number(_) => JsonToken::Number(0),
-            JsonToken::Character(_) => JsonToken::Character(' '),
-            _ => t
-        }
-    }
     fn process_terminal(&mut self, i: i32) { self.reduce_stack(i, 0); }
 
     fn process_non_terminal(&mut self, i: i32) { self.reduce_stack(i, -1); }
 
     fn reduce_stack(&mut self, i: i32, offset: i32) {
-        let mut rule: Option<Rule<JsonToken>> = None;
-        let mut apply_rewrites: HashMap<JsonToken, JsonToken> = HashMap::new();
+        let mut rule: Option<Rule> = None;
+        let mut apply_rewrites: HashMap<u8, u8> = HashMap::new();
         let mut longest: i32 = 0;
 
         for r in &self.grammar.rules {
-            let mut rewrites: HashMap<JsonToken, JsonToken> = HashMap::new();
+            let mut rewrites: HashMap<u8, u8> = HashMap::new();
             let mut rule_applies = true;
             for j in 0..r.right.len() {
                 let j = j as i32;
 
-                let curr: JsonToken = if i + j + offset >= 0 && i + j + offset < self.stack.len() as i32 {
+                let curr: u8 = if i + j + offset >= 0 && i + j + offset < self.stack.len() as i32 {
                     self.stack.get((i + j + offset) as usize).unwrap().token
                 } else {
                     rule_applies = false;
                     break;
                 };
 
-                if self.grammar.non_terminals.contains(&Self::standardize(curr)) {
-                    let mut token: Option<JsonToken> = None;
+                if self.grammar.non_terminals.contains(&curr) {
+                    let mut token: Option<u8> = None;
                     for t in self.grammar.inverse_rewrite_rules.get(&curr).unwrap() {
                         if *t == *r.right.get(j as usize).unwrap() {
                             token = Some(*t);
@@ -247,7 +239,7 @@ impl ParallelParser {
                     } else {
                         rule_applies = false;
                     }
-                } else if Self::standardize(curr) != *r.right.get(j as usize).unwrap() {
+                } else if curr != *r.right.get(j as usize).unwrap() {
                     rule_applies = false;
                     break;
                 }

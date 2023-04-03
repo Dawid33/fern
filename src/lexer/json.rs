@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use crate::grammar::Grammar;
 use crate::lexer::error::LexerError;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Copy)]
@@ -37,17 +38,19 @@ pub enum LexerState {
 }
 
 pub struct JsonLexer<'a> {
-    pub tokens: &'a mut Vec<JsonToken>,
+    pub tokens: &'a mut Vec<u8>,
     pub state: LexerState,
     buf: String,
+    grammar: Grammar,
 }
 
 impl<'a> JsonLexer<'a> {
-    pub fn new(s: &'a mut Vec<JsonToken>, start_state: LexerState) -> JsonLexer {
+    pub fn new(grammar: Grammar, s: &'a mut Vec<u8>, start_state: LexerState) -> JsonLexer {
         JsonLexer {
             tokens: s,
             state: start_state,
             buf: String::new(),
+            grammar,
         }
     }
     pub fn consume(&mut self, c: &u8) -> Result<(), LexerError> {
@@ -55,7 +58,7 @@ impl<'a> JsonLexer<'a> {
             let mut should_reconsume = false;
 
             let c = *c as char;
-            let mut push = |t: JsonToken| {
+            let mut push = |t: u8| {
                 // println!("{:?}", t);
                 self.tokens.push(t);
             };
@@ -63,17 +66,17 @@ impl<'a> JsonLexer<'a> {
             match self.state {
                 LexerState::Start => match c {
                     'a'..='z' | 'A'..='Z' => {
-                        self.tokens.push(JsonToken::Character(c));
+                        self.tokens.push(0);
                     }
-                    '{' => push(JsonToken::LeftCurly),
-                    '}' => push(JsonToken::RightCurly),
-                    '[' => push(JsonToken::LeftSqrBracket),
-                    ']' => push(JsonToken::RightSqrBracket),
-                    ':' => push(JsonToken::Colon),
-                    ',' => push(JsonToken::Comma),
+                    '{' => push(0),
+                    '}' => push(0),
+                    '[' => push(0),
+                    ']' => push(0),
+                    ':' => push(0),
+                    ',' => push(0),
                     '\"' => {
                         self.state = LexerState::InString;
-                        push(JsonToken::Quote);
+                        push(0);
                     }
                     '0'..='9' => {
                         self.state = LexerState::InNumber;
@@ -90,22 +93,22 @@ impl<'a> JsonLexer<'a> {
                 LexerState::InString => match c {
                     '\"' => {
                         self.state = LexerState::Start;
-                        push(JsonToken::Quote);
+                        push(0);
                     }
                     '\n' => {
                         return Err(LexerError::from(
                             "Cannot have newlines in strings".to_string(),
                         ));
                     }
-                    _ => push(JsonToken::Character(c)),
+                    _ => push(0),
                 },
                 LexerState::InNumber => match c {
                     '0'..='9' => self.buf.push(c),
                     _ => {
                         self.state = LexerState::Start;
-                        match self.buf.parse() {
-                            Ok(num) => {
-                                push(JsonToken::Number(num));
+                        match self.buf.parse::<i64>() {
+                            Ok(_) => {
+                                push(0);
                                 self.buf.clear();
                                 should_reconsume = true;
                             }
