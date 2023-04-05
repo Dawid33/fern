@@ -1,4 +1,3 @@
-
 pipeline:
   publish-base:
     image: plugins/docker
