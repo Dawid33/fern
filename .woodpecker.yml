@@ -6,7 +6,7 @@ pipeline:
       username: dawid33
       password:
         from_secret: docker_password
-      repo: git.dawidsobczak.com/dawid33/fern
+      repo: git.dawidsobczak.com/dawid33/fern-base
       registry: git.dawidsobczak.com
       tags: latest
     when:
