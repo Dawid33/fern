@@ -6,7 +6,7 @@ use std::fs;
 use std::fs::File;
 use std::hash::Hash;
 use std::io::Read;
-use log::debug;
+use log::{debug, log_enabled};
 use crate::grammar::Associativity::{Equal, Left, Right};
 use crate::grammar::error::GrammarError;
 use crate::grammar::reader::{read_grammar_file, TokenTypes};
@@ -204,17 +204,18 @@ impl Grammar {
             }
         }
 
-        debug!("FIRST OP");
-        for row in first_ops.keys() {
-            debug!("{:?} : {:?}", row, first_ops.get(row));
-        }
-        debug!("");
-
-        debug!("LAST OP");
-        for row in last_ops.keys() {
-            debug!("{:?} : {:?}", row, last_ops.get(row));
-        }
-        debug!("");
+        // TODO: Fix debug formatting after adding simplelog
+        // debug!("FIRST OP");
+        // for row in first_ops.keys() {
+        //     debug!("{:?} : {:?}", row, first_ops.get(row));
+        // }
+        // debug!("");
+        //
+        // debug!("LAST OP");
+        // for row in last_ops.keys() {
+        //     debug!("{:?} : {:?}", row, last_ops.get(row));
+        // }
+        // debug!("");
 
         let mut template: HashMap<u8, Associativity> = HashMap::new();
         for t in &terminals {
@@ -277,21 +278,22 @@ impl Grammar {
             }
         }
 
-        debug!("{:<16}", "");
-        for row in &terminals {
-            debug!("{:16}", format!("{:?}", row));
-        }
-        debug!("");
-
-        for row in &terminals {
-            debug!("{:16}", format!("{:?}", row));
-            let curr_row = op_table.get(row).unwrap();
-            for col in &terminals {
-                debug!("{:16}", format!("{:?}", curr_row.get(col).unwrap()));
-            }
-            debug!("");
-        }
-        debug!("");
+        // TOOD: Fix debug formatting after addting simplelog
+        // debug!("{:<16}", "");
+        // for row in &terminals {
+        //     debug!("{:16}", format!("{:?}", row));
+        // }
+        // debug!("");
+        //
+        // for row in &terminals {
+        //     debug!("{:16}", format!("{:?}", row));
+        //     let curr_row = op_table.get(row).unwrap();
+        //     for col in &terminals {
+        //         debug!("{:16}", format!("{:?}", curr_row.get(col).unwrap()));
+        //     }
+        //     debug!("");
+        // }
+        // debug!("");
 
         Ok(Grammar {
             token_raw,

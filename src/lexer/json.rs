@@ -13,6 +13,7 @@ pub enum LexerState {
 
 pub struct JsonLexer<'a> {
     pub tokens: &'a mut Vec<u8>,
+    pub data: HashMap<usize, String>,
     pub state: LexerState,
     buf: String,
     grammar: Grammar,
@@ -37,6 +38,7 @@ impl<'a> JsonLexer<'a> {
             tokens: s,
             state: start_state,
             buf: String::new(),
+            data: HashMap::new(),
             LBRACE: grammar.tokens_reverse.get("LBRACE").unwrap().0,
             RBRACE: grammar.tokens_reverse.get("RBRACE").unwrap().0,
             LSQUARE: grammar.tokens_reverse.get("LSQUARE").unwrap().0,
@@ -103,19 +105,10 @@ impl<'a> JsonLexer<'a> {
                     '0'..='9' => self.buf.push(c),
                     _ => {
                         self.state = LexerState::Start;
-                        match self.buf.parse::<i64>() {
-                            Ok(_) => {
-                                push(self.NUMBER);
-                                self.buf.clear();
-                                should_reconsume = true;
-                            }
-                            Err(e) => {
-                                return Err(LexerError::from(format!(
-                                    "Cannot parse string to u32 {:?}",
-                                    e
-                                )))
-                            }
-                        }
+                        push(self.NUMBER);
+                        self.data.insert(self.tokens.len(), self.buf.clone());
+                        self.buf.clear();
+                        should_reconsume = true;
                     }
                 },
             }

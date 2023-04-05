@@ -4,6 +4,7 @@ use std::error::Error;
 use std::io::ErrorKind::AlreadyExists;
 use std::panic::{resume_unwind, set_hook};
 use std::thread::current;
+use log::{debug, trace};
 use crate::grammar::{Associativity, Grammar, Rule};
 
 #[allow(unused)]
@@ -22,12 +23,16 @@ impl ParseTree {
 
 pub struct Node {
     symbol: u8,
+    data: Option<String>,
     children: Option<Vec<Node>>,
 }
 
 impl Node {
-    pub fn new (symbol: u8) -> Self {
-        Self { symbol, children: None }
+    pub fn new (symbol: u8, data: Option<String>) -> Self {
+        Self {
+            symbol,
+            data,
+            children: None }
     }
     pub fn append_child(&mut self, other: Node) {
         if let None = self.children {
@@ -140,31 +145,31 @@ impl ParallelParser {
                 return Err(Box::try_from("No precedence == user grammar error").unwrap());
             }
 
-            // println!("Open nodes");
-            // for (key, _) in &self.open_nodes {
-            //     println!("\t{:?}", key);
-            // }
-            // println!("Applying {:?} {:?}", token, precedence);
-            // self.print_stack();
+            debug!("Open nodes: ");
+            for (key, _) in &self.open_nodes {
+                debug!("\t{:?}", key);
+            }
+            debug!("Applying {:?} {:?}", token, precedence);
+            self.print_stack();
 
             if precedence == Associativity::Left {
                 let t = TokenGrammarTuple::new(*token, Associativity::Left, self);
                 self.stack.push(t);
-                // println!("Append\n");
+                debug!("Append\n");
                 return Ok(());
             }
 
             if precedence == Associativity::Equal {
                 let t = TokenGrammarTuple::new(*token, Associativity::Equal, self);
                 self.stack.push(t);
-                // println!("Append\n");
+                debug!("Append\n");
                 return Ok(());
             }
 
             if self.grammar.non_terminals.contains(token) {
                 let t = TokenGrammarTuple::new(*token, Associativity::Undefined, self);
                 self.stack.push(t);
-                // println!("Append\n");
+                debug!("Append\n");
                 return Ok(());
             }
 
@@ -179,7 +184,7 @@ impl ParallelParser {
                 if i < 0 {
                     let t = TokenGrammarTuple::new(*token, Associativity::Right, self);
                     self.stack.push(t);
-                    // println!("Append\n");
+                    debug!("Append\n");
                     return Ok(());
                 } else {
                     if i - 1 >= 0 {
@@ -272,14 +277,14 @@ impl ParallelParser {
                 }
             }
 
-            let mut parent = Node::new(rule.left);
+            let mut parent = Node::new(rule.left, None);
             for _ in 0..rule.right.len() {
                 let current = self.stack.remove((i + offset) as usize);
                 if self.open_nodes.contains_key(&current.id) {
                     let sub_tree = self.open_nodes.remove(&current.id).unwrap();
                     parent.append_child(sub_tree);
                 } else {
-                    let leaf = Node::new(current.token);
+                    let leaf = Node::new(current.token, None);
                     parent.append_child(leaf);
                 }
             }
@@ -287,7 +292,7 @@ impl ParallelParser {
             let left = TokenGrammarTuple::new(rule.left, Associativity::Undefined, self);
             self.open_nodes.insert(left.id, parent);
             self.stack.insert((i + offset) as usize, left);
-            // println!("Reduce\n");
+            debug!("Reduce\n");
             self.should_reconsume = true;
         }
     }
@@ -301,9 +306,9 @@ impl ParallelParser {
                 Associativity::Undefined => '?',
                 Associativity::None => '!'
             };
-            print!("({:?}, {}) ", i.token, x);
+            debug!("({:?}, {}) ", i.token, x);
         }
-        println!();
+        debug!("");
     }
 
     pub fn collect_parse_tree(self) -> Result<ParseTree, Box<dyn Error>> {

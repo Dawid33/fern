@@ -161,20 +161,20 @@ impl<'a> ParallelLexer<'a> {
             let val: &LexerOutput= x.value();
             let mut found_match = false;
             for (start_state, partial_output) in &val.lists {
-                // print!("Checking {:?} -> {:?} : ", previous_finish_state, *start_state);
+                trace!("Checking {:?} -> {:?} : ", previous_finish_state, *start_state);
                 if previous_finish_state == *start_state {
-                    // println!("yes");
+                    trace!("yes");
 
-                    // for x in &partial_output.list {
-                        // print!("{:?} ", x);
-                    // }
-                    // println!("\n");
+                    for x in &partial_output.list {
+                        trace!("{:?} ", x);
+                    }
+                    trace!("\n");
                     found_match = true;
                     previous_finish_state = partial_output.finish_state;
                     result.append(&mut partial_output.list.clone());
                     break;
                 } else {
-                    // println!("no");
+                    trace!("no");
                 }
             }
             if !found_match {

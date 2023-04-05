@@ -15,7 +15,7 @@ use log::{debug, info};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut now = Instant::now();
-    let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Info, simplelog::Config::default());
+    let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Debug, simplelog::Config::default());
 
     let grammar = Grammar::from("json.g");
     info!("Total Time to generate grammar : {:?}", now.elapsed());
@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut tokens: Vec<u8> = Vec::new();
     {
-        let file = File::open("json/1MB.json")?;
+        let file = File::open("test.json")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         thread::scope(|s| {
             let mut lexer = ParallelLexer::new(grammar.clone(), s, 1);
@@ -34,20 +34,24 @@ fn main() -> Result<(), Box<dyn Error>> {
         });
     }
 
-    // let tree: Option<ParseTree>;
-    // {
-    //     now = Instant::now();
-    //     let mut parser = ParallelParser::new(grammar, 1);
-    //     parser.parse(tokens.as_slice());
-    //     parser.parse(&[parser.grammar.delim]);
-    //     tree = Some(parser.collect_parse_tree().unwrap());
-    //     println!("Total Parsing Time: {:?}", now.elapsed());
-    // }
-    //
-    // let _ = tree;
-
+    info!("Total Time to lex: {:?}", now.elapsed());
     now = Instant::now();
 
-    info!("Total Time For ParseTree -> AST Conversion: {:?}", now.elapsed());
+    let tree: Option<ParseTree>;
+    {
+        now = Instant::now();
+        let mut parser = ParallelParser::new(grammar, 1);
+        parser.parse(tokens.as_slice());
+        parser.parse(&[parser.grammar.delim]);
+        tree = Some(parser.collect_parse_tree().unwrap());
+        println!("Total Parsing Time: {:?}", now.elapsed());
+    }
+
+    // let _ = tree;
+    info!("Total Time to parse: {:?}", now.elapsed());
+    now = Instant::now();
+
+
+    info!("Total Time to transform ParseTree -> AST Conversion: {:?}", now.elapsed());
     Ok(())
 }
