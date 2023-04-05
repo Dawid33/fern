@@ -9,8 +9,8 @@ pipeline:
       repo: git.dawidsobczak.com/dawid33/fern-base
       registry: git.dawidsobczak.com
       tags: latest
-    when:
-      path: "ci-base.dockerfile"
+#    when:
+#      path: "ci-base.dockerfile"
 
 #  build:
 #    image: git.dawidsobczak.com/dawid33/fern-base:latest
