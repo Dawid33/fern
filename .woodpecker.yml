@@ -12,13 +12,13 @@ pipeline:
     when:
       path: "ci-base.dockerfile"
 
-  build:
-    image: git.dawidsobczak.com/dawid33/fern-base:latest
-    pull: true
-    commands:
-      - cargo build
-
-  test:
-    image: git.dawidsobczak.com/dawid33/fern-base:latest
-    commands:
-      - cargo test
+#  build:
+#    image: git.dawidsobczak.com/dawid33/fern-base:latest
+#    pull: true
+#    commands:
+#      - cargo build
+#
+#  test:
+#    image: git.dawidsobczak.com/dawid33/fern-base:latest
+#    commands:
+#      - cargo test
