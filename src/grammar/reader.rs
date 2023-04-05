@@ -193,11 +193,11 @@ pub fn read_grammar_file(s: &str) -> Result<Grammar, GrammarError> {
 
     let mut t_type: HashMap<u8, TokenTypes> = HashMap::new();
     let mut t_raw: HashMap<u8, String> = HashMap::new();
-    for (raw, (id, token_type)) in tokens {
-        t_type.insert(id, token_type);
-        t_raw.insert(id, raw);
+    for (raw, (id, token_type)) in &tokens {
+        t_type.insert(*id, *token_type);
+        t_raw.insert(*id, raw.clone());
     }
     let axiom: u8 = axiom.expect("Need to specify and axiom.");
 
-     Grammar::new(rules, t_type, t_raw, axiom, gen_id())
+     Grammar::new(rules, t_type, t_raw, tokens, axiom, gen_id())
 }

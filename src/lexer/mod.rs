@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::thread::{Scope, ScopedJoinHandle};
 use std::time::{Duration, Instant};
 use crossbeam_skiplist::SkipMap;
+use log::trace;
 use tinyrand::{RandRange, StdRand};
 pub mod json;
 
@@ -137,25 +138,23 @@ impl<'a> ParallelLexer<'a> {
     }
 
     // Fix this mess
-    pub fn collect_batch(&mut self, id: String, time: &mut Instant) -> Vec<u8> {
+    pub fn collect_batch(&mut self, id: String) -> Vec<u8> {
         let x : Batch = self.outputs.remove(id.as_str()).unwrap();
 
         // Spin until threads have finished lexing.
         while x.size != x.output.len() { }
-        println!("Workers lexing: {:?}", time.elapsed());
-        *time = Instant::now();
 
         // Append first item in list to output
         let mut result: Vec<u8> = Vec::new();
-        // let first = x.output.pop_front().unwrap();
-        // let first = first.value();
-        // let mut start_state_output = &first.lists.get(&LexerState::Start).unwrap();
-        // result.append(&mut start_state_output.list.clone());
-        //
-        // for x in &start_state_output.list {
-        //     print!("{:?} ", x);
-        // }
-        // println!();
+        let first = x.output.pop_front().unwrap();
+        let first = first.value();
+        let mut start_state_output = &first.lists.get(&LexerState::Start).unwrap();
+        result.append(&mut start_state_output.list.clone());
+
+        for x in &start_state_output.list {
+            trace!("{:?} ", x);
+        }
+        trace!("");
 
         let mut previous_finish_state = LexerState::Start;
         for x in x.output.iter() {
@@ -182,10 +181,6 @@ impl<'a> ParallelLexer<'a> {
                 panic!("ERROR: finished on {:?}", previous_finish_state);
             }
         }
-
-
-        println!("Joining up work: {:?}", time.elapsed());
-        *time = Instant::now();
         return result;
     }
 

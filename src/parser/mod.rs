@@ -142,7 +142,7 @@ impl ParallelParser {
 
             // println!("Open nodes");
             // for (key, _) in &self.open_nodes {
-            //     println!("\t{:?}", key.token);
+            //     println!("\t{:?}", key);
             // }
             // println!("Applying {:?} {:?}", token, precedence);
             // self.print_stack();

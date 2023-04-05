@@ -2,10 +2,14 @@ use std::collections::hash_map::HashMap;
 use std::collections::HashSet;
 use std::error::Error;
 use std::fmt::Debug;
+use std::fs;
+use std::fs::File;
 use std::hash::Hash;
+use std::io::Read;
+use log::debug;
 use crate::grammar::Associativity::{Equal, Left, Right};
 use crate::grammar::error::GrammarError;
-use crate::grammar::reader::TokenTypes;
+use crate::grammar::reader::{read_grammar_file, TokenTypes};
 use crate::grammar::reader::TokenTypes::{NonTerminal, Terminal};
 
 pub mod reader;
@@ -46,15 +50,25 @@ pub struct Grammar {
     pub rules: Vec<Rule>,
     pub token_types: HashMap<u8, TokenTypes>,
     pub token_raw: HashMap<u8, String>,
+    pub tokens_reverse: HashMap<String, (u8, TokenTypes)>,
     op_table: HashMap<u8, HashMap<u8, Associativity>>,
 }
 
 #[allow(unused)]
 impl Grammar {
+    pub fn from(path: &str) -> Grammar {
+        let mut file = fs::File::open(path).unwrap();
+        let mut buf = String::new();
+        file.read_to_string(&mut buf).unwrap();
+
+        read_grammar_file(buf.as_str()).unwrap()
+    }
+
     pub fn new(
         rules: Vec<Rule>,
         token_types: HashMap<u8, TokenTypes>,
         token_raw: HashMap<u8, String>,
+        tokens_reverse: HashMap<String, (u8, TokenTypes)>,
         axiom: u8,
         delim: u8,
     ) -> Result<Grammar, GrammarError> {
@@ -190,17 +204,17 @@ impl Grammar {
             }
         }
 
-        println!("FIRST OP");
+        debug!("FIRST OP");
         for row in first_ops.keys() {
-            println!("{:?} : {:?}", row, first_ops.get(row));
+            debug!("{:?} : {:?}", row, first_ops.get(row));
         }
-        println!();
+        debug!("");
 
-        println!("LAST OP");
+        debug!("LAST OP");
         for row in last_ops.keys() {
-            println!("{:?} : {:?}", row, last_ops.get(row));
+            debug!("{:?} : {:?}", row, last_ops.get(row));
         }
-        println!();
+        debug!("");
 
         let mut template: HashMap<u8, Associativity> = HashMap::new();
         for t in &terminals {
@@ -263,21 +277,21 @@ impl Grammar {
             }
         }
 
-        print!("{:<16}", "");
+        debug!("{:<16}", "");
         for row in &terminals {
-            print!("{:16}", format!("{:?}", row));
+            debug!("{:16}", format!("{:?}", row));
         }
-        println!();
+        debug!("");
 
         for row in &terminals {
-            print!("{:16}", format!("{:?}", row));
+            debug!("{:16}", format!("{:?}", row));
             let curr_row = op_table.get(row).unwrap();
             for col in &terminals {
-                print!("{:16}", format!("{:?}", curr_row.get(col).unwrap()));
+                debug!("{:16}", format!("{:?}", curr_row.get(col).unwrap()));
             }
-            println!();
+            debug!("");
         }
-        println!();
+        debug!("");
 
         Ok(Grammar {
             token_raw,
@@ -289,6 +303,7 @@ impl Grammar {
             delim,
             inverse_rewrite_rules,
             op_table,
+            tokens_reverse,
         })
     }
 
