@@ -16,9 +16,13 @@ pipeline:
     image: git.dawidsobczak.com/dawids/fern-base:latest
     pull: true
     commands:
-      - cargo build
+      - CARGO_HOME=/cargo cargo build
+    volumes:
+      - /cargo:/cargo
 
   test:
     image: git.dawidsobczak.com/dawids/fern-base:latest
     commands:
-      - cargo test
+      - CARGO_HOME=/cargo cargo test
+    volumes:
+      - /cargo:/cargo
