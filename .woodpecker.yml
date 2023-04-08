@@ -10,7 +10,7 @@ pipeline:
       registry: git.dawidsobczak.com
       tags: latest
     when:
-      path: ["ci-base.dockerfile", "Cargo.toml", "Cargo.lock"]
+      path: ["ci-base.dockerfile"]
 
   build:
     image: git.dawidsobczak.com/dawids/fern-base:latest
@@ -26,3 +26,20 @@ pipeline:
       - CARGO_HOME=/cargo cargo test
     volumes:
       - /cargo:/cargo
+
+  benchmark:
+    image: git.dawidsobczak.com/dawids/fern-base:latest
+    commands:
+      - CARGO_HOME=/cargo ./bench.sh
+    volumes:
+      - /cargo:/cargo
+
+  upload-benchmark:
+    image: cschlosser/drone-ftps
+    settings:
+      hostname: dawidsobczak.com:9999
+      src_dir: /${CI_COMMIT_SHA}
+      dest_dir: /${CI_COMMIT_SHA}
+      secure: false
+      chmod: false
+    secrets: [ftp_username, ftp_password]

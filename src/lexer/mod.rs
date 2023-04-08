@@ -149,7 +149,11 @@ impl<'a> ParallelLexer<'a> {
 
         // Append first item in list to output
         let mut result: Vec<u8> = Vec::new();
-        let first = x.output.pop_front().unwrap();
+        let mut first = x.output.pop_front();
+        while first.is_none() {
+            first = x.output.pop_front();
+        }
+        let first = first.unwrap();
         let first = first.value();
         let start_state_output = &first.lists.get(&LexerState::Start).unwrap();
         result.append(&mut start_state_output.list.clone());

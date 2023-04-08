@@ -1,2 +1,3 @@
 FROM rust:1.67
-ENV CARGO_HOME=/cargo
+RUN CARGO_HOME=/cargo cargo install cargo-criterion
+RUN apt-get update && apt-get install -y jq lftp

@@ -1,0 +1,11 @@
+{
+  "key": 100,
+  "another_key": "string",
+  "array": [
+    { "test": 0 },
+    100
+  ],
+  "sub_object": {
+    "sub": 3
+  }
+}

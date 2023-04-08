@@ -23,13 +23,13 @@ fn full_test() -> Result<(), Box<dyn Error>>{
 
     let mut tokens: Vec<u8> = Vec::new();
     {
-        let file = File::open("test.json")?;
+        let file = File::open("data/full.json")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         thread::scope(|s| {
             let mut lexer = ParallelLexer::new(grammar.clone(), s, 1);
             let batch = lexer.new_batch();
             lexer.add_to_batch(&batch, &mmap[..], 0);
-            tokens = lexer.collect_batch(batch, &mut now);
+            tokens = lexer.collect_batch(batch);
             lexer.kill();
         });
     }
@@ -57,7 +57,7 @@ fn parallel_lexing() -> Result<(), Box<dyn Error>> {
     let grammar = Grammar::from("json.g");
     let threads = 12;
     let now = Instant::now();
-    let file = File::open("json/100MB.json")?;
+    let file = File::open("data/full.json")?;
     let x: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
 
     let mut indices = vec![];
@@ -95,18 +95,8 @@ fn parallel_lexing() -> Result<(), Box<dyn Error>> {
         for task in units.iter().enumerate() {
             lexer.add_to_batch(&batch, task.1, task.0);
         }
-        let output = lexer.collect_batch(batch, &mut now);
+        let output = lexer.collect_batch(batch);
         lexer.kill();
-
-        // let mut lexer = ParallelLexer::new(s, 1);
-        // let batch = lexer.new_batch();
-        // for task in units.iter().enumerate() {
-        //     lexer.add_to_batch(&batch, task.1, task.0);
-        // }
-        // let sequential = lexer.collect_batch(batch, &mut now);
-        // lexer.kill();
-
-        // assert_eq!(output, sequential);
     });
     Ok(())
 }
