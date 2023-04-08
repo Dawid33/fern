@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use log::trace;
 use crate::grammar::Grammar;
+use crate::grammar::reader::TokenTypes;
 use crate::lexer::error::LexerError;
 
 #[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
@@ -11,24 +12,44 @@ pub enum LexerState {
     InNumber,
 }
 
+pub struct JsonTokens {
+    pub lbrace: u8,
+    pub rbrace: u8,
+    pub lsquare: u8,
+    pub rsquare: u8,
+    pub comma: u8,
+    pub colon: u8,
+    pub bool: u8,
+    pub quotes: u8,
+    pub char: u8,
+    pub number: u8,
+}
+
+impl JsonTokens {
+    pub fn new(tokens_reverse: &HashMap<String, (u8, TokenTypes)>) -> JsonTokens {
+        JsonTokens {
+            lbrace: tokens_reverse.get("LBRACE").unwrap().0,
+            rbrace: tokens_reverse.get("RBRACE").unwrap().0,
+            lsquare: tokens_reverse.get("LSQUARE").unwrap().0,
+            rsquare: tokens_reverse.get("RSQUARE").unwrap().0,
+            comma: tokens_reverse.get("COMMA").unwrap().0,
+            colon: tokens_reverse.get("COLON").unwrap().0,
+            bool: tokens_reverse.get("BOOL").unwrap().0,
+            quotes: tokens_reverse.get("QUOTES").unwrap().0,
+            char: tokens_reverse.get("CHAR").unwrap().0,
+            number: tokens_reverse.get("NUMBER").unwrap().0,
+        }
+    }
+}
+
 pub struct JsonLexer<'a> {
     pub tokens: &'a mut Vec<u8>,
     pub data: HashMap<usize, String>,
     pub state: LexerState,
     buf: String,
     grammar: Grammar,
-    LBRACE: u8,
-    RBRACE: u8,
-    LSQUARE: u8,
-    RSQUARE: u8,
-    COMMA: u8,
-    COLON: u8,
-    BOOL: u8,
-    QUOTES: u8,
-    CHAR: u8,
-    NUMBER: u8,
+    tok: JsonTokens,
 }
-
 
 impl<'a> JsonLexer<'a> {
     pub fn new(grammar: Grammar, s: &'a mut Vec<u8>, start_state: LexerState) -> JsonLexer {
@@ -39,16 +60,7 @@ impl<'a> JsonLexer<'a> {
             state: start_state,
             buf: String::new(),
             data: HashMap::new(),
-            LBRACE: grammar.tokens_reverse.get("LBRACE").unwrap().0,
-            RBRACE: grammar.tokens_reverse.get("RBRACE").unwrap().0,
-            LSQUARE: grammar.tokens_reverse.get("LSQUARE").unwrap().0,
-            RSQUARE: grammar.tokens_reverse.get("RSQUARE").unwrap().0,
-            COMMA: grammar.tokens_reverse.get("COMMA").unwrap().0,
-            COLON: grammar.tokens_reverse.get("COLON").unwrap().0,
-            BOOL: grammar.tokens_reverse.get("BOOL").unwrap().0,
-            QUOTES: grammar.tokens_reverse.get("QUOTES").unwrap().0,
-            CHAR: grammar.tokens_reverse.get("CHAR").unwrap().0,
-            NUMBER: grammar.tokens_reverse.get("NUMBER").unwrap().0,
+            tok: JsonTokens::new(&grammar.tokens_reverse),
             grammar,
         }
     }
@@ -65,17 +77,17 @@ impl<'a> JsonLexer<'a> {
             match self.state {
                 LexerState::Start => match c {
                     'a'..='z' | 'A'..='Z' => {
-                        push(self.CHAR);
+                        push(self.tok.char);
                     }
-                    '{' => push(self.LBRACE),
-                    '}' => push(self.RBRACE),
-                    '[' => push(self.LSQUARE),
-                    ']' => push(self.RSQUARE),
-                    ':' => push(self.COLON),
-                    ',' => push(self.COMMA),
+                    '{' => push(self.tok.lbrace),
+                    '}' => push(self.tok.rbrace),
+                    '[' => push(self.tok.lsquare),
+                    ']' => push(self.tok.rsquare),
+                    ':' => push(self.tok.colon),
+                    ',' => push(self.tok.comma),
                     '\"' => {
                         self.state = LexerState::InString;
-                        push(self.QUOTES);
+                        push(self.tok.quotes);
                     }
                     '0'..='9' => {
                         self.state = LexerState::InNumber;
@@ -92,20 +104,20 @@ impl<'a> JsonLexer<'a> {
                 LexerState::InString => match c {
                     '\"' => {
                         self.state = LexerState::Start;
-                        push(self.QUOTES);
+                        push(self.tok.quotes);
                     }
                     '\n' => {
                         return Err(LexerError::from(
                             "Cannot have newlines in strings".to_string(),
                         ));
                     }
-                    _ => push(self.CHAR),
+                    _ => push(self.tok.char),
                 },
                 LexerState::InNumber => match c {
                     '0'..='9' => self.buf.push(c),
                     _ => {
                         self.state = LexerState::Start;
-                        push(self.NUMBER);
+                        push(self.tok.number);
                         self.data.insert(self.tokens.len(), self.buf.clone());
                         self.buf.clear();
                         should_reconsume = true;

@@ -39,7 +39,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let tree: Option<ParseTree>;
     {
-        now = Instant::now();
         let mut parser = ParallelParser::new(grammar, 1);
         parser.parse(tokens.as_slice());
         parser.parse(&[parser.grammar.delim]);
@@ -47,7 +46,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         println!("Total Parsing Time: {:?}", now.elapsed());
     }
 
-    // let _ = tree;
+    let _ = tree;
     info!("Total Time to parse: {:?}", now.elapsed());
     now = Instant::now();
 

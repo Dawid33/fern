@@ -1,18 +1,22 @@
 use std::collections::HashMap;
 use std::io::{stdout, Write};
 use crossbeam_deque::{Injector, Worker};
-use std::iter;
+use std::{iter, thread};
+use std::error::Error;
+use std::fs::File;
 use std::sync::Arc;
+use std::task::ready;
 use std::thread::{Scope, ScopedJoinHandle};
 use std::time::{Duration, Instant};
 use crossbeam_skiplist::SkipMap;
 use log::trace;
+use memmap::{Mmap, MmapOptions};
 use tinyrand::{RandRange, StdRand};
 pub mod json;
 
 use json::LexerState::InString;
 use crate::grammar::Grammar;
-use crate::lexer::json::{JsonLexer, LexerState};
+use crate::lexer::json::{JsonLexer, JsonTokens, LexerState};
 
 pub mod error;
 
@@ -101,9 +105,8 @@ impl<'a> ParallelLexer<'a> {
         };
     }
 
-    #[allow(unused)]
-    pub fn start(&mut self) {}
-
+    // Generate a random string to be used as a batchID. Change this to an auto-incremented u32 at
+    // at some point.
     fn gen_key() -> String {
         const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
                             abcdefghijklmnopqrstuvwxyz";
@@ -148,7 +151,7 @@ impl<'a> ParallelLexer<'a> {
         let mut result: Vec<u8> = Vec::new();
         let first = x.output.pop_front().unwrap();
         let first = first.value();
-        let mut start_state_output = &first.lists.get(&LexerState::Start).unwrap();
+        let start_state_output = &first.lists.get(&LexerState::Start).unwrap();
         result.append(&mut start_state_output.list.clone());
 
         for x in &start_state_output.list {
@@ -192,4 +195,68 @@ impl<'a> ParallelLexer<'a> {
             let _ = x.join();
         }
     }
+}
+
+pub fn split_mmap_into_chunks<'a>(mmap: &'a mut Mmap, step: usize) -> Result<Vec<&'a [u8]>, Box<dyn Error>>{
+    // let file = File::open(path)?;
+    // let x: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
+    let mut indices = vec![];
+    let mut i = 0;
+    let mut prev = 0;
+
+    while i < mmap.len() {
+        if mmap[i] as char != ' ' && mmap[i] as char != '\n' {
+            i += 1;
+        } else {
+            if i + 1 <= mmap.len() {
+                i += 1;
+            }
+            indices.push((prev, i));
+            prev = i;
+            i += step;
+        }
+    }
+    if prev < mmap.len() {
+        indices.push((prev, mmap.len()));
+    }
+
+    let mut units = vec![];
+    for i in indices {
+        units.push(&mmap[i.0..i.1]);
+    }
+    return Ok(units);
+}
+
+pub fn lex(input: &str, grammar: &Grammar, threads: usize) -> Result<Vec<u8>, Box<dyn Error>> {
+    let mut tokens: Vec<u8> = Vec::new();
+    {
+        thread::scope(|s| {
+            let mut lexer = ParallelLexer::new(grammar.clone(), s, threads);
+            let batch = lexer.new_batch();
+            lexer.add_to_batch(&batch, input.as_bytes(), 0);
+            tokens = lexer.collect_batch(batch);
+            lexer.kill();
+        });
+    }
+    return Ok(tokens);
+}
+
+#[test]
+pub fn test_lexer() -> Result<(), Box<dyn Error>>{
+    let grammar = Grammar::from("json.g");
+    let t = JsonTokens::new(&grammar.tokens_reverse);
+
+    let test = |input: &str, expected: Vec<u8>| -> Result<(), Box<dyn Error>>{
+        let output = lex(input, &grammar,1)?;
+        assert_eq!(output, expected);
+        Ok(())
+    };
+
+    let input = "\
+    {\
+        \"test\": 100\
+    }";
+    let expected = vec![t.lbrace, t.quotes, t.char, t.char, t.char, t.char, t.quotes, t.colon, t.number, t.rbrace];
+    test(input, expected)?;
+    Ok(())
 }
