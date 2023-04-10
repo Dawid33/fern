@@ -14,10 +14,14 @@ use log::debug;
 
 #[test]
 fn full_test() -> Result<(), Box<dyn Error>>{
+    let config: simplelog::Config = simplelog::ConfigBuilder::new()
+        .set_time_level(simplelog::LevelFilter::Off)
+        .set_target_level(simplelog::LevelFilter::Off)
+        .set_thread_level(simplelog::LevelFilter::Off)
+        .build();
+    let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Debug, config);
     let mut now = Instant::now();
-
     let grammar = Grammar::from("json.g");
-
     debug!("Total Time to generate grammar : {:?}", now.elapsed());
     now = Instant::now();
 
@@ -25,6 +29,8 @@ fn full_test() -> Result<(), Box<dyn Error>>{
     {
         let file = File::open("data/full.json")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
+        debug!("Total time to load file: {:?}", now.elapsed());
+        now = Instant::now();
         thread::scope(|s| {
             let mut lexer = ParallelLexer::new(grammar.clone(), s, 1);
             let batch = lexer.new_batch();
@@ -33,6 +39,7 @@ fn full_test() -> Result<(), Box<dyn Error>>{
             lexer.kill();
         });
     }
+    debug!("Total Lexing Time: {:?}", now.elapsed());
 
     let tree: Option<ParseTree>;
     {
@@ -54,6 +61,12 @@ fn full_test() -> Result<(), Box<dyn Error>>{
 
 #[test]
 fn parallel_lexing() -> Result<(), Box<dyn Error>> {
+    let config: simplelog::Config = simplelog::ConfigBuilder::new()
+        .set_time_level(simplelog::LevelFilter::Off)
+        .set_target_level(simplelog::LevelFilter::Off)
+        .set_thread_level(simplelog::LevelFilter::Off)
+        .build();
+    let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Debug, config);
     let grammar = Grammar::from("json.g");
     let threads = 12;
     let now = Instant::now();
@@ -61,7 +74,7 @@ fn parallel_lexing() -> Result<(), Box<dyn Error>> {
     let x: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
 
     let mut indices = vec![];
-    let step = 10;
+    let step = 100000;
     let mut i = 0;
     let mut prev = 0;
 
@@ -98,5 +111,6 @@ fn parallel_lexing() -> Result<(), Box<dyn Error>> {
         let output = lexer.collect_batch(batch);
         lexer.kill();
     });
+    debug!("Total Lexing Time: {:?}", now.elapsed());
     Ok(())
 }

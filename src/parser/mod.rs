@@ -65,6 +65,7 @@ pub struct ParallelParser {
     open_nodes: HashMap<u64, Node>,
     should_reconsume: bool,
     highest_id: u64,
+    iteration: u64,
 }
 
 impl ParallelParser {
@@ -76,6 +77,7 @@ impl ParallelParser {
             should_reconsume: false,
             open_nodes: HashMap::new(),
             highest_id: 0,
+            iteration: 0,
         };
 
         return parser;
@@ -93,7 +95,6 @@ impl ParallelParser {
     }
 
     fn consume_token(&mut self, token: &u8) -> Result<(), Box<dyn Error>>{
-
         if self.stack.is_empty() {
             let t = TokenGrammarTuple::new(*token, Associativity::Left, self);
             self.stack.push(t);
@@ -101,21 +102,21 @@ impl ParallelParser {
         }
 
         loop {
+            self.iteration += 1;
             self.should_reconsume = false;
 
             if self.stack.len() == 1 {
                 if self.stack.get(0).unwrap().associativity == Associativity::Undefined {
-                    println!("Done. Result: ");
-
-                    println!("Open nodes");
+                    let mut output = String::new();
                     for (id, _) in &self.open_nodes {
                         for t in &self.stack {
                             if t.id == *id  {
-                                println!("\t{:?}", t.token);
+                                output.push_str(format!("{:?} ", t.token).as_str());
                                 break;
                             }
                         }
                     }
+                    debug!("{} FINAL Open nodes: {}", self.iteration, output);
                     self.print_stack();
                     return Ok(());
                 }
@@ -145,31 +146,32 @@ impl ParallelParser {
                 return Err(Box::try_from("No precedence == user grammar error").unwrap());
             }
 
-            debug!("Open nodes: ");
+            let mut output = String::new();
             for (key, _) in &self.open_nodes {
-                debug!("\t{:?}", key);
+                output.push_str(format!("{:?} ", key).as_str());
             }
-            debug!("Applying {:?} {:?}", token, precedence);
+            debug!("{} Open nodes: {}", self.iteration, output);
+            debug!("{} Applying {:?} {:?}", self.iteration, token, precedence);
             self.print_stack();
 
             if precedence == Associativity::Left {
                 let t = TokenGrammarTuple::new(*token, Associativity::Left, self);
                 self.stack.push(t);
-                debug!("Append\n");
+                debug!("{} Append", self.iteration);
                 return Ok(());
             }
 
             if precedence == Associativity::Equal {
                 let t = TokenGrammarTuple::new(*token, Associativity::Equal, self);
                 self.stack.push(t);
-                debug!("Append\n");
+                debug!("{} Append", self.iteration);
                 return Ok(());
             }
 
             if self.grammar.non_terminals.contains(token) {
                 let t = TokenGrammarTuple::new(*token, Associativity::Undefined, self);
                 self.stack.push(t);
-                debug!("Append\n");
+                debug!("{}, Append", self.iteration);
                 return Ok(());
             }
 
@@ -184,7 +186,7 @@ impl ParallelParser {
                 if i < 0 {
                     let t = TokenGrammarTuple::new(*token, Associativity::Right, self);
                     self.stack.push(t);
-                    debug!("Append\n");
+                    debug!("{}, Append", self.iteration);
                     return Ok(());
                 } else {
                     if i - 1 >= 0 {
@@ -292,12 +294,13 @@ impl ParallelParser {
             let left = TokenGrammarTuple::new(rule.left, Associativity::Undefined, self);
             self.open_nodes.insert(left.id, parent);
             self.stack.insert((i + offset) as usize, left);
-            debug!("Reduce\n");
+            debug!("{} Reduce", self.iteration);
             self.should_reconsume = true;
         }
     }
 
     pub fn print_stack(&self) {
+        let mut output = String::new();
         for i in &self.stack {
             let x = match i.associativity {
                 Associativity::Left => '<',
@@ -306,9 +309,9 @@ impl ParallelParser {
                 Associativity::Undefined => '?',
                 Associativity::None => '!'
             };
-            debug!("({:?}, {}) ", i.token, x);
+            output.push_str(format!("({:?}, {}) ", i.token, x).as_str());
         }
-        debug!("");
+        debug!("{} Stack: {}", self.iteration, output);
     }
 
     pub fn collect_parse_tree(self) -> Result<ParseTree, Box<dyn Error>> {

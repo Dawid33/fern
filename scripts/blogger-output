@@ -1,0 +1,11 @@
+#!/bin/bash
+
+SESSIONNAME="blogger-output"
+tmux has-session -t $SESSIONNAME &> /dev/null
+
+if [ $? != 0 ] 
+ then
+    tmux new-session -s $SESSIONNAME -n 'build' -d 'tmux set-option "remain-on-exit" "on" && read'
+fi
+
+tmux attach -t $SESSIONNAME

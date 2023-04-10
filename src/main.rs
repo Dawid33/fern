@@ -15,7 +15,12 @@ use log::{debug, info};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut now = Instant::now();
-    let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Debug, simplelog::Config::default());
+    let config: simplelog::Config = simplelog::ConfigBuilder::new()
+        .set_time_level(simplelog::LevelFilter::Off)
+        .set_target_level(simplelog::LevelFilter::Off)
+        .set_thread_level(simplelog::LevelFilter::Off)
+        .build();
+    let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Debug, config);
 
     let grammar = Grammar::from("json.g");
     info!("Total Time to generate grammar : {:?}", now.elapsed());
