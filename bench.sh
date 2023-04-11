@@ -2,7 +2,7 @@ OUTPUT_DIR=$(git rev-parse HEAD);
 mkdir $OUTPUT_DIR;
 echo -e "{\n\t\"files\": [" > $OUTPUT_DIR/manifest.json
 
-files=()
+declare -a files=()
 while read -r benchmark; do
   FILE=$(echo $benchmark | jq -r '.id').json
   files+=("$FILE")
