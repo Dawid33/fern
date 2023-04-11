@@ -14,7 +14,7 @@ fn bench_lexer_sequential(path: &str) -> Result<(), Box<dyn Error>>{
     let grammar = Grammar::from("json.g");
     let mut tokens: Vec<u8> = Vec::new();
     {
-        let file = File::open("test.json")?;
+        let file = File::open(path)?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         thread::scope(|s| {
             let mut lexer = ParallelLexer::new(grammar.clone(), s, 1);
@@ -45,10 +45,10 @@ fn bench_parallel_lexing(path: &str, threads: usize) {
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("lexer_sequential_full", |b| b.iter(|| bench_lexer_sequential("data/full.json")));
-    // c.bench_function("lexer_sequential_10MB", |b| b.iter(|| bench_lexer_sequential("json/10MB.json")));
-    // c.bench_function("parallel_lexer_full", |b| b.iter(|| bench_parallel_lexing("data/full.json", 12)));
-    // c.bench_function("parallel_lexer_10MB", |b| b.iter(|| bench_parallel_lexing("json/10MB.json", 12)));
+    c.bench_function("lexer_sequential_1MB", |b| b.iter(|| bench_lexer_sequential("json/1MB.json")));
+    c.bench_function("lexer_sequential_10MB", |b| b.iter(|| bench_lexer_sequential("json/10MB.json")));
+    c.bench_function("parallel_lexer_1MB", |b| b.iter(|| bench_parallel_lexing("json/1MB.json", 12)));
+    c.bench_function("parallel_lexer_10MB", |b| b.iter(|| bench_parallel_lexing("json/10MB.json", 12)));
 }
 
 criterion_group!(benches, criterion_benchmark);
