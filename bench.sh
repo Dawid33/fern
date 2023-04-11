@@ -1,3 +1,5 @@
+#!/bin/bash
+
 OUTPUT_DIR=$(git rev-parse HEAD);
 mkdir $OUTPUT_DIR;
 echo -e "{\n\t\"files\": [" > $OUTPUT_DIR/manifest.json
