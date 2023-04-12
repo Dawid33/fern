@@ -50,6 +50,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     tree.print();
+    let _json: core::parser::json::JsonValue = tree.into();
+    info!("{:?}", _json);
     info!("Total Time to parse: {:?}", now.elapsed());
     now = Instant::now();
 
