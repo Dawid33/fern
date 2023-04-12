@@ -26,32 +26,30 @@ fn main() -> Result<(), Box<dyn Error>> {
     info!("Total Time to generate grammar : {:?}", now.elapsed());
     now = Instant::now();
 
-    let mut tokens: Vec<u8> = Vec::new();
-    {
-        let file = File::open("test.json")?;
+    let tokens: Vec<u8> = {
+        let file = File::open("data/full.json")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         thread::scope(|s| {
             let mut lexer = ParallelLexer::new(grammar.clone(), s, 1);
             let batch = lexer.new_batch();
             lexer.add_to_batch(&batch, &mmap[..], 0);
-            tokens = lexer.collect_batch(batch);
+            let tokens = lexer.collect_batch(batch);
             lexer.kill();
-        });
-    }
+            tokens
+        })
+    };
 
     info!("Total Time to lex: {:?}", now.elapsed());
     now = Instant::now();
 
-    let tree: Option<ParseTree>;
-    {
+    let tree: ParseTree = {
         let mut parser = ParallelParser::new(grammar, 1);
         parser.parse(tokens.as_slice());
         parser.parse(&[parser.grammar.delim]);
-        tree = Some(parser.collect_parse_tree().unwrap());
-        println!("Total Parsing Time: {:?}", now.elapsed());
-    }
+        parser.collect_parse_tree().unwrap()
+    };
 
-    let _ = tree;
+    tree.print();
     info!("Total Time to parse: {:?}", now.elapsed());
     now = Instant::now();
 

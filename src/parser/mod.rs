@@ -1,7 +1,8 @@
 use std::any::Any;
-use std::collections::{HashMap, LinkedList};
+use std::collections::{HashMap, LinkedList, VecDeque};
 use std::error::Error;
 use std::io::ErrorKind::AlreadyExists;
+use std::io::Read;
 use std::panic::{resume_unwind, set_hook};
 use std::thread::current;
 use log::{debug, trace};
@@ -9,13 +10,15 @@ use crate::grammar::{Associativity, Grammar, Rule};
 
 #[allow(unused)]
 pub struct ParseTree {
+    pub g: Grammar,
     root: Node
 }
 
 impl ParseTree {
     #[allow(unused)]
-    pub fn new(root: Node) -> Self {
+    pub fn new(root: Node, g: Grammar) -> Self {
         Self {
+           g,
            root,
         }
     }
@@ -24,7 +27,7 @@ impl ParseTree {
 pub struct Node {
     symbol: u8,
     data: Option<String>,
-    children: Option<Vec<Node>>,
+    children: Vec<Node>,
 }
 
 impl Node {
@@ -32,13 +35,10 @@ impl Node {
         Self {
             symbol,
             data,
-            children: None }
+            children: Vec::new() }
     }
     pub fn append_child(&mut self, other: Node) {
-        if let None = self.children {
-            self.children = Some(Vec::new());
-        }
-        self.children.as_mut().unwrap().push(other);
+        self.children.push(other);
     }
 }
 
@@ -55,6 +55,44 @@ impl TokenGrammarTuple {
             token,
             associativity,
             id: parser.gen_id(),
+        }
+    }
+}
+
+impl ParseTree {
+    pub fn print(&self) {
+        let mut node_stack: Vec<&Node> = vec![&self.root];
+        let mut child_count_stack: Vec<i32> = vec![(self.root.children.len() - 1) as i32];
+
+        println!("{}", self.g.token_raw.get(&self.root.symbol).unwrap());
+        while !node_stack.is_empty() {
+            let current = node_stack.pop().unwrap();
+            let mut current_child = child_count_stack.pop().unwrap();
+
+            while current.children.len() > 0 && current_child >= 0 {
+                for i in 0..child_count_stack.len() {
+                    if *child_count_stack.get(i).unwrap() >= 0 {
+                        print!("| ");
+                    } else {
+                        print!("  ");
+                    }
+                }
+                if current_child != 0 {
+                    println!("├─{}", self.g.token_raw.get(&current.children.get(current_child as usize).unwrap().symbol).unwrap())
+                } else {
+                   println!("└─{}", self.g.token_raw.get(&current.children.get(current_child as usize).unwrap().symbol).unwrap())
+                }
+                if !current.children.get(current_child as usize).unwrap().children.is_empty() {
+                    node_stack.push(current);
+                    let child = current.children.get(current_child as usize).unwrap();
+                    current_child -= 1;
+                    node_stack.push(child);
+                    child_count_stack.push(current_child);
+                    child_count_stack.push((child.children.len() - 1) as i32);
+                    break;
+                }
+                current_child -= 1;
+            }
         }
     }
 }
@@ -317,7 +355,7 @@ impl ParallelParser {
     pub fn collect_parse_tree(self) -> Result<ParseTree, Box<dyn Error>> {
         if self.open_nodes.len() == 1 {
             let mut nodes: Vec<Node>  = self.open_nodes.into_iter().map(|(_, v)| v).collect();
-            return Ok(ParseTree::new(nodes.remove(0)));
+            return Ok(ParseTree::new(nodes.remove(0), self.grammar));
         } else {
             return Err(Box::try_from("Cannot create parse tree.").unwrap());
         }
