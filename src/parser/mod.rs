@@ -123,9 +123,11 @@ impl ParallelParser {
         return parser;
     }
 
-    pub fn parse(&mut self, tokens: &[u8]) {
+    pub fn parse(&mut self, tokens: LinkedList<Vec<u8>>) {
         for t in tokens {
-            self.consume_token(&t).expect("Parser raised an exception.");
+            for t in t {
+                self.consume_token(&t).expect("Parser raised an exception.");
+            }
         }
     }
 

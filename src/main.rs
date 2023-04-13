@@ -1,6 +1,7 @@
 #![cfg_attr(debug_assertions, allow(dead_code, unused_imports))]
 extern crate core;
 
+use std::collections::LinkedList;
 use std::error::Error;
 use std::fs::File;
 use std::io::Write;
@@ -20,14 +21,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         .set_target_level(simplelog::LevelFilter::Off)
         .set_thread_level(simplelog::LevelFilter::Off)
         .build();
-    let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Trace, config);
+    let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Debug, config);
 
-    let grammar = Grammar::from("fern.g");
+    let grammar = Grammar::from("json.g");
     info!("Total Time to generate grammar : {:?}", now.elapsed());
     now = Instant::now();
 
-    let tokens: Vec<u8> = {
-        let file = File::open("data/full.fern")?;
+    let tokens: LinkedList<Vec<u8>> = {
+        let file = File::open("data/full.json")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         thread::scope(|s| {
             let mut lexer = ParallelLexer::new(grammar.clone(), s, 1);
@@ -44,9 +45,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     info!("{:?}", tokens);
 
     let tree: ParseTree = {
-        let mut parser = ParallelParser::new(grammar, 1);
-        parser.parse(tokens.as_slice());
-        parser.parse(&[parser.grammar.delim]);
+        let mut parser = ParallelParser::new(grammar.clone(), 1);
+        parser.parse(tokens);
+        parser.parse(LinkedList::from([vec![grammar.delim]]));
         parser.collect_parse_tree().unwrap()
     };
 
