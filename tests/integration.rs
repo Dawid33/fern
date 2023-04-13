@@ -3,7 +3,6 @@ extern crate core;
 use std::collections::LinkedList;
 use std::error::Error;
 use std::fs::File;
-use std::io::Write;
 use std::thread;
 use std::time::Instant;
 
@@ -22,13 +21,13 @@ fn full_test() -> Result<(), Box<dyn Error>> {
         .build();
     let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Info, config);
     let mut now = Instant::now();
-    let grammar = Grammar::from("json.g");
+    let grammar = Grammar::from("data/grammar/json.g");
     info!("Total Time to generate grammar : {:?}", now.elapsed());
     now = Instant::now();
 
     let mut tokens: LinkedList<Vec<u8>> = LinkedList::new();
     {
-        let file = File::open("json/100MB.json")?;
+        let file = File::open("data/full.json")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         info!("Total time to load file: {:?}", now.elapsed());
         now = Instant::now();
@@ -42,21 +41,21 @@ fn full_test() -> Result<(), Box<dyn Error>> {
     }
     info!("Total Lexing Time: {:?}", now.elapsed());
 
-    // let tree: ParseTree = {
-    //     now = Instant::now();
-    //     let mut parser = ParallelParser::new(grammar.clone(), 1);
-    //     parser.parse(tokens);
-    //     parser.parse(LinkedList::from([vec![grammar.delim]]));
-    //     parser.collect_parse_tree().unwrap()
-    // };
-    //
-    // debug!("Total Parsing Time: {:?}", now.elapsed());
-    //
-    // let _ = tree;
-    //
-    // now = Instant::now();
-    //
-    // debug!("Total Time For ParseTree -> AST Conversion: {:?}", now.elapsed());
+    let tree: ParseTree = {
+        now = Instant::now();
+        let mut parser = ParallelParser::new(grammar.clone(), 1);
+        parser.parse(tokens);
+        parser.parse(LinkedList::from([vec![grammar.delim]]));
+        parser.collect_parse_tree().unwrap()
+    };
+
+    debug!("Total Parsing Time: {:?}", now.elapsed());
+
+    let _ = tree;
+
+    now = Instant::now();
+
+    debug!("Total Time For ParseTree -> AST Conversion: {:?}", now.elapsed());
     Ok(())
 }
 
@@ -70,11 +69,11 @@ fn parallel_lexing() -> Result<(), Box<dyn Error>> {
     let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Info, config);
 
     let now = Instant::now();
-    let grammar = Grammar::from("json.g");
+    let grammar = Grammar::from("data/grammar/json.g");
     info!("Total Time to generate grammar : {:?}", now.elapsed());
     let now = Instant::now();
 
-    let file = File::open("json/100KB.json").unwrap();
+    let file = File::open("data/full.json").unwrap();
     let mut memmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file).unwrap() };
     info!("Total time to load file: {:?}", now.elapsed());
     let mut now = Instant::now();
@@ -94,14 +93,14 @@ fn parallel_lexing() -> Result<(), Box<dyn Error>> {
 
     info!("Total Lexing Time: {:?}", now.elapsed());
 
-    // let tree: ParseTree = {
-    //     now = Instant::now();
-    //     let mut parser = ParallelParser::new(grammar.clone(), 1);
-    //     parser.parse(tokens);
-    //     parser.parse(LinkedList::from([vec![grammar.delim]]));
-    //     parser.collect_parse_tree().unwrap()
-    // };
-    //
-    // info!("Total Parsing Time: {:?}", now.elapsed());
+    let _: ParseTree = {
+        now = Instant::now();
+        let mut parser = ParallelParser::new(grammar.clone(), 1);
+        parser.parse(tokens);
+        parser.parse(LinkedList::from([vec![grammar.delim]]));
+        parser.collect_parse_tree().unwrap()
+    };
+
+    info!("Total Parsing Time: {:?}", now.elapsed());
     Ok(())
 }

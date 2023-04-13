@@ -6,7 +6,7 @@ use std::io::Read;
 
 #[test]
 pub fn test_reader_json() {
-    let mut file = fs::File::open("json.g").unwrap();
+    let mut file = fs::File::open("data/grammar/json.g").unwrap();
     let mut buf = String::new();
     file.read_to_string(&mut buf).unwrap();
 
@@ -16,7 +16,7 @@ pub fn test_reader_json() {
 
 #[test]
 pub fn test_reader_lua() {
-    let mut file = fs::File::open("lua.g").unwrap();
+    let mut file = fs::File::open("data/grammar/lua.g").unwrap();
     let mut buf = String::new();
     file.read_to_string(&mut buf).unwrap();
 
@@ -33,7 +33,7 @@ pub fn test_reader_fern() {
         .build();
     let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Debug, config);
 
-    let mut file = fs::File::open("fern.g").unwrap();
+    let mut file = fs::File::open("data/grammar/fern.g").unwrap();
     let mut buf = String::new();
     file.read_to_string(&mut buf).unwrap();
 

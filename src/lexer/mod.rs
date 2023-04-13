@@ -291,22 +291,24 @@ pub fn lex(
     return Ok(tokens);
 }
 
-// #[test]
-// pub fn test_lexer() -> Result<(), Box<dyn Error>>{
-//     let grammar = Grammar::from("json.g");
-//     let t = JsonTokens::new(&grammar.tokens_reverse);
-//
-//     let test = |input: &str, expected: Vec<u8>| -> Result<(), Box<dyn Error>>{
-//         let output = lex(input, &grammar,1)?;
-//         assert_eq!(output, expected);
-//         Ok(())
-//     };
-//
-//     let input = "\
-//     {\
-//         \"test\": 100\
-//     }";
-//     let expected = vec![t.lbrace, t.quotes, t.char, t.char, t.char, t.char, t.quotes, t.colon, t.number, t.rbrace];
-//     test(input, expected)?;
-//     Ok(())
-// }
+#[test]
+pub fn test_lexer() -> Result<(), Box<dyn Error>>{
+    let grammar = Grammar::from("data/grammar/json.g");
+    let t = JsonTokens::new(&grammar.tokens_reverse);
+
+    let test = |input: &str, expected: Vec<u8>| -> Result<(), Box<dyn Error>>{
+        let mut ll = lex(input, &grammar,1)?;
+        let mut output = Vec::new();
+        for list in &mut ll { output.append(list); }
+        assert_eq!(output, expected);
+        Ok(())
+    };
+
+    let input = "\
+    {\
+        \"test\": 100\
+    }";
+    let expected = vec![t.lbrace, t.quotes, t.char, t.char, t.char, t.char, t.quotes, t.colon, t.number, t.rbrace];
+    test(input, expected)?;
+    Ok(())
+}

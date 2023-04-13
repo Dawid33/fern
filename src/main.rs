@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .build();
     let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Debug, config);
 
-    let grammar = Grammar::from("json.g");
+    let grammar = Grammar::from("data/grammar/json.g");
     info!("Total Time to generate grammar : {:?}", now.elapsed());
     now = Instant::now();
 
