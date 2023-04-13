@@ -1,9 +1,9 @@
+use crate::grammar::reader::TokenTypes;
+use crate::grammar::Grammar;
+use crate::lexer::error::LexerError;
+use log::trace;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use log::trace;
-use crate::grammar::Grammar;
-use crate::grammar::reader::TokenTypes;
-use crate::lexer::error::LexerError;
 
 #[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
 pub enum JsonLexerState {

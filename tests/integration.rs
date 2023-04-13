@@ -7,14 +7,14 @@ use std::io::Write;
 use std::thread;
 use std::time::Instant;
 
-use memmap::MmapOptions;
 use core::grammar::Grammar;
 use core::lexer::ParallelLexer;
 use core::parser::{ParallelParser, ParseTree};
 use log::{debug, info};
+use memmap::MmapOptions;
 
 #[test]
-fn full_test() -> Result<(), Box<dyn Error>>{
+fn full_test() -> Result<(), Box<dyn Error>> {
     let config: simplelog::Config = simplelog::ConfigBuilder::new()
         .set_time_level(simplelog::LevelFilter::Off)
         .set_target_level(simplelog::LevelFilter::Off)

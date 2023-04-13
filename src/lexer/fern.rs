@@ -1,9 +1,9 @@
+use crate::grammar::reader::TokenTypes;
+use crate::grammar::Grammar;
+use crate::lexer::error::LexerError;
+use log::trace;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use log::trace;
-use crate::grammar::Grammar;
-use crate::grammar::reader::TokenTypes;
-use crate::lexer::error::LexerError;
 
 pub struct FernTokens {
     pub endfile: u8,
@@ -229,17 +229,17 @@ impl<'a> FernLexer<'a> {
                             "then" => self.tok.then,
                             "true" => self.tok.true_t,
                             "while" => self.tok.while_t,
-                            _ => self.tok.name
+                            _ => self.tok.name,
                         };
                         self.buf.clear();
                         push(token);
-                    },
+                    }
                     _ => {
                         return Err(LexerError::from(
                             "Cannot have newlines in strings".to_string(),
                         ));
                     }
-                }
+                },
             }
 
             if !should_reconsume {

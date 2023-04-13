@@ -8,11 +8,11 @@ use std::io::Write;
 use std::thread;
 use std::time::Instant;
 
-use memmap::MmapOptions;
 use core::grammar::Grammar;
 use core::lexer::ParallelLexer;
 use core::parser::{ParallelParser, ParseTree};
 use log::{debug, info};
+use memmap::MmapOptions;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut now = Instant::now();
@@ -57,7 +57,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     info!("Total Time to parse: {:?}", now.elapsed());
     now = Instant::now();
 
-
-    info!("Total Time to transform ParseTree -> AST Conversion: {:?}", now.elapsed());
+    info!(
+        "Total Time to transform ParseTree -> AST Conversion: {:?}",
+        now.elapsed()
+    );
     Ok(())
 }

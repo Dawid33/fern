@@ -1,7 +1,7 @@
 extern crate core;
 
-use std::fs;
 use core::grammar::reader::read_grammar_file;
+use std::fs;
 use std::io::Read;
 
 #[test]

@@ -12,14 +12,10 @@ pub enum JsonValue {
 }
 
 #[derive(Debug, Clone)]
-pub struct Number {
-
-}
+pub struct Number {}
 
 #[derive(Debug, Clone)]
-pub struct Object {
-
-}
+pub struct Object {}
 
 impl Into<JsonValue> for ParseTree {
     fn into(self) -> JsonValue {
@@ -31,7 +27,13 @@ impl Into<JsonValue> for ParseTree {
             let mut current_child = child_count_stack.pop().unwrap();
 
             while current.children.len() > 0 && current_child >= 0 {
-                if !current.children.get(current_child as usize).unwrap().children.is_empty() {
+                if !current
+                    .children
+                    .get(current_child as usize)
+                    .unwrap()
+                    .children
+                    .is_empty()
+                {
                     node_stack.push(current);
                     let child = current.children.get(current_child as usize).unwrap();
                     current_child -= 1;

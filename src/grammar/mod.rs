@@ -1,3 +1,8 @@
+use crate::grammar::error::GrammarError;
+use crate::grammar::reader::TokenTypes::{NonTerminal, Terminal};
+use crate::grammar::reader::{read_grammar_file, TokenTypes};
+use crate::grammar::Associativity::{Equal, Left, Right};
+use log::{debug, log_enabled};
 use std::collections::hash_map::HashMap;
 use std::collections::HashSet;
 use std::error::Error;
@@ -6,14 +11,9 @@ use std::fs;
 use std::fs::File;
 use std::hash::Hash;
 use std::io::Read;
-use log::{debug, log_enabled};
-use crate::grammar::Associativity::{Equal, Left, Right};
-use crate::grammar::error::GrammarError;
-use crate::grammar::reader::{read_grammar_file, TokenTypes};
-use crate::grammar::reader::TokenTypes::{NonTerminal, Terminal};
 
-pub mod reader;
 mod error;
+pub mod reader;
 
 #[derive(Clone, Debug)]
 pub struct Rule {
@@ -22,7 +22,7 @@ pub struct Rule {
 }
 
 impl Rule {
-    pub fn new (left: u8) -> Self {
+    pub fn new(left: u8) -> Self {
         Self {
             left,
             right: Vec::new(),
@@ -208,22 +208,46 @@ impl Grammar {
         let mut largest = 0;
         first_ops.keys().for_each(|x| {
             let s_len = token_raw.get(x).unwrap().len();
-            if s_len > largest { largest = s_len }
+            if s_len > largest {
+                largest = s_len
+            }
         });
         for row in first_ops.keys() {
-            let row_full_raw: Vec<&String> = first_ops.get(row).unwrap().iter().map(|row_item| {token_raw.get(row_item).unwrap()}).collect();
-            debug!("{:s_len$} : {:?}", token_raw.get(row).unwrap(), row_full_raw, s_len = largest);
+            let row_full_raw: Vec<&String> = first_ops
+                .get(row)
+                .unwrap()
+                .iter()
+                .map(|row_item| token_raw.get(row_item).unwrap())
+                .collect();
+            debug!(
+                "{:s_len$} : {:?}",
+                token_raw.get(row).unwrap(),
+                row_full_raw,
+                s_len = largest
+            );
         }
 
         debug!("LAST OP");
         largest = 0;
         last_ops.keys().for_each(|x| {
             let s_len = token_raw.get(x).unwrap().len();
-            if s_len > largest { largest = s_len }
+            if s_len > largest {
+                largest = s_len
+            }
         });
         for row in last_ops.keys() {
-            let row_full_raw: Vec<&String> = last_ops.get(row).unwrap().iter().map(|row_item| {token_raw.get(row_item).unwrap()}).collect();
-            debug!("{:s_len$} : {:?}", token_raw.get(row).unwrap(), row_full_raw, s_len = largest);
+            let row_full_raw: Vec<&String> = last_ops
+                .get(row)
+                .unwrap()
+                .iter()
+                .map(|row_item| token_raw.get(row_item).unwrap())
+                .collect();
+            debug!(
+                "{:s_len$} : {:?}",
+                token_raw.get(row).unwrap(),
+                row_full_raw,
+                s_len = largest
+            );
         }
 
         let mut template: HashMap<u8, Associativity> = HashMap::new();
@@ -291,22 +315,31 @@ impl Grammar {
         largest = 0;
         terminals.iter().for_each(|x| {
             let s_len = token_raw.get(x).unwrap().len();
-            if s_len > largest { largest = s_len }
+            if s_len > largest {
+                largest = s_len
+            }
         });
         largest += 1;
         let mut builder = String::new();
-        builder.push_str(format!("{:<l$}", "", l=largest).as_str());
+        builder.push_str(format!("{:<l$}", "", l = largest).as_str());
         for row in &terminals {
-            builder.push_str(format!("{:<l$}", token_raw.get(row).unwrap(), l=largest).as_str());
+            builder.push_str(format!("{:<l$}", token_raw.get(row).unwrap(), l = largest).as_str());
         }
         debug!("{}", builder);
         builder.clear();
 
         for row in &terminals {
-            builder.push_str(format!("{:<l$}", token_raw.get(row).unwrap(), l=largest).as_str());
+            builder.push_str(format!("{:<l$}", token_raw.get(row).unwrap(), l = largest).as_str());
             let curr_row = op_table.get(row).unwrap();
             for col in &terminals {
-                builder.push_str(format!("{:<l$}", format!("{:?}", curr_row.get(col).unwrap()), l=largest).as_str());
+                builder.push_str(
+                    format!(
+                        "{:<l$}",
+                        format!("{:?}", curr_row.get(col).unwrap()),
+                        l = largest
+                    )
+                    .as_str(),
+                );
             }
             debug!("{}", builder);
             builder.clear();

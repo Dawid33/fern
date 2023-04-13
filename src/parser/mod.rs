@@ -1,5 +1,7 @@
 pub mod json;
 
+use crate::grammar::{Associativity, Grammar, Rule};
+use log::{debug, trace};
 use std::any::Any;
 use std::collections::{HashMap, LinkedList, VecDeque};
 use std::error::Error;
@@ -7,22 +9,17 @@ use std::io::ErrorKind::AlreadyExists;
 use std::io::Read;
 use std::panic::{resume_unwind, set_hook};
 use std::thread::current;
-use log::{debug, trace};
-use crate::grammar::{Associativity, Grammar, Rule};
 
 #[allow(unused)]
 pub struct ParseTree {
     pub g: Grammar,
-    root: Node
+    root: Node,
 }
 
 impl ParseTree {
     #[allow(unused)]
     pub fn new(root: Node, g: Grammar) -> Self {
-        Self {
-           g,
-           root,
-        }
+        Self { g, root }
     }
 }
 
@@ -33,11 +30,12 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn new (symbol: u8, data: Option<String>) -> Self {
+    pub fn new(symbol: u8, data: Option<String>) -> Self {
         Self {
             symbol,
             data,
-            children: Vec::new() }
+            children: Vec::new(),
+        }
     }
     pub fn append_child(&mut self, other: Node) {
         self.children.push(other);
@@ -48,7 +46,7 @@ impl Node {
 struct TokenGrammarTuple {
     token: u8,
     id: u64,
-    associativity: Associativity
+    associativity: Associativity,
 }
 
 impl TokenGrammarTuple {
@@ -80,11 +78,29 @@ impl ParseTree {
                     }
                 }
                 if current_child != 0 {
-                    println!("├─{}", self.g.token_raw.get(&current.children.get(current_child as usize).unwrap().symbol).unwrap())
+                    println!(
+                        "├─{}",
+                        self.g
+                            .token_raw
+                            .get(&current.children.get(current_child as usize).unwrap().symbol)
+                            .unwrap()
+                    )
                 } else {
-                   println!("└─{}", self.g.token_raw.get(&current.children.get(current_child as usize).unwrap().symbol).unwrap())
+                    println!(
+                        "└─{}",
+                        self.g
+                            .token_raw
+                            .get(&current.children.get(current_child as usize).unwrap().symbol)
+                            .unwrap()
+                    )
                 }
-                if !current.children.get(current_child as usize).unwrap().children.is_empty() {
+                if !current
+                    .children
+                    .get(current_child as usize)
+                    .unwrap()
+                    .children
+                    .is_empty()
+                {
                     node_stack.push(current);
                     let child = current.children.get(current_child as usize).unwrap();
                     current_child -= 1;
@@ -136,7 +152,7 @@ impl ParallelParser {
         return self.highest_id;
     }
 
-    fn consume_token(&mut self, token: &u8) -> Result<(), Box<dyn Error>>{
+    fn consume_token(&mut self, token: &u8) -> Result<(), Box<dyn Error>> {
         if self.stack.is_empty() {
             let t = TokenGrammarTuple::new(*token, Associativity::Left, self);
             self.stack.push(t);
@@ -152,7 +168,7 @@ impl ParallelParser {
                     let mut output = String::new();
                     for (id, _) in &self.open_nodes {
                         for t in &self.stack {
-                            if t.id == *id  {
+                            if t.id == *id {
                                 output.push_str(format!("{:?} ", t.token).as_str());
                                 break;
                             }
@@ -185,12 +201,23 @@ impl ParallelParser {
             };
 
             if precedence == Associativity::None {
-                panic!("No precedence between y = {} and token = {} == user grammar error", self.grammar.token_raw.get(&y.token).unwrap(), self.grammar.token_raw.get(&token).unwrap())
+                panic!(
+                    "No precedence between y = {} and token = {} == user grammar error",
+                    self.grammar.token_raw.get(&y.token).unwrap(),
+                    self.grammar.token_raw.get(&token).unwrap()
+                )
             }
 
             let mut output = String::new();
             for (key, node) in &self.open_nodes {
-                output.push_str(format!("({:?} {:?}) ", key, self.grammar.token_raw.get(&node.symbol).unwrap()).as_str());
+                output.push_str(
+                    format!(
+                        "({:?} {:?}) ",
+                        key,
+                        self.grammar.token_raw.get(&node.symbol).unwrap()
+                    )
+                    .as_str(),
+                );
             }
             debug!("{} Open nodes: {}", self.iteration, output);
             debug!("{} Applying {:?} {:?}", self.iteration, token, precedence);
@@ -245,7 +272,6 @@ impl ParallelParser {
                         self.process_terminal(i);
                     }
                 }
-
             }
             if !self.should_reconsume {
                 break;
@@ -254,9 +280,13 @@ impl ParallelParser {
         Ok(())
     }
 
-    fn process_terminal(&mut self, i: i32) { self.reduce_stack(i, 0); }
+    fn process_terminal(&mut self, i: i32) {
+        self.reduce_stack(i, 0);
+    }
 
-    fn process_non_terminal(&mut self, i: i32) { self.reduce_stack(i, -1); }
+    fn process_non_terminal(&mut self, i: i32) {
+        self.reduce_stack(i, -1);
+    }
 
     fn reduce_stack(&mut self, i: i32, offset: i32) {
         let mut rule: Option<Rule> = None;
@@ -349,16 +379,23 @@ impl ParallelParser {
                 Associativity::Right => '>',
                 Associativity::Equal => '=',
                 Associativity::Undefined => '?',
-                Associativity::None => '!'
+                Associativity::None => '!',
             };
-            output.push_str(format!("({:?}, {}) ", self.grammar.token_raw.get(&i.token).unwrap(), x).as_str());
+            output.push_str(
+                format!(
+                    "({:?}, {}) ",
+                    self.grammar.token_raw.get(&i.token).unwrap(),
+                    x
+                )
+                .as_str(),
+            );
         }
         debug!("{} Stack: {}", self.iteration, output);
     }
 
     pub fn collect_parse_tree(self) -> Result<ParseTree, Box<dyn Error>> {
         if self.open_nodes.len() == 1 {
-            let mut nodes: Vec<Node>  = self.open_nodes.into_iter().map(|(_, v)| v).collect();
+            let mut nodes: Vec<Node> = self.open_nodes.into_iter().map(|(_, v)| v).collect();
             return Ok(ParseTree::new(nodes.remove(0), self.grammar));
         } else {
             panic!("Cannot create parse tree.");

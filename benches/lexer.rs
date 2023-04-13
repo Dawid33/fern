@@ -1,17 +1,17 @@
 extern crate core;
 
-use std::collections::LinkedList;
-use std::fs::File;
-use std::thread;
 use core::grammar::Grammar;
 use core::lexer::ParallelLexer;
+use std::collections::LinkedList;
 use std::error::Error;
+use std::fs::File;
+use std::thread;
 use std::time::Instant;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use memmap::MmapOptions;
 
-fn fair_sequential_lexing(path: &str) -> Result<(), Box<dyn Error>>{
+fn fair_sequential_lexing(path: &str) -> Result<(), Box<dyn Error>> {
     let grammar = Grammar::from("json.g");
     let mut tokens: LinkedList<Vec<u8>> = LinkedList::new();
     {
@@ -63,7 +63,9 @@ fn criterion_benchmark(c: &mut Criterion) {
     // c.bench_function("lexer_2_thread_100MB", |b| b.iter(|| bench_parallel_lexing("json/100MB.json", 2)));
     // c.bench_function("lexer_4_thread_100MB", |b| b.iter(|| bench_parallel_lexing("json/100MB.json", 4)));
     // c.bench_function("lexer_8_thread_100MB", |b| b.iter(|| bench_parallel_lexing("json/100MB.json", 8)));
-    c.bench_function("lexer_16_thread_100MB", |b| b.iter(|| bench_parallel_lexing("json/100MB.json", 16)));
+    c.bench_function("lexer_16_thread_100MB", |b| {
+        b.iter(|| bench_parallel_lexing("json/100MB.json", 16))
+    });
 
     // c.bench_function("fair_sequential_lexing", |b| b.iter(|| fair_sequential_lexing("json/100MB.json")));
 }
