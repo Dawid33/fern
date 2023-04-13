@@ -2,7 +2,7 @@ pipeline:
   publish-base:
     image: plugins/docker
     settings:
-      dockerfile: ci-base.dockerfile
+      dockerfile: ci/ci-base.dockerfile
       username: dawids
       password:
         from_secret: docker_password
@@ -10,7 +10,7 @@ pipeline:
       registry: git.dawidsobczak.com
       tags: latest
     when:
-      path: ["ci-base.dockerfile"]
+      path: ["ci/ci-base.dockerfile"]
 
   build:
     image: git.dawidsobczak.com/dawids/fern-base:latest
@@ -30,7 +30,7 @@ pipeline:
   benchmark:
     image: git.dawidsobczak.com/dawids/fern-base:latest
     commands:
-      - CARGO_HOME=/cargo ./bench.sh
+      - CARGO_HOME=/cargo ./ci/bench.sh
     volumes:
       - /cargo:/cargo
 
