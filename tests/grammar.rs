@@ -23,3 +23,20 @@ pub fn test_reader_lua() {
     // TODO: Actually test this here.
     read_grammar_file(buf.as_str()).unwrap();
 }
+
+#[test]
+pub fn test_reader_fern() {
+    let config: simplelog::Config = simplelog::ConfigBuilder::new()
+        .set_time_level(simplelog::LevelFilter::Off)
+        .set_target_level(simplelog::LevelFilter::Off)
+        .set_thread_level(simplelog::LevelFilter::Off)
+        .build();
+    let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Debug, config);
+
+    let mut file = fs::File::open("fern.g").unwrap();
+    let mut buf = String::new();
+    file.read_to_string(&mut buf).unwrap();
+
+    // TODO: Actually test this here.
+    let _ = read_grammar_file(buf.as_str()).unwrap();
+}

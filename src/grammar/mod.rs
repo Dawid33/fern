@@ -204,18 +204,27 @@ impl Grammar {
             }
         }
 
-        // TODO: Fix debug formatting after adding simplelog
-        // debug!("FIRST OP");
-        // for row in first_ops.keys() {
-        //     debug!("{:?} : {:?}", row, first_ops.get(row));
-        // }
-        // debug!("");
-        //
-        // debug!("LAST OP");
-        // for row in last_ops.keys() {
-        //     debug!("{:?} : {:?}", row, last_ops.get(row));
-        // }
-        // debug!("");
+        debug!("FIRST OP");
+        let mut largest = 0;
+        first_ops.keys().for_each(|x| {
+            let s_len = token_raw.get(x).unwrap().len();
+            if s_len > largest { largest = s_len }
+        });
+        for row in first_ops.keys() {
+            let row_full_raw: Vec<&String> = first_ops.get(row).unwrap().iter().map(|row_item| {token_raw.get(row_item).unwrap()}).collect();
+            debug!("{:s_len$} : {:?}", token_raw.get(row).unwrap(), row_full_raw, s_len = largest);
+        }
+
+        debug!("LAST OP");
+        largest = 0;
+        last_ops.keys().for_each(|x| {
+            let s_len = token_raw.get(x).unwrap().len();
+            if s_len > largest { largest = s_len }
+        });
+        for row in last_ops.keys() {
+            let row_full_raw: Vec<&String> = last_ops.get(row).unwrap().iter().map(|row_item| {token_raw.get(row_item).unwrap()}).collect();
+            debug!("{:s_len$} : {:?}", token_raw.get(row).unwrap(), row_full_raw, s_len = largest);
+        }
 
         let mut template: HashMap<u8, Associativity> = HashMap::new();
         for t in &terminals {
@@ -278,22 +287,30 @@ impl Grammar {
             }
         }
 
-        // TOOD: Fix debug formatting after addting simplelog
-        // debug!("{:<16}", "");
-        // for row in &terminals {
-        //     debug!("{:16}", format!("{:?}", row));
-        // }
-        // debug!("");
-        //
-        // for row in &terminals {
-        //     debug!("{:16}", format!("{:?}", row));
-        //     let curr_row = op_table.get(row).unwrap();
-        //     for col in &terminals {
-        //         debug!("{:16}", format!("{:?}", curr_row.get(col).unwrap()));
-        //     }
-        //     debug!("");
-        // }
-        // debug!("");
+        // Print op_table
+        largest = 0;
+        terminals.iter().for_each(|x| {
+            let s_len = token_raw.get(x).unwrap().len();
+            if s_len > largest { largest = s_len }
+        });
+        largest += 1;
+        let mut builder = String::new();
+        builder.push_str(format!("{:<l$}", "", l=largest).as_str());
+        for row in &terminals {
+            builder.push_str(format!("{:<l$}", token_raw.get(row).unwrap(), l=largest).as_str());
+        }
+        debug!("{}", builder);
+        builder.clear();
+
+        for row in &terminals {
+            builder.push_str(format!("{:<l$}", token_raw.get(row).unwrap(), l=largest).as_str());
+            let curr_row = op_table.get(row).unwrap();
+            for col in &terminals {
+                builder.push_str(format!("{:<l$}", format!("{:?}", curr_row.get(col).unwrap()), l=largest).as_str());
+            }
+            debug!("{}", builder);
+            builder.clear();
+        }
 
         Ok(Grammar {
             token_raw,

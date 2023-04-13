@@ -12,22 +12,24 @@ use crossbeam_skiplist::SkipMap;
 use log::trace;
 use memmap::{Mmap, MmapOptions};
 use tinyrand::{RandRange, StdRand};
-pub mod json;
+pub mod fern;
 
-use json::LexerState::InString;
+use fern::FernLexerState::InString;
 use crate::grammar::Grammar;
-use crate::lexer::json::{JsonLexer, JsonTokens, LexerState};
+use crate::lexer::fern::{FernLexer, FernTokens, FernLexerState};
+use crate::lexer::fern::FernLexerState::InName;
 
 pub mod error;
+pub mod json;
 
 pub struct LexerOutput {
-    lists: HashMap<LexerState, LexerPartialOutput>,
+    lists: HashMap<FernLexerState, LexerPartialOutput>,
 }
 
 #[allow(unused)]
 pub struct LexerPartialOutput {
     list: Vec<u8>,
-    finish_state: LexerState,
+    finish_state: FernLexerState,
     success: bool,
 }
 
@@ -70,8 +72,8 @@ impl<'a> ParallelLexer<'a> {
                     if let Some(task) = task {
                         let mut token_buf = Vec::new();
                         let mut token_buf_string = Vec::new();
-                        let mut lexer_start: JsonLexer = JsonLexer::new(grammar.clone(), &mut token_buf, LexerState::Start);
-                        let mut lexer_string: JsonLexer = JsonLexer::new(grammar.clone(), &mut token_buf_string, InString);
+                        let mut lexer_start: FernLexer = FernLexer::new(grammar.clone(), &mut token_buf, FernLexerState::Start);
+                        let mut lexer_string: FernLexer = FernLexer::new(grammar.clone(), &mut token_buf_string, InString);
                         let mut start = true;
                         let mut string = true;
 
@@ -84,8 +86,8 @@ impl<'a> ParallelLexer<'a> {
                             }
                         }
 
-                        let mut map: HashMap<LexerState, LexerPartialOutput> = HashMap::new();
-                        map.insert(LexerState::Start, LexerPartialOutput {success: start, finish_state: lexer_start.state, list: token_buf});
+                        let mut map: HashMap<FernLexerState, LexerPartialOutput> = HashMap::new();
+                        map.insert(FernLexerState::Start, LexerPartialOutput {success: start, finish_state: lexer_start.state, list: token_buf});
                         map.insert(InString, LexerPartialOutput {success: string, finish_state: lexer_string.state, list: token_buf_string});
 
                         task.2.insert(task.0, LexerOutput { lists: map});
@@ -155,15 +157,15 @@ impl<'a> ParallelLexer<'a> {
         }
         let first = first.unwrap();
         let first = first.value();
-        let start_state_output = &first.lists.get(&LexerState::Start).unwrap();
+        let start_state_output = &first.lists.get(&FernLexerState::Start).unwrap();
         result.append(&mut start_state_output.list.clone());
 
-        for x in &start_state_output.list {
-            trace!("{:?} ", x);
-        }
-        trace!("");
+        // for x in &start_state_output.list {
+        //     trace!("{:?} ", x);
+        // }
+        // trace!("");
 
-        let mut previous_finish_state = LexerState::Start;
+        let mut previous_finish_state = FernLexerState::Start;
         for x in x.output.iter() {
             let val: &LexerOutput= x.value();
             let mut found_match = false;
@@ -248,7 +250,7 @@ pub fn lex(input: &str, grammar: &Grammar, threads: usize) -> Result<Vec<u8>, Bo
 #[test]
 pub fn test_lexer() -> Result<(), Box<dyn Error>>{
     let grammar = Grammar::from("json.g");
-    let t = JsonTokens::new(&grammar.tokens_reverse);
+    let t = FernTokens::new(&grammar.tokens_reverse);
 
     let test = |input: &str, expected: Vec<u8>| -> Result<(), Box<dyn Error>>{
         let output = lex(input, &grammar,1)?;

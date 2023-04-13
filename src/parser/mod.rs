@@ -146,7 +146,7 @@ impl ParallelParser {
             self.should_reconsume = false;
 
             if self.stack.len() == 1 {
-                if self.stack.get(0).unwrap().associativity == Associativity::Undefined {
+                if self.stack.get(0).unwrap().token == self.grammar.axiom {
                     let mut output = String::new();
                     for (id, _) in &self.open_nodes {
                         for t in &self.stack {
@@ -183,12 +183,12 @@ impl ParallelParser {
             };
 
             if precedence == Associativity::None {
-                return Err(Box::try_from("No precedence == user grammar error").unwrap());
+                panic!("No precedence between y = {} and token = {} == user grammar error", self.grammar.token_raw.get(&y.token).unwrap(), self.grammar.token_raw.get(&token).unwrap())
             }
 
             let mut output = String::new();
-            for (key, _) in &self.open_nodes {
-                output.push_str(format!("{:?} ", key).as_str());
+            for (key, node) in &self.open_nodes {
+                output.push_str(format!("({:?} {:?}) ", key, self.grammar.token_raw.get(&node.symbol).unwrap()).as_str());
             }
             debug!("{} Open nodes: {}", self.iteration, output);
             debug!("{} Applying {:?} {:?}", self.iteration, token, precedence);
@@ -237,7 +237,7 @@ impl ParallelParser {
                         } else if self.grammar.non_terminals.contains(&xi_minus_one.token) {
                             self.process_non_terminal(i);
                         } else {
-                            return Err(Box::try_from("Should be able to reduce but cannot.").unwrap());
+                            panic!("Should be able to reduce but cannot.");
                         }
                     } else {
                         self.process_terminal(i);
@@ -349,7 +349,7 @@ impl ParallelParser {
                 Associativity::Undefined => '?',
                 Associativity::None => '!'
             };
-            output.push_str(format!("({:?}, {}) ", i.token, x).as_str());
+            output.push_str(format!("({:?}, {}) ", self.grammar.token_raw.get(&i.token).unwrap(), x).as_str());
         }
         debug!("{} Stack: {}", self.iteration, output);
     }
@@ -359,7 +359,7 @@ impl ParallelParser {
             let mut nodes: Vec<Node>  = self.open_nodes.into_iter().map(|(_, v)| v).collect();
             return Ok(ParseTree::new(nodes.remove(0), self.grammar));
         } else {
-            return Err(Box::try_from("Cannot create parse tree.").unwrap());
+            panic!("Cannot create parse tree.");
         }
     }
 }

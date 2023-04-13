@@ -6,7 +6,7 @@ use crate::grammar::reader::TokenTypes;
 use crate::lexer::error::LexerError;
 
 #[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
-pub enum LexerState {
+pub enum JsonLexerState {
     Start,
     InString,
     InNumber,
@@ -45,14 +45,14 @@ impl JsonTokens {
 pub struct JsonLexer<'a> {
     pub tokens: &'a mut Vec<u8>,
     pub data: HashMap<usize, String>,
-    pub state: LexerState,
+    pub state: JsonLexerState,
     buf: String,
     grammar: Grammar,
     tok: JsonTokens,
 }
 
 impl<'a> JsonLexer<'a> {
-    pub fn new(grammar: Grammar, s: &'a mut Vec<u8>, start_state: LexerState) -> JsonLexer {
+    pub fn new(grammar: Grammar, s: &'a mut Vec<u8>, start_state: JsonLexerState) -> JsonLexer {
         // Create a list of terminals that the lexer can output.
         // TODO: Figure out how to put this in the grammar file.
         JsonLexer {
@@ -75,7 +75,7 @@ impl<'a> JsonLexer<'a> {
             };
 
             match self.state {
-                LexerState::Start => match c {
+                JsonLexerState::Start => match c {
                     'a'..='z' | 'A'..='Z' => {
                         push(self.tok.char);
                     }
@@ -86,11 +86,11 @@ impl<'a> JsonLexer<'a> {
                     ':' => push(self.tok.colon),
                     ',' => push(self.tok.comma),
                     '\"' => {
-                        self.state = LexerState::InString;
+                        self.state = JsonLexerState::InString;
                         push(self.tok.quotes);
                     }
                     '0'..='9' => {
-                        self.state = LexerState::InNumber;
+                        self.state = JsonLexerState::InNumber;
                         self.buf.push(c);
                     }
                     '\n' | ' ' | '\t' => {}
@@ -101,9 +101,9 @@ impl<'a> JsonLexer<'a> {
                         )));
                     }
                 },
-                LexerState::InString => match c {
+                JsonLexerState::InString => match c {
                     '\"' => {
-                        self.state = LexerState::Start;
+                        self.state = JsonLexerState::Start;
                         push(self.tok.quotes);
                     }
                     '\n' => {
@@ -113,10 +113,10 @@ impl<'a> JsonLexer<'a> {
                     }
                     _ => push(self.tok.char),
                 },
-                LexerState::InNumber => match c {
+                JsonLexerState::InNumber => match c {
                     '0'..='9' => self.buf.push(c),
                     _ => {
-                        self.state = LexerState::Start;
+                        self.state = JsonLexerState::Start;
                         push(self.tok.number);
                         self.data.insert(self.tokens.len(), self.buf.clone());
                         self.buf.clear();

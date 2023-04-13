@@ -20,14 +20,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         .set_target_level(simplelog::LevelFilter::Off)
         .set_thread_level(simplelog::LevelFilter::Off)
         .build();
-    let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Debug, config);
+    let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Trace, config);
 
-    let grammar = Grammar::from("json.g");
+    let grammar = Grammar::from("fern.g");
     info!("Total Time to generate grammar : {:?}", now.elapsed());
     now = Instant::now();
 
     let tokens: Vec<u8> = {
-        let file = File::open("data/full.json")?;
+        let file = File::open("data/full.fern")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         thread::scope(|s| {
             let mut lexer = ParallelLexer::new(grammar.clone(), s, 1);
@@ -41,6 +41,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     info!("Total Time to lex: {:?}", now.elapsed());
     now = Instant::now();
+    info!("{:?}", tokens);
 
     let tree: ParseTree = {
         let mut parser = ParallelParser::new(grammar, 1);
