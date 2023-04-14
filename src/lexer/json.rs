@@ -4,6 +4,7 @@ use crate::lexer::error::LexerError;
 use log::trace;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use crate::lexer::LexerInterface;
 
 #[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
 pub enum JsonLexerState {
@@ -42,8 +43,8 @@ impl JsonTokens {
     }
 }
 
-pub struct JsonLexer<'a> {
-    pub tokens: &'a mut Vec<u8>,
+pub struct JsonLexer {
+    pub tokens: Vec<u8>,
     pub data: HashMap<usize, String>,
     pub state: JsonLexerState,
     buf: String,
@@ -51,12 +52,12 @@ pub struct JsonLexer<'a> {
     tok: JsonTokens,
 }
 
-impl<'a> JsonLexer<'a> {
-    pub fn new(grammar: Grammar, s: &'a mut Vec<u8>, start_state: JsonLexerState) -> JsonLexer {
+impl LexerInterface<JsonLexerState> for JsonLexer {
+    fn new(grammar: Grammar, start_state: JsonLexerState) -> JsonLexer {
         // Create a list of terminals that the lexer can output.
         // TODO: Figure out how to put this in the grammar file.
         JsonLexer {
-            tokens: s,
+            tokens: Vec::new(),
             state: start_state,
             buf: String::new(),
             data: HashMap::new(),
@@ -64,7 +65,7 @@ impl<'a> JsonLexer<'a> {
             grammar,
         }
     }
-    pub fn consume(&mut self, c: &u8) -> Result<(), LexerError> {
+    fn consume(&mut self, c: &u8) -> Result<(), LexerError> {
         loop {
             let mut should_reconsume = false;
 
@@ -130,5 +131,8 @@ impl<'a> JsonLexer<'a> {
             }
         }
         return Ok(());
+    }
+    fn take(self) -> (JsonLexerState, Vec<u8>) {
+        (self.state, self.tokens)
     }
 }

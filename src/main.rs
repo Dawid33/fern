@@ -9,8 +9,9 @@ use std::thread;
 use std::time::Instant;
 
 use core::grammar::Grammar;
-use core::lexer::ParallelLexer;
 use core::parser::{ParallelParser, ParseTree};
+use core::lexer::{json::*};
+use core::lexer::*;
 use log::{debug, info};
 use memmap::MmapOptions;
 
@@ -31,7 +32,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let file = File::open("data/full.json")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         thread::scope(|s| {
-            let mut lexer = ParallelLexer::new(grammar.clone(), s, 1);
+            let mut lexer: ParallelLexer<JsonLexerState, JsonLexer> = ParallelLexer::new(grammar.clone(), s, 1, &[JsonLexerState::Start, JsonLexerState::InString], JsonLexerState::Start);
             let batch = lexer.new_batch();
             lexer.add_to_batch(&batch, &mmap[..], 0);
             let tokens = lexer.collect_batch(batch);

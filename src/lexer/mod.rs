@@ -6,117 +6,122 @@ use std::collections::{HashMap, LinkedList};
 use std::error::Error;
 use std::fs::File;
 use std::io::{stdout, Write};
+use std::marker::PhantomData;
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 use std::task::ready;
 use std::thread::{Scope, ScopedJoinHandle};
 use std::time::{Duration, Instant};
 use std::{iter, thread};
+use std::fmt::Debug;
+use std::hash::Hash;
 use tinyrand::{RandRange, StdRand};
+
 pub mod fern;
+pub mod json;
+pub mod error;
 
 use crate::grammar::Grammar;
-use crate::lexer::fern::FernLexerState::InName;
-use crate::lexer::fern::{FernLexer, FernLexerState, FernTokens};
+use crate::lexer::error::LexerError;
+use crate::lexer::fern::{FernLexer, FernLexerState};
 use crate::lexer::json::{JsonLexer, JsonLexerState, JsonTokens};
-use fern::FernLexerState::InString;
 
-pub mod error;
-pub mod json;
-
-pub struct LexerOutput {
-    lists: Option<HashMap<JsonLexerState, LexerPartialOutput>>,
+pub struct LexerOutput<T> {
+    lists: Option<HashMap<T, LexerPartialOutput<T>>>,
 }
 
 #[allow(unused)]
-pub struct LexerPartialOutput {
+pub struct LexerPartialOutput<T> {
     list: Vec<u8>,
-    finish_state: JsonLexerState,
+    finish_state: T,
     success: bool,
 }
 
-pub struct WorkUnit<'a>(usize, &'a [u8], Arc<SkipMap<usize, RwLock<LexerOutput>>>);
+pub struct WorkUnit<'a, T>(usize, &'a [u8], Arc<SkipMap<usize, RwLock<LexerOutput<T>>>>);
 
-pub struct ParallelLexer<'a> {
+pub struct ParallelLexer<'a, T, U> {
     handles: Vec<ScopedJoinHandle<'a, ()>>,
     connection: crossbeam_channel::Sender<bool>,
-    queue: Arc<Injector<WorkUnit<'a>>>,
-    outputs: HashMap<String, Batch>,
+    queue: Arc<Injector<WorkUnit<'a, T>>>,
+    outputs: HashMap<String, Batch<T>>,
+    initial_state: T,
+    _phantom_data: PhantomData<U>,
 }
 
-pub struct Batch {
-    output: Arc<SkipMap<usize, RwLock<LexerOutput>>>,
+pub struct Batch<T> {
+    output: Arc<SkipMap<usize, RwLock<LexerOutput<T>>>>,
     size: usize,
 }
 
-impl<'a> ParallelLexer<'a> {
-    pub fn new(grammar: Grammar, scope: &'a Scope<'a, '_>, threads: usize) -> Self {
-        let queue: Arc<Injector<WorkUnit>> = Arc::new(Injector::new());
+pub trait LexerInterface<T> {
+    fn new(grammar: Grammar, start_state: T) -> Self;
+    fn consume(&mut self, c: &u8) -> Result<(), LexerError>;
+    fn take(self) -> (T, Vec<u8>);
+}
+
+impl<'a, T, Lexer> ParallelLexer<'a, T, Lexer>
+    where
+        T: Copy + Send + Sync + 'static + Eq + PartialEq + Hash + Debug,
+        Lexer: LexerInterface<T>,
+{
+    pub fn new(
+        grammar: Grammar,
+        scope: &'a Scope<'a, '_>,
+        threads: usize,
+        possible_start_states: &[T],
+        initial_state: T,
+    ) -> Self {
+        let queue: Arc<Injector<WorkUnit<T>>> = Arc::new(Injector::new());
         let (send, recv) = crossbeam_channel::bounded(threads);
-        let outputs: HashMap<String, Batch> = HashMap::new();
+        let outputs: HashMap<String, Batch<T>> = HashMap::new();
 
         let mut handles = vec![];
         for _ in 0..threads {
             let reciever = recv.clone();
             let global = queue.clone();
             let grammar = grammar.clone();
+            let start_states: Vec<T> = Vec::from(possible_start_states);
 
             handles.push(scope.spawn(move || {
-                let worker: Worker<WorkUnit> = Worker::new_fifo();
+                let worker: Worker<WorkUnit<T>> = Worker::new_fifo();
 
                 let mut should_run = true;
                 while should_run {
-                    let task: Option<WorkUnit<'a>> = worker.pop().or_else(|| {
+                    let task: Option<WorkUnit<'a, T>> = worker.pop().or_else(|| {
                         iter::repeat_with(|| global.steal_batch_and_pop(&worker))
                             .find(|s| !s.is_retry())
                             .and_then(|s| s.success())
                     });
                     if let Some(task) = task {
-                        let mut token_buf = Vec::new();
-                        let mut token_buf_string = Vec::new();
-                        let mut lexer_start: JsonLexer =
-                            JsonLexer::new(grammar.clone(), &mut token_buf, JsonLexerState::Start);
-                        let mut lexer_string: JsonLexer = JsonLexer::new(
-                            grammar.clone(),
-                            &mut token_buf_string,
-                            JsonLexerState::InString,
-                        );
-                        let mut start = true;
-                        let mut string = true;
+                        let mut lexers: Vec<(Lexer, T, bool)> = Vec::new();
+                        for state in &start_states {
+                            lexers.push((Lexer::new(grammar.clone(), *state), *state, true));
+                        }
 
                         for c in task.1 {
-                            if start {
-                                if let Err(_) = lexer_start.consume(c) {
-                                    start = false;
-                                }
-                            }
-                            if string {
-                                if let Err(_) = lexer_string.consume(c) {
-                                    string = false;
+                            for (lexer, _, is_successful) in &mut lexers {
+                                if *is_successful {
+                                    if let Err(_) = lexer.consume(c) {
+                                        *is_successful = false;
+                                    }
                                 }
                             }
                         }
 
-                        let mut map: HashMap<JsonLexerState, LexerPartialOutput> = HashMap::new();
-                        map.insert(
-                            JsonLexerState::Start,
-                            LexerPartialOutput {
-                                success: start,
-                                finish_state: lexer_start.state,
-                                list: token_buf,
-                            },
-                        );
-                        map.insert(
-                            JsonLexerState::InString,
-                            LexerPartialOutput {
-                                success: string,
-                                finish_state: lexer_string.state,
-                                list: token_buf_string,
-                            },
-                        );
-
-                        task.2
-                            .insert(task.0, RwLock::new(LexerOutput { lists: Some(map) }));
+                        let mut map: HashMap<T, LexerPartialOutput<T>> =
+                            HashMap::new();
+                        for (lexer, start_state, is_successful) in lexers {
+                            let (finish_state, tokens) = lexer.take();
+                            map.insert(
+                                start_state,
+                                LexerPartialOutput {
+                                    success: is_successful,
+                                    finish_state: finish_state,
+                                    list: tokens,
+                                },
+                            );
+                        }
+                        task.2.insert(task.0, RwLock::new(LexerOutput { lists: Some(map) }));
                     } else if let Ok(_) = reciever.try_recv() {
                         should_run = false;
                     } else {
@@ -130,6 +135,8 @@ impl<'a> ParallelLexer<'a> {
             handles,
             queue: queue.clone(),
             outputs,
+            initial_state,
+            _phantom_data: PhantomData::default(),
         };
     }
 
@@ -181,7 +188,7 @@ impl<'a> ParallelLexer<'a> {
     }
 
     pub fn collect_batch(&mut self, id: String) -> LinkedList<Vec<u8>> {
-        let x: Batch = self.outputs.remove(id.as_str()).unwrap();
+        let x: Batch<T> = self.outputs.remove(id.as_str()).unwrap();
 
         // Spin until threads have finished lexing.
         while x.size != x.output.len() {}
@@ -199,11 +206,11 @@ impl<'a> ParallelLexer<'a> {
 
         let first = first.unwrap();
         let mut first = first.value().write().unwrap().lists.take().unwrap();
-        let start_state_output = first.remove(&JsonLexerState::Start).unwrap();
-        ParallelLexer::print_lexer_state_list(&start_state_output.list);
+        let start_state_output = first.remove(&self.initial_state).unwrap();
+        ParallelLexer::<T, Lexer>::print_lexer_state_list(&start_state_output.list);
         result.push_back(start_state_output.list);
 
-        let mut previous_finish_state = JsonLexerState::Start;
+        let mut previous_finish_state = self.initial_state;
         for x in x.output.iter() {
             let mut val = x.value().write().unwrap();
             let mut found_match = false;
@@ -216,7 +223,7 @@ impl<'a> ParallelLexer<'a> {
                 if previous_finish_state == start_state {
                     trace!("yes");
 
-                    ParallelLexer::print_lexer_state_list(&partial_output.list);
+                    ParallelLexer::<T, Lexer>::print_lexer_state_list(&partial_output.list);
                     found_match = true;
                     previous_finish_state = partial_output.finish_state;
                     result.push_back(partial_output.list);
@@ -281,7 +288,7 @@ pub fn lex(
     let mut tokens: LinkedList<Vec<u8>> = LinkedList::new();
     {
         thread::scope(|s| {
-            let mut lexer = ParallelLexer::new(grammar.clone(), s, threads);
+            let mut lexer: ParallelLexer<JsonLexerState, JsonLexer> = ParallelLexer::new(grammar.clone(), s, threads, &[JsonLexerState::Start, JsonLexerState::InString], JsonLexerState::Start);
             let batch = lexer.new_batch();
             lexer.add_to_batch(&batch, input.as_bytes(), 0);
             tokens = lexer.collect_batch(batch);
@@ -292,14 +299,16 @@ pub fn lex(
 }
 
 #[test]
-pub fn test_lexer() -> Result<(), Box<dyn Error>>{
+pub fn test_lexer() -> Result<(), Box<dyn Error>> {
     let grammar = Grammar::from("data/grammar/json.g");
-    let t = JsonTokens::new(&grammar.tokens_reverse);
+    let t = json::JsonTokens::new(&grammar.tokens_reverse);
 
-    let test = |input: &str, expected: Vec<u8>| -> Result<(), Box<dyn Error>>{
-        let mut ll = lex(input, &grammar,1)?;
+    let test = |input: &str, expected: Vec<u8>| -> Result<(), Box<dyn Error>> {
+        let mut ll = lex(input, &grammar, 1)?;
         let mut output = Vec::new();
-        for list in &mut ll { output.append(list); }
+        for list in &mut ll {
+            output.append(list);
+        }
         assert_eq!(output, expected);
         Ok(())
     };
@@ -308,7 +317,9 @@ pub fn test_lexer() -> Result<(), Box<dyn Error>>{
     {\
         \"test\": 100\
     }";
-    let expected = vec![t.lbrace, t.quotes, t.char, t.char, t.char, t.char, t.quotes, t.colon, t.number, t.rbrace];
+    let expected = vec![
+        t.lbrace, t.quotes, t.char, t.char, t.char, t.char, t.quotes, t.colon, t.number, t.rbrace,
+    ];
     test(input, expected)?;
     Ok(())
 }

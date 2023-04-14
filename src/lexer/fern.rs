@@ -4,6 +4,7 @@ use crate::lexer::error::LexerError;
 use log::trace;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use crate::lexer::LexerInterface;
 
 pub struct FernTokens {
     pub endfile: u8,
@@ -123,8 +124,8 @@ pub enum FernLexerState {
     InNumber,
 }
 
-pub struct FernLexer<'a> {
-    pub tokens: &'a mut Vec<u8>,
+pub struct FernLexer {
+    pub tokens: Vec<u8>,
     pub data: HashMap<usize, String>,
     pub state: FernLexerState,
     buf: String,
@@ -132,12 +133,10 @@ pub struct FernLexer<'a> {
     tok: FernTokens,
 }
 
-impl<'a> FernLexer<'a> {
-    pub fn new(grammar: Grammar, s: &'a mut Vec<u8>, start_state: FernLexerState) -> FernLexer {
-        // Create a list of terminals that the lexer can output.
-        // TODO: Figure out how to put this in the grammar file.
+impl LexerInterface<FernLexerState> for FernLexer {
+    fn new(grammar: Grammar, start_state: FernLexerState) -> Self {
         FernLexer {
-            tokens: s,
+            tokens: Vec::new(),
             state: start_state,
             buf: String::new(),
             data: HashMap::new(),
@@ -145,7 +144,7 @@ impl<'a> FernLexer<'a> {
             grammar,
         }
     }
-    pub fn consume(&mut self, c: &u8) -> Result<(), LexerError> {
+    fn consume(&mut self, c: &u8) -> Result<(), LexerError> {
         loop {
             let mut should_reconsume = false;
 
@@ -247,5 +246,8 @@ impl<'a> FernLexer<'a> {
             }
         }
         return Ok(());
+    }
+    fn take(self) -> (FernLexerState, Vec<u8>) {
+        (self.state, self.tokens)
     }
 }

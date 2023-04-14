@@ -7,7 +7,7 @@ use std::thread;
 use std::time::Instant;
 
 use core::grammar::Grammar;
-use core::lexer::ParallelLexer;
+use core::lexer::ParallelJsonLexer;
 use core::parser::{ParallelParser, ParseTree};
 use log::{debug, info};
 use memmap::MmapOptions;
@@ -32,7 +32,7 @@ fn full_test() -> Result<(), Box<dyn Error>> {
         info!("Total time to load file: {:?}", now.elapsed());
         now = Instant::now();
         thread::scope(|s| {
-            let mut lexer = ParallelLexer::new(grammar.clone(), s, 1);
+            let mut lexer = ParallelJsonLexer::new(grammar.clone(), s, 1);
             let batch = lexer.new_batch();
             lexer.add_to_batch(&batch, &mmap[..], 0);
             tokens = lexer.collect_batch(batch);
@@ -55,7 +55,10 @@ fn full_test() -> Result<(), Box<dyn Error>> {
 
     now = Instant::now();
 
-    debug!("Total Time For ParseTree -> AST Conversion: {:?}", now.elapsed());
+    debug!(
+        "Total Time For ParseTree -> AST Conversion: {:?}",
+        now.elapsed()
+    );
     Ok(())
 }
 
@@ -81,7 +84,7 @@ fn parallel_lexing() -> Result<(), Box<dyn Error>> {
     let chunks = core::lexer::split_mmap_into_chunks(&mut memmap, 6000).unwrap();
 
     let tokens = thread::scope(|s| {
-        let mut lexer = ParallelLexer::new(grammar.clone(), s, 16);
+        let mut lexer = ParallelJsonLexer::new(grammar.clone(), s, 16);
         let batch = lexer.new_batch();
         for task in chunks.iter().enumerate() {
             lexer.add_to_batch(&batch, task.1, task.0);
