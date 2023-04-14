@@ -1,10 +1,10 @@
 use crate::grammar::reader::TokenTypes;
 use crate::grammar::Grammar;
 use crate::lexer::error::LexerError;
+use crate::lexer::LexerInterface;
 use log::trace;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use crate::lexer::LexerInterface;
 
 #[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
 pub enum JsonLexerState {
@@ -71,7 +71,6 @@ impl LexerInterface<JsonLexerState> for JsonLexer {
 
             let c = *c as char;
             let mut push = |t: u8| {
-                trace!("{:?}", t);
                 self.tokens.push(t);
             };
 

@@ -4,7 +4,9 @@ use log::{debug, trace};
 use memmap::{Mmap, MmapOptions};
 use std::collections::{HashMap, LinkedList};
 use std::error::Error;
+use std::fmt::Debug;
 use std::fs::File;
+use std::hash::Hash;
 use std::io::{stdout, Write};
 use std::marker::PhantomData;
 use std::ops::Deref;
@@ -13,13 +15,11 @@ use std::task::ready;
 use std::thread::{Scope, ScopedJoinHandle};
 use std::time::{Duration, Instant};
 use std::{iter, thread};
-use std::fmt::Debug;
-use std::hash::Hash;
 use tinyrand::{RandRange, StdRand};
 
+pub mod error;
 pub mod fern;
 pub mod json;
-pub mod error;
 
 use crate::grammar::Grammar;
 use crate::lexer::error::LexerError;
@@ -60,9 +60,9 @@ pub trait LexerInterface<T> {
 }
 
 impl<'a, T, Lexer> ParallelLexer<'a, T, Lexer>
-    where
-        T: Copy + Send + Sync + 'static + Eq + PartialEq + Hash + Debug,
-        Lexer: LexerInterface<T>,
+where
+    T: Copy + Send + Sync + 'static + Eq + PartialEq + Hash + Debug,
+    Lexer: LexerInterface<T>,
 {
     pub fn new(
         grammar: Grammar,
@@ -108,8 +108,7 @@ impl<'a, T, Lexer> ParallelLexer<'a, T, Lexer>
                             }
                         }
 
-                        let mut map: HashMap<T, LexerPartialOutput<T>> =
-                            HashMap::new();
+                        let mut map: HashMap<T, LexerPartialOutput<T>> = HashMap::new();
                         for (lexer, start_state, is_successful) in lexers {
                             let (finish_state, tokens) = lexer.take();
                             map.insert(
@@ -121,7 +120,8 @@ impl<'a, T, Lexer> ParallelLexer<'a, T, Lexer>
                                 },
                             );
                         }
-                        task.2.insert(task.0, RwLock::new(LexerOutput { lists: Some(map) }));
+                        task.2
+                            .insert(task.0, RwLock::new(LexerOutput { lists: Some(map) }));
                     } else if let Ok(_) = reciever.try_recv() {
                         should_run = false;
                     } else {
@@ -188,10 +188,10 @@ impl<'a, T, Lexer> ParallelLexer<'a, T, Lexer>
     }
 
     pub fn collect_batch(&mut self, id: String) -> LinkedList<Vec<u8>> {
-        let x: Batch<T> = self.outputs.remove(id.as_str()).unwrap();
+        let batch: Batch<T> = self.outputs.remove(id.as_str()).unwrap();
 
         // Spin until threads have finished lexing.
-        while x.size != x.output.len() {}
+        while batch.size != batch.output.len() {}
 
         // Append first item in list to output
         let mut result: LinkedList<Vec<u8>> = LinkedList::new();
@@ -199,9 +199,9 @@ impl<'a, T, Lexer> ParallelLexer<'a, T, Lexer>
         // For some unknown (probably data-race) reason, if there is only one thread,
         // it will intermittently fail to pop the top of the skiplist even though its
         // .len() function shows that its not empty. Keeping pop'in till were not nothing.
-        let mut first = x.output.pop_front();
+        let mut first = batch.output.pop_front();
         while first.is_none() {
-            first = x.output.pop_front();
+            first = batch.output.pop_front();
         }
 
         let first = first.unwrap();
@@ -211,7 +211,7 @@ impl<'a, T, Lexer> ParallelLexer<'a, T, Lexer>
         result.push_back(start_state_output.list);
 
         let mut previous_finish_state = self.initial_state;
-        for x in x.output.iter() {
+        for x in batch.output.iter() {
             let mut val = x.value().write().unwrap();
             let mut found_match = false;
             for (start_state, partial_output) in val.lists.take().unwrap() {
@@ -288,7 +288,13 @@ pub fn lex(
     let mut tokens: LinkedList<Vec<u8>> = LinkedList::new();
     {
         thread::scope(|s| {
-            let mut lexer: ParallelLexer<JsonLexerState, JsonLexer> = ParallelLexer::new(grammar.clone(), s, threads, &[JsonLexerState::Start, JsonLexerState::InString], JsonLexerState::Start);
+            let mut lexer: ParallelLexer<JsonLexerState, JsonLexer> = ParallelLexer::new(
+                grammar.clone(),
+                s,
+                threads,
+                &[JsonLexerState::Start, JsonLexerState::InString],
+                JsonLexerState::Start,
+            );
             let batch = lexer.new_batch();
             lexer.add_to_batch(&batch, input.as_bytes(), 0);
             tokens = lexer.collect_batch(batch);

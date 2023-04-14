@@ -1,10 +1,10 @@
 use crate::grammar::reader::TokenTypes;
 use crate::grammar::Grammar;
 use crate::lexer::error::LexerError;
+use crate::lexer::LexerInterface;
 use log::trace;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use crate::lexer::LexerInterface;
 
 pub struct FernTokens {
     pub endfile: u8,
