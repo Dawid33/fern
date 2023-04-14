@@ -62,22 +62,23 @@ impl TokenGrammarTuple {
 impl ParseTree {
     pub fn print(&self) {
         let mut node_stack: Vec<&Node> = vec![&self.root];
-        let mut child_count_stack: Vec<i32> = vec![(self.root.children.len() - 1) as i32];
+        let mut child_count_stack: Vec<(i32, i32)> = vec![(0, (self.root.children.len() - 1) as i32)];
 
         println!("{}", self.g.token_raw.get(&self.root.symbol).unwrap());
         while !node_stack.is_empty() {
             let current = node_stack.pop().unwrap();
-            let mut current_child = child_count_stack.pop().unwrap();
+            let (mut current_child, max_child) = child_count_stack.pop().unwrap();
 
-            while current.children.len() > 0 && current_child >= 0 {
+            while current.children.len() > 0 && current_child <= max_child {
                 for i in 0..child_count_stack.len() {
-                    if *child_count_stack.get(i).unwrap() >= 0 {
+                    let (current, max) = child_count_stack.get(i).unwrap();
+                    if *current <= *max {
                         print!("| ");
                     } else {
                         print!("  ");
                     }
                 }
-                if current_child != 0 {
+                if current_child != max_child {
                     println!(
                         "├─{}",
                         self.g
@@ -103,13 +104,13 @@ impl ParseTree {
                 {
                     node_stack.push(current);
                     let child = current.children.get(current_child as usize).unwrap();
-                    current_child -= 1;
+                    current_child += 1;
                     node_stack.push(child);
-                    child_count_stack.push(current_child);
-                    child_count_stack.push((child.children.len() - 1) as i32);
+                    child_count_stack.push((current_child, max_child));
+                    child_count_stack.push((0, (child.children.len() - 1) as i32));
                     break;
                 }
-                current_child -= 1;
+                current_child += 1;
             }
         }
     }
@@ -308,6 +309,10 @@ impl ParallelParser {
 
                 if self.g.non_terminals.contains(&curr) {
                     let mut token: Option<u8> = None;
+                    // if r.right.len() > 1 {
+                    //     rule_applies = false;
+                    //     break;
+                    // }
                     for t in self.g.inverse_rewrite_rules.get(&curr).unwrap() {
                         if *t == *r.right.get(j as usize).unwrap() {
                             token = Some(*t);
@@ -326,6 +331,8 @@ impl ParallelParser {
             if rule_applies {
                 if r.right.len() > longest as usize {
                     longest = r.right.len() as i32;
+
+                    debug!("Found rule {:?}", self.g.token_raw.get(&r.left).unwrap());
 
                     if rewrites.is_empty() {
                         rule = Some((*r).clone());

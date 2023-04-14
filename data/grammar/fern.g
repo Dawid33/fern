@@ -100,7 +100,6 @@
 
 %%
 
-
 chunk : block
 	| ENDFILE
 	;
@@ -119,7 +118,6 @@ statList : stat
 	| statList SEMI stat
 	| statList SEMI
 	;
-
 
 stat :  varList XEQ exprList
 	| functionCall
@@ -209,7 +207,7 @@ var : NAME
 	| prefixExp DOT NAME
 	;
 
-nameList : NAME
+nameList : name
 	| nameList COMMA name
 	;
 
@@ -289,7 +287,6 @@ functionCall : prefixExp LPAREN exprList RPAREN
 	| prefixExp COLON name LBRACE RBRACE
 	| prefixExp COLON name STRING
 	;
-
 
 functionDef :FUNCTION LPARENFUNC parList RPARENFUNC block END
 	| FUNCTION LPARENFUNC RPARENFUNC block END
