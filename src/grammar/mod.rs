@@ -67,13 +67,15 @@ impl Grammar {
     pub fn new(
         rules: Vec<Rule>,
         token_types: HashMap<u8, TokenTypes>,
-        token_raw: HashMap<u8, String>,
+        mut token_raw: HashMap<u8, String>,
         tokens_reverse: HashMap<String, (u8, TokenTypes)>,
         axiom: u8,
         delim: u8,
     ) -> Result<Grammar, GrammarError> {
         let mut inverse_rewrite_rules: HashMap<u8, Vec<u8>> = HashMap::new();
         let mut op_table: HashMap<u8, HashMap<u8, Associativity>> = HashMap::new();
+
+        token_raw.insert(delim, String::from("DELIM"));
 
         let mut non_terminals = Vec::new();
         let mut terminals = Vec::new();

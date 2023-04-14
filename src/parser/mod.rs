@@ -117,7 +117,7 @@ impl ParseTree {
 
 pub struct ParallelParser {
     stack: Vec<TokenGrammarTuple>,
-    pub grammar: Grammar,
+    pub g: Grammar,
     open_nodes: HashMap<u64, Node>,
     should_reconsume: bool,
     highest_id: u64,
@@ -129,7 +129,7 @@ impl ParallelParser {
         let _ = threads;
         let parser = Self {
             stack: Vec::new(),
-            grammar,
+            g: grammar,
             should_reconsume: false,
             open_nodes: HashMap::new(),
             highest_id: 0,
@@ -164,7 +164,7 @@ impl ParallelParser {
             self.should_reconsume = false;
 
             if self.stack.len() == 1 {
-                if self.stack.get(0).unwrap().token == self.grammar.axiom {
+                if self.stack.get(0).unwrap().token == self.g.axiom {
                     let mut output = String::new();
                     for (id, _) in &self.open_nodes {
                         for t in &self.stack {
@@ -182,7 +182,7 @@ impl ParallelParser {
 
             let mut y: Option<TokenGrammarTuple> = None;
             for element in &self.stack {
-                if self.grammar.terminals.contains(&element.token) {
+                if self.g.terminals.contains(&element.token) {
                     y = Some(*element);
                 }
             }
@@ -194,17 +194,17 @@ impl ParallelParser {
             }
             let y = y.unwrap();
 
-            let precedence = if *token == self.grammar.delim {
+            let precedence = if *token == self.g.delim {
                 Associativity::Right
             } else {
-                self.grammar.get_precedence(y.token, *token)
+                self.g.get_precedence(y.token, *token)
             };
 
             if precedence == Associativity::None {
                 panic!(
                     "No precedence between y = {} and token = {} == user grammar error",
-                    self.grammar.token_raw.get(&y.token).unwrap(),
-                    self.grammar.token_raw.get(&token).unwrap()
+                    self.g.token_raw.get(&y.token).unwrap(),
+                    self.g.token_raw.get(&token).unwrap()
                 )
             }
 
@@ -214,13 +214,13 @@ impl ParallelParser {
                     format!(
                         "({:?} {:?}) ",
                         key,
-                        self.grammar.token_raw.get(&node.symbol).unwrap()
+                        self.g.token_raw.get(&node.symbol).unwrap()
                     )
                     .as_str(),
                 );
             }
             debug!("{} Open nodes: {}", self.iteration, output);
-            debug!("{} Applying {:?} {:?}", self.iteration, token, precedence);
+            debug!("{} Applying {:?} {:?}", self.iteration, self.g.token_raw.get(token).unwrap(), precedence);
             self.print_stack();
 
             if precedence == Associativity::Left {
@@ -237,7 +237,7 @@ impl ParallelParser {
                 return Ok(());
             }
 
-            if self.grammar.non_terminals.contains(token) {
+            if self.g.non_terminals.contains(token) {
                 let t = TokenGrammarTuple::new(*token, Associativity::Undefined, self);
                 self.stack.push(t);
                 debug!("{}, Append", self.iteration);
@@ -261,9 +261,9 @@ impl ParallelParser {
                     if i - 1 >= 0 {
                         let xi_minus_one = self.stack.get((i - 1) as usize).unwrap();
 
-                        if self.grammar.terminals.contains(&xi_minus_one.token) {
+                        if self.g.terminals.contains(&xi_minus_one.token) {
                             self.process_terminal(i);
-                        } else if self.grammar.non_terminals.contains(&xi_minus_one.token) {
+                        } else if self.g.non_terminals.contains(&xi_minus_one.token) {
                             self.process_non_terminal(i);
                         } else {
                             panic!("Should be able to reduce but cannot.");
@@ -293,7 +293,7 @@ impl ParallelParser {
         let mut apply_rewrites: HashMap<u8, u8> = HashMap::new();
         let mut longest: i32 = 0;
 
-        for r in &self.grammar.rules {
+        for r in &self.g.rules {
             let mut rewrites: HashMap<u8, u8> = HashMap::new();
             let mut rule_applies = true;
             for j in 0..r.right.len() {
@@ -306,9 +306,9 @@ impl ParallelParser {
                     break;
                 };
 
-                if self.grammar.non_terminals.contains(&curr) {
+                if self.g.non_terminals.contains(&curr) {
                     let mut token: Option<u8> = None;
-                    for t in self.grammar.inverse_rewrite_rules.get(&curr).unwrap() {
+                    for t in self.g.inverse_rewrite_rules.get(&curr).unwrap() {
                         if *t == *r.right.get(j as usize).unwrap() {
                             token = Some(*t);
                         }
@@ -384,7 +384,7 @@ impl ParallelParser {
             output.push_str(
                 format!(
                     "({:?}, {}) ",
-                    self.grammar.token_raw.get(&i.token).unwrap(),
+                    self.g.token_raw.get(&i.token).unwrap(),
                     x
                 )
                 .as_str(),
@@ -396,7 +396,7 @@ impl ParallelParser {
     pub fn collect_parse_tree(self) -> Result<ParseTree, Box<dyn Error>> {
         if self.open_nodes.len() == 1 {
             let mut nodes: Vec<Node> = self.open_nodes.into_iter().map(|(_, v)| v).collect();
-            return Ok(ParseTree::new(nodes.remove(0), self.grammar));
+            return Ok(ParseTree::new(nodes.remove(0), self.g));
         } else {
             panic!("Cannot create parse tree.");
         }

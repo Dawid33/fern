@@ -9,10 +9,10 @@ use std::thread;
 use std::time::Instant;
 
 use core::grammar::Grammar;
-use core::lexer::json::*;
+use core::lexer::{json::*, fern::*};
 use core::lexer::*;
 use core::parser::{ParallelParser, ParseTree};
-use log::{debug, info};
+use log::{debug, info, trace};
 use memmap::MmapOptions;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -22,22 +22,22 @@ fn main() -> Result<(), Box<dyn Error>> {
         .set_target_level(simplelog::LevelFilter::Off)
         .set_thread_level(simplelog::LevelFilter::Off)
         .build();
-    let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Debug, config);
+    let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Trace, config);
 
-    let grammar = Grammar::from("data/grammar/json.g");
+    let grammar = Grammar::from("data/grammar/fern.g");
     info!("Total Time to generate grammar : {:?}", now.elapsed());
     now = Instant::now();
 
     let tokens: LinkedList<Vec<u8>> = {
-        let file = File::open("data/full.json")?;
+        let file = File::open("data/full.fern")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         thread::scope(|s| {
-            let mut lexer: ParallelLexer<JsonLexerState, JsonLexer> = ParallelLexer::new(
+            let mut lexer: ParallelLexer<FernLexerState, FernLexer> = ParallelLexer::new(
                 grammar.clone(),
                 s,
                 1,
-                &[JsonLexerState::Start, JsonLexerState::InString],
-                JsonLexerState::Start,
+                &[FernLexerState::Start],
+                FernLexerState::Start,
             );
             let batch = lexer.new_batch();
             lexer.add_to_batch(&batch, &mmap[..], 0);
@@ -49,7 +49,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     info!("Total Time to lex: {:?}", now.elapsed());
     now = Instant::now();
-    info!("{:?}", tokens);
 
     let tree: ParseTree = {
         let mut parser = ParallelParser::new(grammar.clone(), 1);

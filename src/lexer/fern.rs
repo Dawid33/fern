@@ -57,6 +57,7 @@ pub struct FernTokens {
     pub rparenfunc: u8,
     pub semifield: u8,
     pub xeq: u8,
+    pub local: u8,
 }
 
 impl FernTokens {
@@ -112,6 +113,7 @@ impl FernTokens {
             rparenfunc: tokens_reverse.get("RPARENFUNC").unwrap().0,
             semifield: tokens_reverse.get("SEMIFIELD").unwrap().0,
             xeq: tokens_reverse.get("XEQ").unwrap().0,
+            local: tokens_reverse.get("LOCAL").unwrap().0,
         }
     }
 }
@@ -211,7 +213,7 @@ impl LexerInterface<FernLexerState> for FernLexer {
                     'a'..='z' | 'A'..='Z' => {
                         self.buf.push(c);
                     }
-                    '\n' | ' ' | '\t' => {
+                    '\n' | ' ' | '\t' | ';' | ',' => {
                         self.state = FernLexerState::Start;
                         let token = match self.buf.as_str() {
                             "and" => self.tok.and,
@@ -228,10 +230,12 @@ impl LexerInterface<FernLexerState> for FernLexer {
                             "then" => self.tok.then,
                             "true" => self.tok.true_t,
                             "while" => self.tok.while_t,
+                            "local" => self.tok.local,
                             _ => self.tok.name,
                         };
                         self.buf.clear();
                         push(token);
+                        if c == ';' || c == ',' {should_reconsume = true};
                     }
                     _ => {
                         return Err(LexerError::from(
