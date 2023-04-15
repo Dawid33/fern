@@ -1,6 +1,8 @@
 extern crate core;
 
 use core::grammar::Grammar;
+use core::lexer::*;
+use core::lexer::{json::*};
 use std::collections::LinkedList;
 use std::error::Error;
 use std::fs::File;
@@ -17,7 +19,13 @@ fn fair_sequential_lexing(path: &str) -> Result<(), Box<dyn Error>> {
         let file = File::open(path)?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         thread::scope(|s| {
-            let mut lexer = ParallelJsonLexer::new(grammar.clone(), s, 1);
+            let mut lexer: ParallelLexer<JsonLexerState, JsonLexer> = ParallelLexer::new(
+                grammar.clone(),
+                s,
+                1,
+                &[JsonLexerState::Start, JsonLexerState::InString],
+                JsonLexerState::Start,
+            );
             let batch = lexer.new_batch();
             lexer.add_to_batch(&batch, &mmap[..], 0);
             tokens = lexer.collect_batch(batch);
@@ -34,7 +42,13 @@ fn bench_parallel_lexing(path: &str, threads: usize) {
     let chunks = core::lexer::split_mmap_into_chunks(&mut memmap, 6000).unwrap();
 
     let _ = thread::scope(|s| {
-        let mut lexer = ParallelJsonLexer::new(grammar, s, threads);
+        let mut lexer: ParallelLexer<JsonLexerState, JsonLexer> = ParallelLexer::new(
+            grammar.clone(),
+            s,
+            threads,
+            &[JsonLexerState::Start, JsonLexerState::InString],
+            JsonLexerState::Start,
+        );
         let batch = lexer.new_batch();
         for task in chunks.iter().enumerate() {
             lexer.add_to_batch(&batch, task.1, task.0);

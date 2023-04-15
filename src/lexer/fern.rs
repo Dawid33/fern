@@ -53,11 +53,12 @@ pub struct FernTokens {
     pub not: u8,
     pub uminus: u8,
     pub sharp: u8,
-    pub lparenfunc: u8,
-    pub rparenfunc: u8,
+    // pub lparenfunc: u8,
+    // pub rparenfunc: u8,
     pub semifield: u8,
     pub xeq: u8,
     pub local: u8,
+    pub fn_t: u8,
 }
 
 impl FernTokens {
@@ -109,11 +110,12 @@ impl FernTokens {
             not: tokens_reverse.get("NOT").unwrap().0,
             uminus: tokens_reverse.get("UMINUS").unwrap().0,
             sharp: tokens_reverse.get("SHARP").unwrap().0,
-            lparenfunc: tokens_reverse.get("LPARENFUNC").unwrap().0,
-            rparenfunc: tokens_reverse.get("RPARENFUNC").unwrap().0,
+            // lparenfunc: tokens_reverse.get("LPARENFUNC").unwrap().0,
+            // rparenfunc: tokens_reverse.get("RPARENFUNC").unwrap().0,
             semifield: tokens_reverse.get("SEMIFIELD").unwrap().0,
             xeq: tokens_reverse.get("XEQ").unwrap().0,
             local: tokens_reverse.get("LOCAL").unwrap().0,
+            fn_t: tokens_reverse.get("FN").unwrap().0,
         }
     }
 }
@@ -164,6 +166,8 @@ impl LexerInterface<FernLexerState> for FernLexer {
                     }
                     '{' => push(self.tok.lbrace),
                     '}' => push(self.tok.rbrace),
+                    '(' => push(self.tok.lparen),
+                    ')' => push(self.tok.lparen),
                     ':' => push(self.tok.colon),
                     ',' => push(self.tok.comma),
                     ';' => push(self.tok.semi),
@@ -210,10 +214,10 @@ impl LexerInterface<FernLexerState> for FernLexer {
                     }
                 },
                 FernLexerState::InName => match c {
-                    'a'..='z' | 'A'..='Z' => {
+                    'a'..='z' | 'A'..='Z' | '_' => {
                         self.buf.push(c);
                     }
-                    '\n' | ' ' | '\t' | ';' | ',' => {
+                    '\n' | ' ' | '\t' | ';' | ',' | '(' => {
                         self.state = FernLexerState::Start;
                         let token = match self.buf.as_str() {
                             "and" => self.tok.and,
@@ -231,11 +235,12 @@ impl LexerInterface<FernLexerState> for FernLexer {
                             "true" => self.tok.true_t,
                             "while" => self.tok.while_t,
                             "local" => self.tok.local,
+                            "fn" => self.tok.fn_t,
                             _ => self.tok.name,
                         };
                         self.buf.clear();
                         push(token);
-                        if c == ';' || c == ',' {should_reconsume = true};
+                        if c == ';' || c == ',' || c == '(' {should_reconsume = true};
                     }
                     _ => {
                         return Err(LexerError::from(

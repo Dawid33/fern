@@ -1,7 +1,7 @@
 pub mod json;
 
 use crate::grammar::{Associativity, Grammar, Rule};
-use log::{debug, trace};
+use log::{debug, trace, warn};
 use std::any::Any;
 use std::collections::{HashMap, LinkedList, VecDeque};
 use std::error::Error;
@@ -203,7 +203,7 @@ impl ParallelParser {
 
             if precedence == Associativity::None {
                 panic!(
-                    "No precedence between y = {} and token = {} == user grammar error",
+                    "No precedence between y = {} and token = {}, which is probably a user grammar error",
                     self.g.token_raw.get(&y.token).unwrap(),
                     self.g.token_raw.get(&token).unwrap()
                 )
@@ -309,10 +309,6 @@ impl ParallelParser {
 
                 if self.g.non_terminals.contains(&curr) {
                     let mut token: Option<u8> = None;
-                    // if r.right.len() > 1 {
-                    //     rule_applies = false;
-                    //     break;
-                    // }
                     for t in self.g.inverse_rewrite_rules.get(&curr).unwrap() {
                         if *t == *r.right.get(j as usize).unwrap() {
                             token = Some(*t);
@@ -375,6 +371,8 @@ impl ParallelParser {
             self.stack.insert((i + offset) as usize, left);
             debug!("{} Reduce", self.iteration);
             self.should_reconsume = true;
+        } else {
+            warn!("{} SHOULD PROBABLY REDUCE BUT DIDN'T", self.iteration);
         }
     }
 

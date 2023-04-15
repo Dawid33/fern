@@ -87,8 +87,6 @@ impl Grammar {
             }
         }
 
-        // Create re-write rules
-        // TODO : Figure out how this actually works.
         let mut rewrite_rules: HashMap<u8, Vec<u8>> = HashMap::new();
         for t in &non_terminals {
             rewrite_rules.insert(*t, Vec::new());
@@ -115,8 +113,6 @@ impl Grammar {
             }
         }
 
-        // Create inverse rewrite rules
-        // TODO: Figure out what this is.
         for t in &non_terminals {
             inverse_rewrite_rules.insert(*t, vec![*t]);
         }
@@ -124,6 +120,29 @@ impl Grammar {
             for t1 in rewrite_rules.get(t).unwrap() {
                 inverse_rewrite_rules.get_mut(t1).unwrap().push(*t);
             }
+        }
+
+        debug!("INVERSE REWRITE RULES");
+        let mut largest = 0;
+        inverse_rewrite_rules.keys().for_each(|x| {
+            let s_len = token_raw.get(x).unwrap().len();
+            if s_len > largest {
+                largest = s_len
+            }
+        });
+        for row in inverse_rewrite_rules.keys() {
+            let row_full_raw: Vec<&String> = inverse_rewrite_rules
+                .get(row)
+                .unwrap()
+                .iter()
+                .map(|row_item| token_raw.get(row_item).unwrap())
+                .collect();
+            debug!(
+                "{:s_len$} : {:?}",
+                token_raw.get(row).unwrap(),
+                row_full_raw,
+                s_len = largest
+            );
         }
 
         let mut first_ops: HashMap<u8, HashSet<u8>> = HashMap::new();
