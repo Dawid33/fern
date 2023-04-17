@@ -20,6 +20,7 @@ use tinyrand::{RandRange, StdRand};
 pub mod error;
 pub mod fern;
 pub mod json;
+mod lua;
 
 use crate::grammar::Grammar;
 use crate::lexer::error::LexerError;

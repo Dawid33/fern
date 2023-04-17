@@ -24,12 +24,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         .build();
     let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Trace, config);
 
-    let grammar = Grammar::from("data/grammar/fern.g");
+    let grammar = Grammar::from("data/grammar/lua.g");
     info!("Total Time to generate grammar : {:?}", now.elapsed());
     now = Instant::now();
 
     let tokens: LinkedList<Vec<u8>> = {
-        let file = File::open("data/full.fern")?;
+        let file = File::open("../data/test.lua")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         thread::scope(|s| {
             let mut lexer: ParallelLexer<FernLexerState, FernLexer> = ParallelLexer::new(

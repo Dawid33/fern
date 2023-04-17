@@ -28,7 +28,7 @@ fn full_test() -> Result<(), Box<dyn Error>> {
 
     let mut tokens: LinkedList<Vec<u8>> = LinkedList::new();
     {
-        let file = File::open("data/full.json")?;
+        let file = File::open("../data/test.json")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         info!("Total time to load file: {:?}", now.elapsed());
         now = Instant::now();
