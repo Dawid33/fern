@@ -1,0 +1,14 @@
+const print = @include("std").print;
+
+fn add(a: u32, b: u32) -> u32 {
+    return a + b;
+}
+
+fn main() {
+    let i: u32 = 0;
+    while i < 10 {
+        let x = add(i , i + 1);
+        print(x);
+        i = i + 1;
+    }
+}

@@ -193,7 +193,7 @@ funcName : nameDotList
 	| nameDotList COLON name
 	;
 
-nameDotList : NAME
+nameDotList : name
 	| nameDotList DOT NAME
 	;
 
@@ -201,12 +201,12 @@ varList : var
 	| varList COMMA var
 	;
 
-var : NAME
+var : name
 	| prefixExp LBRACK expr RBRACK
 	| prefixExp DOT NAME
 	;
 
-nameList : NAME
+nameList : name
 	| nameList COMMA name
 	;
 
