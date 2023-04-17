@@ -28,44 +28,44 @@ fn main() -> Result<(), Box<dyn Error>> {
     info!("Total Time to generate grammar : {:?}", now.elapsed());
     now = Instant::now();
 
-    let tokens: LinkedList<Vec<u8>> = {
-        let file = File::open("../data/test.lua")?;
-        let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
-        thread::scope(|s| {
-            let mut lexer: ParallelLexer<FernLexerState, FernLexer> = ParallelLexer::new(
-                grammar.clone(),
-                s,
-                1,
-                &[FernLexerState::Start],
-                FernLexerState::Start,
-            );
-            let batch = lexer.new_batch();
-            lexer.add_to_batch(&batch, &mmap[..], 0);
-            let tokens = lexer.collect_batch(batch);
-            lexer.kill();
-            tokens
-        })
-    };
-
-    info!("Total Time to lex: {:?}", now.elapsed());
-    now = Instant::now();
-
-    let tree: ParseTree = {
-        let mut parser = ParallelParser::new(grammar.clone(), 1);
-        parser.parse(tokens);
-        parser.parse(LinkedList::from([vec![grammar.delim]]));
-        parser.collect_parse_tree().unwrap()
-    };
-
-    tree.print();
-    let _json: core::parser::json::JsonValue = tree.into();
-    info!("{:?}", _json);
-    info!("Total Time to parse: {:?}", now.elapsed());
-    now = Instant::now();
-
-    info!(
-        "Total Time to transform ParseTree -> AST Conversion: {:?}",
-        now.elapsed()
-    );
+    // let tokens: LinkedList<Vec<u8>> = {
+    //     let file = File::open("../data/test.lua")?;
+    //     let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
+    //     thread::scope(|s| {
+    //         let mut lexer: ParallelLexer<FernLexerState, FernLexer> = ParallelLexer::new(
+    //             grammar.clone(),
+    //             s,
+    //             1,
+    //             &[FernLexerState::Start],
+    //             FernLexerState::Start,
+    //         );
+    //         let batch = lexer.new_batch();
+    //         lexer.add_to_batch(&batch, &mmap[..], 0);
+    //         let tokens = lexer.collect_batch(batch);
+    //         lexer.kill();
+    //         tokens
+    //     })
+    // };
+    //
+    // info!("Total Time to lex: {:?}", now.elapsed());
+    // now = Instant::now();
+    //
+    // let tree: ParseTree = {
+    //     let mut parser = ParallelParser::new(grammar.clone(), 1);
+    //     parser.parse(tokens);
+    //     parser.parse(LinkedList::from([vec![grammar.delim]]));
+    //     parser.collect_parse_tree().unwrap()
+    // };
+    //
+    // tree.print();
+    // let _json: core::parser::json::JsonValue = tree.into();
+    // info!("{:?}", _json);
+    // info!("Total Time to parse: {:?}", now.elapsed());
+    // now = Instant::now();
+    //
+    // info!(
+    //     "Total Time to transform ParseTree -> AST Conversion: {:?}",
+    //     now.elapsed()
+    // );
     Ok(())
 }

@@ -74,6 +74,11 @@ impl Grammar {
     ) -> Result<Grammar, GrammarError> {
         // Validate that the grammar is in OPG form
 
+        let has_axiom_with_r_rhs = false;
+        for r in rules {
+            if r.left == axiom &&
+        }
+
         let mut inverse_rewrite_rules: HashMap<u8, Vec<u8>> = HashMap::new();
         let mut op_table: HashMap<u8, HashMap<u8, Associativity>> = HashMap::new();
 
