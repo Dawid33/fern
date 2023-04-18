@@ -1,8 +1,8 @@
 extern crate core;
 
 use core::grammar::Grammar;
+use core::lexer::json::*;
 use core::lexer::*;
-use core::lexer::{json::*};
 use std::collections::LinkedList;
 use std::error::Error;
 use std::fs::File;

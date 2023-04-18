@@ -1,5 +1,5 @@
 use crate::grammar::reader::TokenTypes;
-use crate::grammar::Grammar;
+use crate::grammar::{Grammar, Token};
 use crate::lexer::error::LexerError;
 use crate::lexer::LexerInterface;
 use log::trace;
@@ -7,62 +7,62 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 pub struct FernTokens {
-    pub endfile: u8,
-    pub return_t: u8,
-    pub semi: u8,
-    pub colon: u8,
-    pub colon2: u8,
-    pub dot: u8,
-    pub dot3: u8,
-    pub comma: u8,
-    pub lbrack: u8,
-    pub rbrack: u8,
-    pub lbrace: u8,
-    pub rbrace: u8,
-    pub lparen: u8,
-    pub rparen: u8,
-    pub eq: u8,
-    pub break_t: u8,
-    pub goto: u8,
-    pub while_t: u8,
-    pub if_t: u8,
-    pub then: u8,
-    pub elseif: u8,
-    pub nil: u8,
-    pub else_t: u8,
-    pub false_t: u8,
-    pub true_t: u8,
-    pub number: u8,
-    pub string: u8,
-    pub name: u8,
-    pub plus: u8,
-    pub minus: u8,
-    pub asterisk: u8,
-    pub divide: u8,
-    pub caret: u8,
-    pub percent: u8,
-    pub dot2: u8,
-    pub lt: u8,
-    pub gt: u8,
-    pub lteq: u8,
-    pub gteq: u8,
-    pub eq2: u8,
-    pub neq: u8,
-    pub and: u8,
-    pub or: u8,
-    pub not: u8,
-    pub uminus: u8,
-    pub sharp: u8,
-    // pub lparenfunc: u8,
-    // pub rparenfunc: u8,
-    pub semifield: u8,
-    pub xeq: u8,
-    pub local: u8,
-    pub fn_t: u8,
+    pub endfile: Token,
+    pub return_t: Token,
+    pub semi: Token,
+    pub colon: Token,
+    pub colon2: Token,
+    pub dot: Token,
+    pub dot3: Token,
+    pub comma: Token,
+    pub lbrack: Token,
+    pub rbrack: Token,
+    pub lbrace: Token,
+    pub rbrace: Token,
+    pub lparen: Token,
+    pub rparen: Token,
+    pub eq: Token,
+    pub break_t: Token,
+    pub goto: Token,
+    pub while_t: Token,
+    pub if_t: Token,
+    pub then: Token,
+    pub elseif: Token,
+    pub nil: Token,
+    pub else_t: Token,
+    pub false_t: Token,
+    pub true_t: Token,
+    pub number: Token,
+    pub string: Token,
+    pub name: Token,
+    pub plus: Token,
+    pub minus: Token,
+    pub asterisk: Token,
+    pub divide: Token,
+    pub caret: Token,
+    pub percent: Token,
+    pub dot2: Token,
+    pub lt: Token,
+    pub gt: Token,
+    pub lteq: Token,
+    pub gteq: Token,
+    pub eq2: Token,
+    pub neq: Token,
+    pub and: Token,
+    pub or: Token,
+    pub not: Token,
+    pub uminus: Token,
+    pub sharp: Token,
+    // pub lparenfunc: Token,
+    // pub rparenfunc: Token,
+    pub semifield: Token,
+    pub xeq: Token,
+    pub local: Token,
+    pub fn_t: Token,
 }
 
 impl FernTokens {
-    pub fn new(tokens_reverse: &HashMap<String, (u8, TokenTypes)>) -> FernTokens {
+    pub fn new(tokens_reverse: &HashMap<String, (Token, TokenTypes)>) -> FernTokens {
         FernTokens {
             endfile: tokens_reverse.get("ENDFILE").unwrap().0,
             return_t: tokens_reverse.get("RETURN").unwrap().0,
@@ -129,7 +129,7 @@ pub enum FernLexerState {
 }
 
 pub struct FernLexer {
-    pub tokens: Vec<u8>,
+    pub tokens: Vec<Token>,
     pub data: HashMap<usize, String>,
     pub state: FernLexerState,
     buf: String,
@@ -153,7 +153,7 @@ impl LexerInterface<FernLexerState> for FernLexer {
             let mut should_reconsume = false;
 
             let c = *c as char;
-            let mut push = |t: u8| {
+            let mut push = |t: Token| {
                 trace!("{:?}", self.grammar.token_raw.get(&t).unwrap());
                 self.tokens.push(t);
             };
@@ -240,7 +240,9 @@ impl LexerInterface<FernLexerState> for FernLexer {
                         };
                         self.buf.clear();
                         push(token);
-                        if c == ';' || c == ',' || c == '(' {should_reconsume = true};
+                        if c == ';' || c == ',' || c == '(' {
+                            should_reconsume = true
+                        };
                     }
                     _ => {
                         return Err(LexerError::from(
@@ -256,7 +258,7 @@ impl LexerInterface<FernLexerState> for FernLexer {
         }
         return Ok(());
     }
-    fn take(self) -> (FernLexerState, Vec<u8>) {
+    fn take(self) -> (FernLexerState, Vec<Token>) {
         (self.state, self.tokens)
     }
 }

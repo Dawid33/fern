@@ -9,8 +9,8 @@ use std::thread;
 use std::time::Instant;
 
 use core::grammar::Grammar;
-use core::lexer::{json::*, fern::*};
 use core::lexer::*;
+use core::lexer::{fern::*, json::*};
 use core::parser::{ParallelParser, ParseTree};
 use log::{debug, info, trace};
 use memmap::MmapOptions;
@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .set_target_level(simplelog::LevelFilter::Off)
         .set_thread_level(simplelog::LevelFilter::Off)
         .build();
-    let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Trace, config);
+    let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Info, config);
 
     let grammar = Grammar::from("data/grammar/lua.g");
     info!("Total Time to generate grammar : {:?}", now.elapsed());

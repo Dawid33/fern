@@ -1,5 +1,5 @@
-use std::cmp::max;
 use crate::parser::{Node, ParseTree};
+use std::cmp::max;
 
 #[derive(Debug, Clone)]
 pub enum JsonValue {

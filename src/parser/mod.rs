@@ -1,6 +1,6 @@
 pub mod json;
 
-use crate::grammar::{Associativity, Grammar, Rule};
+use crate::grammar::{Associativity, Grammar, Rule, Token};
 use log::{debug, trace, warn};
 use std::any::Any;
 use std::collections::{HashMap, LinkedList, VecDeque};
@@ -24,13 +24,13 @@ impl ParseTree {
 }
 
 pub struct Node {
-    symbol: u8,
+    symbol: Token,
     data: Option<String>,
     children: Vec<Node>,
 }
 
 impl Node {
-    pub fn new(symbol: u8, data: Option<String>) -> Self {
+    pub fn new(symbol: Token, data: Option<String>) -> Self {
         Self {
             symbol,
             data,
@@ -44,13 +44,13 @@ impl Node {
 
 #[derive(Clone, Copy, Eq, PartialEq, Hash)]
 struct TokenGrammarTuple {
-    token: u8,
+    token: Token,
     id: u64,
     associativity: Associativity,
 }
 
 impl TokenGrammarTuple {
-    pub fn new(token: u8, associativity: Associativity, parser: &mut ParallelParser) -> Self {
+    pub fn new(token: Token, associativity: Associativity, parser: &mut ParallelParser) -> Self {
         Self {
             token,
             associativity,
@@ -62,7 +62,8 @@ impl TokenGrammarTuple {
 impl ParseTree {
     pub fn print(&self) {
         let mut node_stack: Vec<&Node> = vec![&self.root];
-        let mut child_count_stack: Vec<(i32, i32)> = vec![(0, (self.root.children.len() - 1) as i32)];
+        let mut child_count_stack: Vec<(i32, i32)> =
+            vec![(0, (self.root.children.len() - 1) as i32)];
 
         println!("{}", self.g.token_raw.get(&self.root.symbol).unwrap());
         while !node_stack.is_empty() {
@@ -140,7 +141,7 @@ impl ParallelParser {
         return parser;
     }
 
-    pub fn parse(&mut self, tokens: LinkedList<Vec<u8>>) {
+    pub fn parse(&mut self, tokens: LinkedList<Vec<Token>>) {
         for t in tokens {
             for t in t {
                 self.consume_token(&t).expect("Parser raised an exception.");
@@ -153,7 +154,7 @@ impl ParallelParser {
         return self.highest_id;
     }
 
-    fn consume_token(&mut self, token: &u8) -> Result<(), Box<dyn Error>> {
+    fn consume_token(&mut self, token: &Token) -> Result<(), Box<dyn Error>> {
         if self.stack.is_empty() {
             let t = TokenGrammarTuple::new(*token, Associativity::Left, self);
             self.stack.push(t);
@@ -221,7 +222,12 @@ impl ParallelParser {
                 );
             }
             debug!("{} Open nodes: {}", self.iteration, output);
-            debug!("{} Applying {:?} {:?}", self.iteration, self.g.token_raw.get(token).unwrap(), precedence);
+            debug!(
+                "{} Applying {:?} {:?}",
+                self.iteration,
+                self.g.token_raw.get(token).unwrap(),
+                precedence
+            );
             self.print_stack();
 
             if precedence == Associativity::Left {
@@ -291,16 +297,17 @@ impl ParallelParser {
 
     fn reduce_stack(&mut self, i: i32, offset: i32) {
         let mut rule: Option<Rule> = None;
-        let mut apply_rewrites: HashMap<u8, u8> = HashMap::new();
+        let mut apply_rewrites: HashMap<Token, Token> = HashMap::new();
         let mut longest: i32 = 0;
 
         for r in &self.g.rules {
-            let mut rewrites: HashMap<u8, u8> = HashMap::new();
+            let mut rewrites: HashMap<Token, Token> = HashMap::new();
             let mut rule_applies = true;
             for j in 0..r.right.len() {
                 let j = j as i32;
 
-                let curr: u8 = if i + j + offset >= 0 && i + j + offset < self.stack.len() as i32 {
+                let curr: Token = if i + j + offset >= 0 && i + j + offset < self.stack.len() as i32
+                {
                     self.stack.get((i + j + offset) as usize).unwrap().token
                 } else {
                     rule_applies = false;
@@ -308,7 +315,7 @@ impl ParallelParser {
                 };
 
                 if self.g.non_terminals.contains(&curr) {
-                    let mut token: Option<u8> = None;
+                    let mut token: Option<Token> = None;
                     for t in self.g.inverse_rewrite_rules.get(&curr).unwrap() {
                         if *t == *r.right.get(j as usize).unwrap() {
                             token = Some(*t);
@@ -387,12 +394,7 @@ impl ParallelParser {
                 Associativity::None => '!',
             };
             output.push_str(
-                format!(
-                    "({:?}, {}) ",
-                    self.g.token_raw.get(&i.token).unwrap(),
-                    x
-                )
-                .as_str(),
+                format!("({:?}, {}) ", self.g.token_raw.get(&i.token).unwrap(), x).as_str(),
             );
         }
         debug!("{} Stack: {}", self.iteration, output);

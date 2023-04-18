@@ -21,7 +21,7 @@ pub mod error;
 pub mod fern;
 pub mod json;
 
-use crate::grammar::Grammar;
+use crate::grammar::{Grammar, Token};
 use crate::lexer::error::LexerError;
 use crate::lexer::fern::{FernLexer, FernLexerState};
 use crate::lexer::json::{JsonLexer, JsonLexerState, JsonTokens};
@@ -32,7 +32,7 @@ pub struct LexerOutput<T> {
 
 #[allow(unused)]
 pub struct LexerPartialOutput<T> {
-    list: Vec<u8>,
+    list: Vec<Token>,
     finish_state: T,
     success: bool,
 }
@@ -56,7 +56,7 @@ pub struct Batch<T> {
 pub trait LexerInterface<T> {
     fn new(grammar: Grammar, start_state: T) -> Self;
     fn consume(&mut self, c: &u8) -> Result<(), LexerError>;
-    fn take(self) -> (T, Vec<u8>);
+    fn take(self) -> (T, Vec<Token>);
 }
 
 impl<'a, T, Lexer> ParallelLexer<'a, T, Lexer>
@@ -179,7 +179,7 @@ where
             .push(WorkUnit(order, input, (*batch).output.clone()));
     }
 
-    fn print_lexer_state_list(list: &Vec<u8>) {
+    fn print_lexer_state_list(list: &Vec<Token>) {
         let mut builder = String::new();
         for x in list {
             builder.push_str(format!("{:?} ", x).as_str());
@@ -187,14 +187,14 @@ where
         trace!("{}", builder);
     }
 
-    pub fn collect_batch(&mut self, id: String) -> LinkedList<Vec<u8>> {
+    pub fn collect_batch(&mut self, id: String) -> LinkedList<Vec<Token>> {
         let batch: Batch<T> = self.outputs.remove(id.as_str()).unwrap();
 
         // Spin until threads have finished lexing.
         while batch.size != batch.output.len() {}
 
         // Append first item in list to output
-        let mut result: LinkedList<Vec<u8>> = LinkedList::new();
+        let mut result: LinkedList<Vec<Token>> = LinkedList::new();
 
         // For some unknown (probably data-race) reason, if there is only one thread,
         // it will intermittently fail to pop the top of the skiplist even though its
@@ -284,8 +284,8 @@ pub fn lex(
     input: &str,
     grammar: &Grammar,
     threads: usize,
-) -> Result<LinkedList<Vec<u8>>, Box<dyn Error>> {
-    let mut tokens: LinkedList<Vec<u8>> = LinkedList::new();
+) -> Result<LinkedList<Vec<Token>>, Box<dyn Error>> {
+    let mut tokens: LinkedList<Vec<Token>> = LinkedList::new();
     {
         thread::scope(|s| {
             let mut lexer: ParallelLexer<JsonLexerState, JsonLexer> = ParallelLexer::new(
@@ -309,7 +309,7 @@ pub fn test_lexer() -> Result<(), Box<dyn Error>> {
     let grammar = Grammar::from("data/grammar/json.g");
     let t = json::JsonTokens::new(&grammar.tokens_reverse);
 
-    let test = |input: &str, expected: Vec<u8>| -> Result<(), Box<dyn Error>> {
+    let test = |input: &str, expected: Vec<Token>| -> Result<(), Box<dyn Error>> {
         let mut ll = lex(input, &grammar, 1)?;
         let mut output = Vec::new();
         for list in &mut ll {

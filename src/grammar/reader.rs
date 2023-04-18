@@ -1,6 +1,7 @@
 use crate::grammar::error::GrammarError;
 use crate::grammar::reader::TokenTypes::{Axiom, NonTerminal, Terminal};
-use crate::grammar::{Grammar, Rule};
+use crate::grammar::{Grammar, Rule, Token};
+use log::info;
 use std::collections::HashMap;
 use std::fs;
 use std::io::{BufReader, Read};
@@ -44,12 +45,12 @@ pub fn read_grammar_file(s: &str) -> Result<Grammar, GrammarError> {
     let mut previous: char = 0 as char;
     let mut buf = String::new();
     let mut awaiting: Option<TokenTypes> = None;
-    let mut tokens: HashMap<String, (u8, TokenTypes)> = HashMap::new();
-    let mut axiom: Option<u8> = None;
+    let mut tokens: HashMap<String, (Token, TokenTypes)> = HashMap::new();
+    let mut axiom: Option<Token> = None;
 
-    let mut highest_id: u8 = 0;
+    let mut highest_id: Token = 0;
 
-    let mut gen_id = || -> u8 {
+    let mut gen_id = || -> Token {
         highest_id += 1;
         return highest_id;
     };
@@ -218,13 +219,17 @@ pub fn read_grammar_file(s: &str) -> Result<Grammar, GrammarError> {
         previous = c;
     }
 
-    let mut t_type: HashMap<u8, TokenTypes> = HashMap::new();
-    let mut t_raw: HashMap<u8, String> = HashMap::new();
+    let mut t_type: HashMap<Token, TokenTypes> = HashMap::new();
+    let mut t_raw: HashMap<Token, String> = HashMap::new();
     for (raw, (id, token_type)) in &tokens {
         t_type.insert(*id, *token_type);
         t_raw.insert(*id, raw.clone());
     }
-    let axiom: u8 = axiom.expect("Need to specify and axiom.");
+    let axiom: Token = axiom.expect("Need to specify and axiom.");
+
+    // for r in &rules {
+    //     info!("Rule : {} -> {:?}", &t_raw.get(&r.left).unwrap(), Grammar::token_list_to_string(&r.right, &t_raw));
+    // }
 
     Grammar::new(rules, t_type, t_raw, tokens, axiom, gen_id())
 }

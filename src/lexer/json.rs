@@ -1,5 +1,5 @@
 use crate::grammar::reader::TokenTypes;
-use crate::grammar::Grammar;
+use crate::grammar::{Grammar, Token};
 use crate::lexer::error::LexerError;
 use crate::lexer::LexerInterface;
 use log::trace;
@@ -14,20 +14,20 @@ pub enum JsonLexerState {
 }
 
 pub struct JsonTokens {
-    pub lbrace: u8,
-    pub rbrace: u8,
-    pub lsquare: u8,
-    pub rsquare: u8,
-    pub comma: u8,
-    pub colon: u8,
-    pub bool: u8,
-    pub quotes: u8,
-    pub char: u8,
-    pub number: u8,
+    pub lbrace: Token,
+    pub rbrace: Token,
+    pub lsquare: Token,
+    pub rsquare: Token,
+    pub comma: Token,
+    pub colon: Token,
+    pub bool: Token,
+    pub quotes: Token,
+    pub char: Token,
+    pub number: Token,
 }
 
 impl JsonTokens {
-    pub fn new(tokens_reverse: &HashMap<String, (u8, TokenTypes)>) -> JsonTokens {
+    pub fn new(tokens_reverse: &HashMap<String, (Token, TokenTypes)>) -> JsonTokens {
         JsonTokens {
             lbrace: tokens_reverse.get("LBRACE").unwrap().0,
             rbrace: tokens_reverse.get("RBRACE").unwrap().0,
@@ -44,7 +44,7 @@ impl JsonTokens {
 }
 
 pub struct JsonLexer {
-    pub tokens: Vec<u8>,
+    pub tokens: Vec<Token>,
     pub data: HashMap<usize, String>,
     pub state: JsonLexerState,
     buf: String,
@@ -70,7 +70,7 @@ impl LexerInterface<JsonLexerState> for JsonLexer {
             let mut should_reconsume = false;
 
             let c = *c as char;
-            let mut push = |t: u8| {
+            let mut push = |t: Token| {
                 self.tokens.push(t);
             };
 
@@ -131,7 +131,7 @@ impl LexerInterface<JsonLexerState> for JsonLexer {
         }
         return Ok(());
     }
-    fn take(self) -> (JsonLexerState, Vec<u8>) {
+    fn take(self) -> (JsonLexerState, Vec<Token>) {
         (self.state, self.tokens)
     }
 }
