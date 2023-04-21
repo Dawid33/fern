@@ -128,7 +128,7 @@ pub fn read_grammar_file(s: &str) -> Result<Grammar, GrammarError> {
                 ' ' | '\t' => match rule_parser_state {
                     RuleParserState::InRuleLeft => {
                         let (id, _) = tokens.get(&*buf).unwrap();
-                        rule = Some(Rule::new(*id));
+                        rule = Some(Rule::from(*id));
                         rule_parser_state = RuleParserState::AwaitingRuleRight;
                     }
                     RuleParserState::InRuleIdentifierRight => {

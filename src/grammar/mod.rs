@@ -2,9 +2,9 @@ use crate::grammar::error::GrammarError;
 use crate::grammar::reader::TokenTypes::{NonTerminal, Terminal};
 use crate::grammar::reader::{read_grammar_file, TokenTypes};
 use crate::grammar::Associativity::{Equal, Left, Right};
-use log::{debug, error, info, log_enabled, warn};
+use log::{debug, error, info, log_enabled, trace, warn};
 use std::collections::hash_map::HashMap;
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::error::Error;
 use std::fmt::{format, Debug};
 use std::fs;
@@ -24,7 +24,13 @@ pub struct Rule {
 }
 
 impl Rule {
-    pub fn new(left: Token) -> Self {
+    pub fn new() -> Self {
+        Self {
+            left: 0,
+            right: Vec::new(),
+        }
+    }
+    pub fn from(left: Token) -> Self {
         Self {
             left,
             right: Vec::new(),
@@ -97,15 +103,14 @@ impl Grammar {
     }
 
     fn add_new_rules(
-        dict_rules_for_iteration: &mut HashMap<Vec<Vec<Token>>, BTreeSet<Token>>,
+        dict_rules_for_iteration: &mut HashMap<Vec<BTreeSet<Token>>, BTreeSet<Token>>,
         key_rhs: &[Token],
         value_lhs: &BTreeSet<Token>,
         non_terminals: &Vec<Token>,
-        new_non_terminals: &BTreeSet<Vec<Token>>,
-        new_rule_rhs: &mut Vec<Vec<Token>>,
+        new_non_terminals: &BTreeSet<BTreeSet<Token>>,
+        new_rule_rhs: &mut Vec<BTreeSet<Token>>
     ) {
         if key_rhs.len() == 0 {
-            // TODO: new_rule_rhs might need to be a set
             if dict_rules_for_iteration.contains_key(new_rule_rhs) {
                 dict_rules_for_iteration.get_mut(new_rule_rhs).unwrap().extend(value_lhs);
             } else {
@@ -116,18 +121,18 @@ impl Grammar {
         let token = key_rhs.get(0).unwrap();
         if non_terminals.contains(&token) {
             for non_term_super_set in new_non_terminals {
-                if non_terminals.contains(&token) {
+                if non_term_super_set.contains(&token) {
                     new_rule_rhs.push(non_term_super_set.clone());
                     Self::add_new_rules(dict_rules_for_iteration, &key_rhs[1..], value_lhs, non_terminals, new_non_terminals, new_rule_rhs);
                     new_rule_rhs.pop();
-                    info!("len {}", new_rule_rhs.len());
+                    // info!("len {}", new_rule_rhs.len());
                 }
             }
         } else {
-            new_rule_rhs.push(vec![*token]);
+            new_rule_rhs.push(BTreeSet::from([*token]));
             Self::add_new_rules(dict_rules_for_iteration, &key_rhs[1..], value_lhs, non_terminals, new_non_terminals, new_rule_rhs);
             new_rule_rhs.pop();
-            info!("len {}", new_rule_rhs.len());
+            // info!("len {}", new_rule_rhs.len());
         }
     }
 
@@ -135,14 +140,21 @@ impl Grammar {
         mut rules: Vec<Rule>,
         token_types: HashMap<Token, TokenTypes>,
         mut token_raw: HashMap<Token, String>,
-        tokens_reverse: HashMap<String, (Token, TokenTypes)>,
-        axiom: Token,
+        mut tokens_reverse: HashMap<String, (Token, TokenTypes)>,
+        mut axiom: Token,
         delim: Token,
     ) -> Result<Grammar, GrammarError> {
+        let mut highest_id = delim;
+        let mut gen_id = || -> Token {
+            highest_id += 1;
+            return highest_id;
+        };
+
         let mut inverse_rewrite_rules: HashMap<Token, Vec<Token>> = HashMap::new();
         let mut op_table: HashMap<Token, HashMap<Token, Associativity>> = HashMap::new();
 
         token_raw.insert(delim, String::from("DELIM"));
+        tokens_reverse.insert(String::from("DELIM"), (delim, NonTerminal));
 
         let mut non_terminals = Vec::new();
         let mut terminals = Vec::new();
@@ -159,6 +171,10 @@ impl Grammar {
         // If we have repeating RHS then we need to do some magic on the grammer to
         // turn it into FNF
         if let Some(repeated_rules) = repeated_rules {
+            let new_axiom = gen_id();
+            token_raw.insert(new_axiom, String::from("_NewAxiom"));
+            tokens_reverse.insert(String::from("_NewAxiom"), (new_axiom, NonTerminal));
+
             for (rhs, rules) in &repeated_rules {
                 warn!("Repeated rhs among the following rules:");
                 for r in rules {
@@ -243,7 +259,7 @@ impl Grammar {
                             let mut other = dict_rules.get(rhs).unwrap().clone();
                             other.insert(*n);
                             dict_rules.get_mut(rhs).unwrap().extend(other);
-                            info!(
+                            trace!(
                                 "Before : {:?} After: {:?}",
                                 Self::token_list_to_string(&before, &token_raw),
                                 Self::token_list_to_string(
@@ -277,9 +293,9 @@ impl Grammar {
             // }
 
             // Initialize the new nonterminal set V
-            let mut V: BTreeSet<Vec<Token>> = BTreeSet::from_iter(dict_rules.clone().into_values().map(|x| Vec::from(x).collect()));
+            let mut V: BTreeSet<BTreeSet<Token>> = dict_rules.clone().into_values().collect();
 
-            let mut new_dict_rules: HashMap<Vec<Token>, BTreeSet<Token>> = HashMap::new();
+            let mut new_dict_rules: HashMap<Vec<BTreeSet<Token>>, BTreeSet<Token>> = HashMap::new();
             let mut copied_dict: HashMap<Vec<Token>, BTreeSet<Token>> = HashMap::new();
 
             // Initialize the new set of productions P with the terminal rules of the original grammar
@@ -293,7 +309,8 @@ impl Grammar {
                     }
                 }
                 if is_terminal_rule {
-                    new_dict_rules.insert(key_rhs, value_lhs);
+                    let new_rhs = key_rhs.into_iter().map(|x| BTreeSet::from([x])).collect();
+                    new_dict_rules.insert(new_rhs, value_lhs);
                 } else {
                     copied_dict.insert(key_rhs, value_lhs);
                 }
@@ -301,17 +318,157 @@ impl Grammar {
             let dict_rules = copied_dict;
 
             // Add the new rules by expanding nonterminals in the rhs
-            let mut dict_rules_for_iteration: HashMap<Vec<Vec<Token>>, BTreeSet<Token>> = HashMap::new();
-            let should_continue = true;
+            let mut dict_rules_for_iteration: HashMap<Vec<BTreeSet<Token>>, BTreeSet<Token>> = HashMap::new();
+            let mut should_continue = true;
             while should_continue {
                 for (key_rhs, value_lhs) in dict_rules.iter() {
-                    let mut new_rule_rhs: Vec<Vec<Token>>= Vec::new();
-                    info!("Starting key_rhs: {:?}", key_rhs);
+                    let mut new_rule_rhs: Vec<BTreeSet<Token>> = Vec::new();
                     Self::add_new_rules(&mut dict_rules_for_iteration, key_rhs, value_lhs, &non_terminals, &mut V, &mut new_rule_rhs);
                 }
-                let temp: BTreeSet<&BTreeSet<Token>> = BTreeSet::from_iter(dict_rules_for_iteration.values().into_iter());
+                let temp  = BTreeSet::from_iter(dict_rules_for_iteration.values().clone().into_iter());
+                let mut difference = BTreeSet::new();
+                for non_term in temp {
+                    if !V.contains(non_term) {
+                        difference.insert(non_term.clone());
+                    }
+                }
+
+                V.append(&mut difference.clone());
+                for (key, val) in &dict_rules_for_iteration{
+                    new_dict_rules.insert(key.clone(), val.clone());
+                }
+                if difference.len() == 0 {
+                    should_continue = false;
+                }
+            }
+
+            // List of nonterminals of the invertible grammar G
+            let mut V: BTreeSet<BTreeSet<Token>> = new_dict_rules.clone().into_values().collect();
+
+            // This is nonsense, I know. Python can have any value in a set which makes this hard to port
+            // without creating this new set.
+            let typed_terminals: Vec<BTreeSet<Token>> = terminals.clone().into_iter().map(|x| {BTreeSet::from([x])}).collect();
+
+            // Delete rules with rhs with undefined nonterminals:
+            // this implementation of the algorithm can generate rhs of rules with nonterminals which are no more defined.
+            //TODO: a bit slightly more efficient version can store beforehand the list of rhs of every nonterminal and then delete the nonterminals whose rhs are all deleted.
+            let mut deleted = true;
+            while deleted {
+                deleted = false;
+                new_dict_rules.retain(|key_rhs, value_lhs| {
+                    let mut should_keep = true;
+                    for token in key_rhs {
+                        if (!typed_terminals.contains(token)) && (!V.contains(token)) {
+                            deleted = true;
+                            should_keep = false;
+                            break;
+                        }
+                    }
+                    should_keep
+                });
+                if deleted {
+                    V = new_dict_rules.clone().into_values().collect();
+                }
+            }
+
+            V.insert(BTreeSet::from([new_axiom]));
+
+            for non_term in &V {
+                if non_term.contains(&axiom) {
+                    let temp = Vec::from([non_term.clone()]);
+                    if non_term.len() == 1 && new_dict_rules.contains_key(&temp) {
+                        let entry = new_dict_rules.get_mut(&temp).unwrap().clone();
+                        new_dict_rules.insert(Vec::from([BTreeSet::from([new_axiom])]), entry);
+                    }
+                    new_dict_rules.insert(temp, BTreeSet::from([new_axiom]));
+                }
+            }
+
+            rules.clear();
+
+            let new_rules = new_dict_rules;
+            let new_non_terminal_set = V;
+
+            non_terminals.clear();
+
+            for (rhs, lhs) in new_rules {
+                let mut current_rule = Rule::new();
+
+                if lhs.len() == 1 {
+                    current_rule.left = *lhs.iter().next().unwrap();
+                } else {
+                    let mut builder = String::new();
+                    let mut iter = lhs.iter();
+                    builder.push_str(token_raw.get(iter.next().unwrap()).unwrap());
+                    for x in iter {
+                        builder.push_str("__");
+                        builder.push_str(token_raw.get(x).unwrap())
+                    }
+                    let new_lhs = gen_id();
+                    token_raw.insert(new_lhs, format!("_{}", builder));
+                    current_rule.left = new_lhs;
+                    tokens_reverse.insert(format!("_{}", builder), (new_lhs, NonTerminal));
+                }
+
+                for token in &rhs {
+                    if typed_terminals.contains(token) || token.len() == 1 {
+                        current_rule.right.push(*token.iter().next().unwrap());
+                    } else {
+                        let mut builder = String::new();
+                        let mut iter = token.iter();
+                        builder.push_str(token_raw.get(iter.next().unwrap()).unwrap());
+                        for x in iter {
+                            builder.push_str("__");
+                            builder.push_str(token_raw.get(x).unwrap())
+                        }
+                        let string = format!("_{}", builder);
+                        if let Some((t,_)) = tokens_reverse.get(string.as_str()) {
+                            current_rule.right.push(*t);
+                        } else {
+                            let new_rhs_token = gen_id();
+                            token_raw.insert(new_rhs_token, string.clone());
+                            tokens_reverse.insert(string, (new_rhs_token, NonTerminal));
+                            current_rule.right.push(new_rhs_token);
+                        }
+                    }
+                }
+                rules.push(current_rule);
+            }
+
+            for n in new_non_terminal_set {
+                if n.len() == 1 {
+                    non_terminals.push(*n.iter().next().unwrap());
+                } else {
+                    let mut builder = String::new();
+                    let mut iter = n.iter();
+                    builder.push_str(token_raw.get(iter.next().unwrap()).unwrap());
+                    for x in iter {
+                        builder.push_str("__");
+                        builder.push_str(token_raw.get(x).unwrap())
+                    }
+                    let string = format!("_{}", builder);
+                    if let Some((t, _)) = tokens_reverse.get(string.as_str()) {
+                        non_terminals.push(*t);
+                    } else {
+                        let new_rhs_token = gen_id();
+                        token_raw.insert(new_rhs_token, string.clone());
+                        tokens_reverse.insert(string, (new_rhs_token, NonTerminal));
+                        non_terminals.push(new_rhs_token);
+                    }
+                }
+            }
+            let index = non_terminals.binary_search(&axiom).unwrap();
+            non_terminals.remove(index);
+            non_terminals.insert(index, new_axiom);
+            axiom = new_axiom;
+
+            info!("New Non Terminals");
+            for n in &non_terminals {
+                info!("{}", token_raw.get(n).unwrap());
             }
         }
+
+        // End of grammar fixing.
 
         let mut rewrite_rules: HashMap<Token, Vec<Token>> = HashMap::new();
         for t in &non_terminals {
