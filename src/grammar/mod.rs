@@ -317,6 +317,35 @@ impl Grammar {
             }
             let dict_rules = copied_dict;
 
+            let mut f = File::create("output.txt").unwrap();
+            for (key, val) in &dict_rules {
+                let mut builder = String::new();
+                builder.push_str("(");
+                if !key.is_empty() {
+                    builder.push_str(format!("\'{}\'", token_raw.get(&key.get(0).unwrap()).unwrap()).as_str());
+                    if key.len() > 1 {
+                        for k in &key[1..key.len()] {
+                            builder.push_str(", ");
+                            builder.push_str(format!("\'{}\'", token_raw.get(&k).unwrap()).as_str());
+                        }
+                    } else {
+                        builder.push_str(",");
+                    }
+                    builder.push_str(") = (");
+
+                    let mut val_iter = val.iter();
+                    if val_iter.len() > 0 {
+                        builder.push_str(format!("\'{}\'", token_raw.get(val_iter.next().unwrap()).unwrap()).as_str());
+                    }
+                    while let Some(t) = val_iter.next() {
+                        builder.push_str(", ");
+                        builder.push_str(format!("\'{}\'", token_raw.get(val_iter.next().unwrap()).unwrap()).as_str());
+                    }
+                }
+                builder.push_str(")\n");
+                f.write(builder.as_bytes());
+            }
+
             // Add the new rules by expanding nonterminals in the rhs
             let mut dict_rules_for_iteration: HashMap<Vec<BTreeSet<Token>>, BTreeSet<Token>> = HashMap::new();
             let mut should_continue = true;
