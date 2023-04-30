@@ -115,7 +115,7 @@ impl FernTokens {
             semifield: tokens_reverse.get("SEMIFIELD").unwrap().0,
             xeq: tokens_reverse.get("XEQ").unwrap().0,
             local: tokens_reverse.get("LOCAL").unwrap().0,
-            fn_t: tokens_reverse.get("FN").unwrap().0,
+            fn_t: tokens_reverse.get("FUNCTION").unwrap().0,
         }
     }
 }
@@ -173,7 +173,7 @@ impl LexerInterface<FernLexerState> for FernLexer {
                     ';' => push(self.tok.semi),
                     '>' => push(self.tok.gt),
                     '<' => push(self.tok.lt),
-                    '=' => push(self.tok.xeq),
+                    '=' => push(self.tok.eq),
                     '-' => push(self.tok.minus),
                     '\"' => {
                         self.state = FernLexerState::InString;
@@ -235,7 +235,7 @@ impl LexerInterface<FernLexerState> for FernLexer {
                             "true" => self.tok.true_t,
                             "while" => self.tok.while_t,
                             "local" => self.tok.local,
-                            "fn" => self.tok.fn_t,
+                            "function" => self.tok.fn_t,
                             _ => self.tok.name,
                         };
                         self.buf.clear();
