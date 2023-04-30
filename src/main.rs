@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .set_target_level(simplelog::LevelFilter::Off)
         .set_thread_level(simplelog::LevelFilter::Off)
         .build();
-    let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Trace, config);
+    let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Info, config);
 
     let grammar = Grammar::from("data/grammar/lua.g");
     info!("Total Time to generate grammar : {:?}", now.elapsed());

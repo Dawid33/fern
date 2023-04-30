@@ -102,19 +102,70 @@ impl Grammar {
         output
     }
 
+    fn print_dict(name: &str, dict_rules: &HashMap<Vec<Token>, BTreeSet<Token>>, token_raw: &HashMap<Token, String>) {
+        let mut f = File::create(name).unwrap();
+        for (key, val) in dict_rules {
+            let mut builder = String::new();
+            builder.push_str("(");
+            if !key.is_empty() {
+                builder.push_str(format!("\'{}\'", token_raw.get(&key.get(0).unwrap()).unwrap()).as_str());
+                if key.len() > 1 {
+                    for k in &key[1..key.len()] {
+                        builder.push_str(", ");
+                        builder.push_str(format!("\'{}\'", token_raw.get(&k).unwrap()).as_str());
+                    }
+                } else {
+                    builder.push_str(",");
+                }
+                builder.push_str(") = [");
+
+                let mut sorted = Vec::new();
+                for x in val.iter() {
+                    sorted.push(token_raw.get(x).unwrap());
+                }
+                sorted.sort();
+
+                let mut val_iter = sorted.iter();
+                if val_iter.len() > 0 {
+                    builder.push_str(format!("\'{}\'", val_iter.next().unwrap()).as_str());
+                }
+                while let Some(t) = val_iter.next() {
+                    builder.push_str(", ");
+                    builder.push_str(format!("\'{}\'", t).as_str());
+                }
+            }
+            builder.push_str("]\n");
+            f.write(builder.as_bytes());
+        }
+    }
+
     fn add_new_rules(
         dict_rules_for_iteration: &mut HashMap<Vec<BTreeSet<Token>>, BTreeSet<Token>>,
         key_rhs: &[Token],
         value_lhs: &BTreeSet<Token>,
         non_terminals: &Vec<Token>,
         new_non_terminals: &BTreeSet<BTreeSet<Token>>,
-        new_rule_rhs: &mut Vec<BTreeSet<Token>>
+        new_rule_rhs: &mut Vec<BTreeSet<Token>>,
+        token_raw: &HashMap<Token, String>,
     ) {
         if key_rhs.len() == 0 {
             if dict_rules_for_iteration.contains_key(new_rule_rhs) {
                 dict_rules_for_iteration.get_mut(new_rule_rhs).unwrap().extend(value_lhs);
             } else {
                 dict_rules_for_iteration.insert(new_rule_rhs.clone(), BTreeSet::from_iter(value_lhs.clone().into_iter()));
+                // print!("[");
+                // for x in new_rule_rhs.iter() {
+                //     print!("(");
+                //     for y in x {
+                //         print!("{:?} ", token_raw.get(y).unwrap())
+                //     }
+                //     print!(")");
+                // }
+                // print!("] -> (");
+                // for x in value_lhs.iter() {
+                //     print!("{:?} ", token_raw.get(x).unwrap())
+                // }
+                // println!(")");
             }
             return
         }
@@ -123,14 +174,24 @@ impl Grammar {
             for non_term_super_set in new_non_terminals {
                 if non_term_super_set.contains(&token) {
                     new_rule_rhs.push(non_term_super_set.clone());
-                    Self::add_new_rules(dict_rules_for_iteration, &key_rhs[1..], value_lhs, non_terminals, new_non_terminals, new_rule_rhs);
+                    let reduced = if key_rhs.len() > 0 {
+                        &key_rhs[1..]
+                    } else {
+                        &[]
+                    };
+                    Self::add_new_rules(dict_rules_for_iteration, reduced, value_lhs, non_terminals, new_non_terminals, new_rule_rhs, token_raw);
                     new_rule_rhs.pop();
                     // info!("len {}", new_rule_rhs.len());
                 }
             }
         } else {
             new_rule_rhs.push(BTreeSet::from([*token]));
-            Self::add_new_rules(dict_rules_for_iteration, &key_rhs[1..], value_lhs, non_terminals, new_non_terminals, new_rule_rhs);
+            let reduced = if key_rhs.len() > 0 {
+                &key_rhs[1..]
+            } else {
+                &[]
+            };
+            Self::add_new_rules(dict_rules_for_iteration, &key_rhs[1..], value_lhs, non_terminals, new_non_terminals, new_rule_rhs, token_raw);
             new_rule_rhs.pop();
             // info!("len {}", new_rule_rhs.len());
         }
@@ -190,7 +251,11 @@ impl Grammar {
             for r in &rules {
                 let mut left = BTreeSet::new();
                 left.insert(r.left);
-                dict_rules.insert(r.right.clone(), left);
+                if dict_rules.contains_key(&r.right) {
+                    dict_rules.get_mut(&r.right).unwrap().extend([r.left]);
+                } else {
+                    dict_rules.insert(r.right.clone(), left);
+                }
             }
 
             for (rhs, left) in &dict_rules {
@@ -209,28 +274,60 @@ impl Grammar {
             }
 
             for r in &rules {
-                if r.right.len() == 1 {
-                    if non_terminals.contains(r.right.get(0).unwrap()) {
-                        // It is a copy rule
-                        // Update the copy set of rule.left
-                        copy.get_mut(&r.left)
-                            .unwrap()
-                            .insert(*r.right.get(0).unwrap());
-                        if dict_rules.contains_key(&r.right) {
-                            info!(
-                                "Removing : {:?}",
-                                Self::token_list_to_string(&r.right, &token_raw)
-                            );
-                            dict_rules.remove(&r.right).unwrap();
-                        }
+                if r.right.len() == 1 && non_terminals.contains(r.right.get(0).unwrap()) {
+                    // It is a copy rule
+                    // Update the copy set of rule.left
+                    let old = copy.get_mut(&r.left).unwrap().clone();
+                    copy.get_mut(&r.left).unwrap().insert(r.right.get(0).unwrap().clone());
+                    // println!("Update: {:?} -> {:?}", Self::token_list_to_string(&old.into_iter().collect(), &token_raw), Self::token_list_to_string(&copy.get(&r.left).unwrap().clone().into_iter().collect(), &token_raw));
+                    if dict_rules.contains_key(&r.right) {
+                        // println!("Removing : {:?}",Self::token_list_to_string(&r.right, &token_raw));
+                        dict_rules.remove(&r.right).unwrap();
+                    }
+                } else {
+                    if rhs_dict.contains_key(&r.left) {
+                        // println!("Pushing: {:?}", Self::token_list_to_string(&r.right, &token_raw));
+                        rhs_dict.get_mut(&r.left).unwrap().push(r.right.clone());
                     } else {
-                        if rhs_dict.contains_key(&r.left) {
-                            rhs_dict.get_mut(&r.left).unwrap().push(r.right.clone())
-                        } else {
-                            rhs_dict.insert(r.left, Vec::from([r.right.clone()]));
+                        // println!("Inserting : {:?} -> {:?}", token_raw.get(&r.left).unwrap(), Self::token_list_to_string(&r.right, &token_raw));
+                        rhs_dict.insert(r.left, Vec::from([r.right.clone()]));
+                    }
+                }
+            }
+            let mut f = File::create("rhs_dict.txt").unwrap();
+            for (key, val) in &rhs_dict {
+                let mut builder = String::new();
+                builder.push_str(format!("{} = [", token_raw.get(&key).unwrap()).as_str());
+                let mut val = val.clone();
+                val.sort();
+                if !val.is_empty() {
+                    let mut val_iter = val.get(0).unwrap().iter();
+                    builder.push_str("[");
+                    if val_iter.len() > 0 {
+                        builder.push_str(format!("\'{}\'", token_raw.get(val_iter.next().unwrap()).unwrap()).as_str());
+                    }
+                    while let Some(t) = val_iter.next() {
+                        builder.push_str(", ");
+                        builder.push_str(format!("\'{}\'", token_raw.get(t).unwrap()).as_str());
+                    }
+                    builder.push_str("]");
+                    if val.len() > 1 {
+                        for k in &val[1..val.len()] {
+                            builder.push_str(", [");
+                            let mut val_iter = k.iter();
+                            if val_iter.len() > 0 {
+                                builder.push_str(format!("\'{}\'", token_raw.get(val_iter.next().unwrap()).unwrap()).as_str());
+                            }
+                            while let Some(t) = val_iter.next() {
+                                builder.push_str(", ");
+                                builder.push_str(format!("\'{}\'", token_raw.get(t).unwrap()).as_str());
+                            }
+                            builder.push_str("]");
                         }
                     }
                 }
+                builder.push_str("]\n");
+                f.write(builder.as_bytes());
             }
             let mut changed_copy_sets = true;
             while changed_copy_sets {
@@ -248,54 +345,50 @@ impl Grammar {
                     }
                 }
             }
+            let mut f = File::create("copy.txt").unwrap();
+            for (key, val) in &copy {
+                let mut builder = String::new();
+                builder.push_str(format!("{} = [", token_raw.get(&key).unwrap()).as_str());
+
+                let mut sorted = Vec::new();
+                for x in val.iter() {
+                    sorted.push(token_raw.get(x).unwrap());
+                }
+                sorted.sort();
+
+                let mut val_iter = sorted.iter();
+                if val_iter.len() > 0 {
+                    builder.push_str(format!("\'{}\'", val_iter.next().unwrap()).as_str());
+                }
+                while let Some(t) = val_iter.next() {
+                    builder.push_str(", ");
+                    builder.push_str(format!("\'{}\'", t).as_str());
+                }
+                builder.push_str("]\n");
+                f.write(builder.as_bytes());
+            }
             for n in &non_terminals {
                 for copy_rhs in copy.get(n).unwrap() {
                     let empty = Vec::new();
                     let rhs_dict_copy_rhs = rhs_dict.get(copy_rhs).or(Some(&empty)).unwrap();
                     for rhs in rhs_dict_copy_rhs {
                         if !dict_rules.get(rhs).unwrap().contains(n) {
-                            let before: Vec<Token> =
-                                dict_rules.get(rhs).unwrap().clone().into_iter().collect();
-                            let mut other = dict_rules.get(rhs).unwrap().clone();
-                            other.insert(*n);
-                            dict_rules.get_mut(rhs).unwrap().extend(other);
-                            trace!(
-                                "Before : {:?} After: {:?}",
-                                Self::token_list_to_string(&before, &token_raw),
-                                Self::token_list_to_string(
-                                    &dict_rules.get(rhs).unwrap().clone().into_iter().collect(),
-                                    &token_raw
-                                )
-                            );
+                            dict_rules.get_mut(rhs).unwrap().extend([n]);
                         }
                     }
                 }
             }
 
-            // Professional end to end testing code, nothing to see here...
-            // let mut f = File::create("output.txt").unwrap();
-            // for (key, val) in dict_rules {
-            //     let mut builder = String::new();
-            //     builder.push_str("(");
-            //     if !key.is_empty() {
-            //         builder.push_str(format!("\'{}\'", token_raw.get(&key.get(0).unwrap()).unwrap()).as_str());
-            //         if key.len() > 1 {
-            //             for k in &key[1..key.len()] {
-            //                 builder.push_str(", ");
-            //                 builder.push_str(format!("\'{}\'", token_raw.get(&k).unwrap()).as_str());
-            //             }
-            //         } else {
-            //             builder.push_str(",");
-            //         }
-            //     }
-            //     builder.push_str(")\n");
-            //     f.write(builder.as_bytes());
-            // }
+            Grammar::print_dict("output.txt", &dict_rules, &token_raw);
 
             // Initialize the new nonterminal set V
-            let mut V: BTreeSet<BTreeSet<Token>> = dict_rules.clone().into_values().collect();
+            let temp = dict_rules.clone().into_values();
+            let mut V: BTreeSet<BTreeSet<Token>> = BTreeSet::new();
+            for x in temp {
+                V.insert(x);
+            }
 
-            let mut new_dict_rules: HashMap<Vec<BTreeSet<Token>>, BTreeSet<Token>> = HashMap::new();
+            let mut new_dict_rules: HashMap<Vec<Vec<Token>>, BTreeSet<Token>> = HashMap::new();
             let mut copied_dict: HashMap<Vec<Token>, BTreeSet<Token>> = HashMap::new();
 
             // Initialize the new set of productions P with the terminal rules of the original grammar
@@ -309,50 +402,90 @@ impl Grammar {
                     }
                 }
                 if is_terminal_rule {
-                    let new_rhs = key_rhs.into_iter().map(|x| BTreeSet::from([x])).collect();
-                    new_dict_rules.insert(new_rhs, value_lhs);
+                    new_dict_rules.insert(vec![key_rhs.clone()], value_lhs);
                 } else {
                     copied_dict.insert(key_rhs, value_lhs);
                 }
             }
             let dict_rules = copied_dict;
 
-            let mut f = File::create("output.txt").unwrap();
-            for (key, val) in &dict_rules {
+            let mut f = File::create("V.txt").unwrap();
+            for val in &V {
                 let mut builder = String::new();
-                builder.push_str("(");
-                if !key.is_empty() {
-                    builder.push_str(format!("\'{}\'", token_raw.get(&key.get(0).unwrap()).unwrap()).as_str());
-                    if key.len() > 1 {
-                        for k in &key[1..key.len()] {
-                            builder.push_str(", ");
-                            builder.push_str(format!("\'{}\'", token_raw.get(&k).unwrap()).as_str());
-                        }
-                    } else {
-                        builder.push_str(",");
-                    }
-                    builder.push_str(") = (");
+                builder.push_str("[");
+                let mut sorted = Vec::new();
+                for x in val.iter() {
+                    sorted.push(token_raw.get(x).unwrap());
+                }
+                sorted.sort();
 
-                    let mut val_iter = val.iter();
+                let mut val_iter = sorted.iter();
+                if val_iter.len() > 0 {
+                    builder.push_str(format!("\'{}\'", val_iter.next().unwrap()).as_str());
+                }
+                while let Some(t) = val_iter.next() {
+                    builder.push_str(", ");
+                    builder.push_str(format!("\'{}\'", t).as_str());
+                }
+                builder.push_str("]\n");
+                f.write(builder.as_bytes());
+            }
+            Grammar::print_dict("dict_rules_before.txt", &dict_rules, &token_raw);
+            let mut f = File::create("new_dict_rules.txt").unwrap();
+            for (key, val) in &new_dict_rules {
+                let mut builder = String::new();
+                builder.push_str("[");
+                if !key.is_empty() {
+                    let mut val_iter = key.get(0).unwrap().iter();
                     if val_iter.len() > 0 {
                         builder.push_str(format!("\'{}\'", token_raw.get(val_iter.next().unwrap()).unwrap()).as_str());
                     }
                     while let Some(t) = val_iter.next() {
                         builder.push_str(", ");
-                        builder.push_str(format!("\'{}\'", token_raw.get(val_iter.next().unwrap()).unwrap()).as_str());
+                        builder.push_str(format!("\'{}\'", token_raw.get(t).unwrap()).as_str());
+                    }
+                    if key.len() > 1 {
+                        for k in &key[1..key.len()] {
+                            builder.push_str(", [");
+                            let mut val_iter = key.get(0).unwrap().iter();
+                            if val_iter.len() > 0 {
+                                builder.push_str(format!("\'{}\'", token_raw.get(val_iter.next().unwrap()).unwrap()).as_str());
+                            }
+                            while let Some(t) = val_iter.next() {
+                                builder.push_str(", ");
+                                builder.push_str(format!("\'{}\'", token_raw.get(t).unwrap()).as_str());
+                            }
+                        }
+                    }
+                    builder.push_str("] = [");
+
+                    let mut sorted = Vec::new();
+                    for x in val.iter() {
+                        sorted.push(token_raw.get(x).unwrap());
+                    }
+                    sorted.sort();
+
+                    let mut val_iter = sorted.iter();
+                    if val_iter.len() > 0 {
+                        builder.push_str(format!("\'{}\'", val_iter.next().unwrap()).as_str());
+                    }
+                    while let Some(t) = val_iter.next() {
+                        builder.push_str(", ");
+                        builder.push_str(format!("\'{}\'", t).as_str());
                     }
                 }
-                builder.push_str(")\n");
+                builder.push_str("]\n");
                 f.write(builder.as_bytes());
             }
 
             // Add the new rules by expanding nonterminals in the rhs
             let mut dict_rules_for_iteration: HashMap<Vec<BTreeSet<Token>>, BTreeSet<Token>> = HashMap::new();
-            let mut should_continue = true;
+            let mut should_continue: bool = true;
+            let mut cnt: u32 = 0;
             while should_continue {
                 for (key_rhs, value_lhs) in dict_rules.iter() {
                     let mut new_rule_rhs: Vec<BTreeSet<Token>> = Vec::new();
-                    Self::add_new_rules(&mut dict_rules_for_iteration, key_rhs, value_lhs, &non_terminals, &mut V, &mut new_rule_rhs);
+                    Self::add_new_rules(&mut dict_rules_for_iteration, key_rhs, value_lhs, &non_terminals, &mut V, &mut new_rule_rhs, &token_raw);
                 }
                 let temp  = BTreeSet::from_iter(dict_rules_for_iteration.values().clone().into_iter());
                 let mut difference = BTreeSet::new();
@@ -362,13 +495,66 @@ impl Grammar {
                     }
                 }
 
-                V.append(&mut difference.clone());
+                V.extend(difference.clone().into_iter());
                 for (key, val) in &dict_rules_for_iteration{
-                    new_dict_rules.insert(key.clone(), val.clone());
+                    let mut result = Vec::new();
+                    for set in key {
+                        result.push(set.clone().into_iter().collect());
+                    }
+                    new_dict_rules.insert(result, val.clone());
                 }
                 if difference.len() == 0 {
                     should_continue = false;
                 }
+                cnt += 1;
+            }
+
+            let mut f = File::create("expanded.txt").unwrap();
+            for (key, val) in &new_dict_rules {
+                let mut builder = String::new();
+                builder.push_str("['");
+
+                let mut strings = Vec::new();
+                for x in key {
+                    let mut tmp = String::new();
+                    let mut to_sort = x.clone();
+                    to_sort.sort();
+                    let mut iter = to_sort.iter();
+                    if let Some(s) = iter.next() {
+                        tmp.push_str(format!("{}", token_raw.get(s).unwrap()).as_str());
+                    }
+                    while let Some(s) = iter.next() {
+                        tmp.push_str(format!("_{}", token_raw.get(s).unwrap()).as_str());
+                    }
+                    strings.push(tmp);
+                }
+                strings.sort();
+                let mut iter = strings.iter();
+                if let Some(s) = iter.next() {
+                    builder.push_str(s);
+                }
+                while let Some(s) = iter.next() {
+                    builder.push_str(format!("_{}", s).as_str());
+                }
+
+                builder.push_str("'] = [");
+
+                let mut sorted = Vec::new();
+                for x in val.iter() {
+                    sorted.push(token_raw.get(x).unwrap());
+                }
+                sorted.sort();
+
+                let mut val_iter = sorted.iter();
+                if val_iter.len() > 0 {
+                    builder.push_str(format!("\'{}\'", val_iter.next().unwrap()).as_str());
+                }
+                while let Some(t) = val_iter.next() {
+                    builder.push_str(", ");
+                    builder.push_str(format!("\'{}\'", t).as_str());
+                }
+                builder.push_str("]\n");
+                f.write(builder.as_bytes());
             }
 
             // List of nonterminals of the invertible grammar G
@@ -376,18 +562,22 @@ impl Grammar {
 
             // This is nonsense, I know. Python can have any value in a set which makes this hard to port
             // without creating this new set.
-            let typed_terminals: Vec<BTreeSet<Token>> = terminals.clone().into_iter().map(|x| {BTreeSet::from([x])}).collect();
+            let typed_terminals: BTreeSet<BTreeSet<Token>> = terminals.clone().into_iter().map(|x| {BTreeSet::from([x])}).collect();
 
             // Delete rules with rhs with undefined nonterminals:
             // this implementation of the algorithm can generate rhs of rules with nonterminals which are no more defined.
             //TODO: a bit slightly more efficient version can store beforehand the list of rhs of every nonterminal and then delete the nonterminals whose rhs are all deleted.
             let mut deleted = true;
+            info!("LEN {}", new_dict_rules.len());
+            let mut f = File::create("removed.txt").unwrap();
             while deleted {
                 deleted = false;
                 new_dict_rules.retain(|key_rhs, value_lhs| {
                     let mut should_keep = true;
-                    for token in key_rhs {
-                        if (!typed_terminals.contains(token)) && (!V.contains(token)) {
+                    for vec_token in key_rhs {
+                        let token: BTreeSet<Token> = vec_token.clone().into_iter().collect();
+                        if (!typed_terminals.contains(&token)) && (!V.contains(&token)) {
+                            f.write(format!("{:?}\n", Self::token_list_to_string(vec_token, &token_raw)).as_str().as_bytes());
                             deleted = true;
                             should_keep = false;
                             break;
@@ -400,101 +590,142 @@ impl Grammar {
                 }
             }
 
+            info!("LEN {}", new_dict_rules.len());
+            let mut f = File::create("final.txt").unwrap();
+            for (key, val) in &new_dict_rules{
+                let mut builder = String::new();
+                builder.push_str("(");
+                if !key.is_empty() {
+                    builder.push_str("[");
+                    for x in key.get(0).unwrap() {
+                        builder.push_str(format!("\'{}\'", token_raw.get(x).unwrap()).as_str());
+                    }
+                    builder.push_str("]");
+                    if key.len() > 1 {
+                        for k in &key[1..key.len()] {
+                            builder.push_str(", [");
+                            for x in k {
+                                builder.push_str(format!("\'{}\' ", token_raw.get(x).unwrap()).as_str());
+                            }
+                            builder.push_str("]");
+                        }
+                    } else {
+                        builder.push_str(",");
+                    }
+                    builder.push_str(") = (");
+
+                    let mut val_iter = val.iter();
+                    if val_iter.len() > 0 {
+                        builder.push_str(format!("\'{}\'", token_raw.get(val_iter.next().unwrap()).unwrap()).as_str());
+                    }
+                    while let Some(t) = val_iter.next() {
+                        builder.push_str(", ");
+                        builder.push_str(format!("\'{}\'", token_raw.get(t).unwrap()).as_str());
+                    }
+                }
+                builder.push_str(")\n");
+                f.write(builder.as_bytes());
+            }
+
             V.insert(BTreeSet::from([new_axiom]));
 
-            for non_term in &V {
-                if non_term.contains(&axiom) {
-                    let temp = Vec::from([non_term.clone()]);
-                    if non_term.len() == 1 && new_dict_rules.contains_key(&temp) {
-                        let entry = new_dict_rules.get_mut(&temp).unwrap().clone();
-                        new_dict_rules.insert(Vec::from([BTreeSet::from([new_axiom])]), entry);
-                    }
-                    new_dict_rules.insert(temp, BTreeSet::from([new_axiom]));
-                }
-            }
+            //Add rules for the axiom of G, which have as rhs all new nonterminals that contain the old axiom
+            // for non_term in &V {
+            //     if non_term.contains(&axiom) {
+            //         let temp = Vec::from([non_term.clone().into_iter().collect()]);
+            //         //If the rule has exactly the old axiom as rhs, replace it with the new axiom
+            //         if non_term.len() == 1 && new_dict_rules.contains_key(&temp) {
+            //             let entry = new_dict_rules.get_mut(&temp).unwrap().clone();
+            //             new_dict_rules.insert(Vec::from([Vec::from([new_axiom])]), entry);
+            //         }
+            //         new_dict_rules.insert(temp, BTreeSet::from([new_axiom]));
+            //     }
+            // }
 
             rules.clear();
 
             let new_rules = new_dict_rules;
             let new_non_terminal_set = V;
 
-            non_terminals.clear();
 
-            for (rhs, lhs) in new_rules {
-                let mut current_rule = Rule::new();
 
-                if lhs.len() == 1 {
-                    current_rule.left = *lhs.iter().next().unwrap();
-                } else {
-                    let mut builder = String::new();
-                    let mut iter = lhs.iter();
-                    builder.push_str(token_raw.get(iter.next().unwrap()).unwrap());
-                    for x in iter {
-                        builder.push_str("__");
-                        builder.push_str(token_raw.get(x).unwrap())
-                    }
-                    let new_lhs = gen_id();
-                    token_raw.insert(new_lhs, format!("_{}", builder));
-                    current_rule.left = new_lhs;
-                    tokens_reverse.insert(format!("_{}", builder), (new_lhs, NonTerminal));
-                }
-
-                for token in &rhs {
-                    if typed_terminals.contains(token) || token.len() == 1 {
-                        current_rule.right.push(*token.iter().next().unwrap());
-                    } else {
-                        let mut builder = String::new();
-                        let mut iter = token.iter();
-                        builder.push_str(token_raw.get(iter.next().unwrap()).unwrap());
-                        for x in iter {
-                            builder.push_str("__");
-                            builder.push_str(token_raw.get(x).unwrap())
-                        }
-                        let string = format!("_{}", builder);
-                        if let Some((t,_)) = tokens_reverse.get(string.as_str()) {
-                            current_rule.right.push(*t);
-                        } else {
-                            let new_rhs_token = gen_id();
-                            token_raw.insert(new_rhs_token, string.clone());
-                            tokens_reverse.insert(string, (new_rhs_token, NonTerminal));
-                            current_rule.right.push(new_rhs_token);
-                        }
-                    }
-                }
-                rules.push(current_rule);
-            }
-
-            for n in new_non_terminal_set {
-                if n.len() == 1 {
-                    non_terminals.push(*n.iter().next().unwrap());
-                } else {
-                    let mut builder = String::new();
-                    let mut iter = n.iter();
-                    builder.push_str(token_raw.get(iter.next().unwrap()).unwrap());
-                    for x in iter {
-                        builder.push_str("__");
-                        builder.push_str(token_raw.get(x).unwrap())
-                    }
-                    let string = format!("_{}", builder);
-                    if let Some((t, _)) = tokens_reverse.get(string.as_str()) {
-                        non_terminals.push(*t);
-                    } else {
-                        let new_rhs_token = gen_id();
-                        token_raw.insert(new_rhs_token, string.clone());
-                        tokens_reverse.insert(string, (new_rhs_token, NonTerminal));
-                        non_terminals.push(new_rhs_token);
-                    }
-                }
-            }
-            let index = non_terminals.binary_search(&axiom).unwrap();
-            non_terminals.remove(index);
-            non_terminals.insert(index, new_axiom);
-            axiom = new_axiom;
-
-            info!("New Non Terminals");
-            for n in &non_terminals {
-                info!("{}", token_raw.get(n).unwrap());
-            }
+        //     non_terminals.clear();
+        //
+        //     for (rhs, lhs) in new_rules {
+        //         let mut current_rule = Rule::new();
+        //
+        //         if lhs.len() == 1 {
+        //             current_rule.left = *lhs.iter().next().unwrap();
+        //         } else {
+        //             let mut builder = String::new();
+        //             let mut iter = lhs.iter();
+        //             builder.push_str(token_raw.get(iter.next().unwrap()).unwrap());
+        //             for x in iter {
+        //                 builder.push_str("__");
+        //                 builder.push_str(token_raw.get(x).unwrap())
+        //             }
+        //             let new_lhs = gen_id();
+        //             token_raw.insert(new_lhs, format!("_{}", builder));
+        //             current_rule.left = new_lhs;
+        //             tokens_reverse.insert(format!("_{}", builder), (new_lhs, NonTerminal));
+        //         }
+        //
+        //         for token in &rhs {
+        //             if typed_terminals.contains(&token.clone().into_iter().collect()) || token.len() == 1 {
+        //                 current_rule.right.push(*token.iter().next().unwrap());
+        //             } else {
+        //                 let mut builder = String::new();
+        //                 let mut iter = token.iter();
+        //                 builder.push_str(token_raw.get(iter.next().unwrap()).unwrap());
+        //                 for x in iter {
+        //                     builder.push_str("__");
+        //                     builder.push_str(token_raw.get(x).unwrap())
+        //                 }
+        //                 let string = format!("_{}", builder);
+        //                 if let Some((t,_)) = tokens_reverse.get(string.as_str()) {
+        //                     current_rule.right.push(*t);
+        //                 } else {
+        //                     let new_rhs_token = gen_id();
+        //                     token_raw.insert(new_rhs_token, string.clone());
+        //                     tokens_reverse.insert(string, (new_rhs_token, NonTerminal));
+        //                     current_rule.right.push(new_rhs_token);
+        //                 }
+        //             }
+        //         }
+        //         rules.push(current_rule);
+        //     }
+        //
+        //     for n in new_non_terminal_set {
+        //         if n.len() == 1 {
+        //             non_terminals.push(*n.iter().next().unwrap());
+        //         } else {
+        //             let mut builder = String::new();
+        //             let mut iter = n.iter();
+        //             builder.push_str(token_raw.get(iter.next().unwrap()).unwrap());
+        //             for x in iter {
+        //                 builder.push_str("__");
+        //                 builder.push_str(token_raw.get(x).unwrap())
+        //             }
+        //             let string = format!("_{}", builder);
+        //             if let Some((t, _)) = tokens_reverse.get(string.as_str()) {
+        //                 non_terminals.push(*t);
+        //             } else {
+        //                 let new_rhs_token = gen_id();
+        //                 token_raw.insert(new_rhs_token, string.clone());
+        //                 tokens_reverse.insert(string, (new_rhs_token, NonTerminal));
+        //                 non_terminals.push(new_rhs_token);
+        //             }
+        //         }
+        //     }
+        //     let index = non_terminals.binary_search(&axiom).unwrap();
+        //     non_terminals.remove(index);
+        //     non_terminals.insert(index, new_axiom);
+        //     axiom = new_axiom;
+        //
+        //     info!("New Non Terminals");
+        //     for n in &non_terminals {
+        //         info!("{}", token_raw.get(n).unwrap());
+        //     }
         }
 
         // End of grammar fixing.
