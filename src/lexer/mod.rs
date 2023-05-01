@@ -18,12 +18,12 @@ use std::{iter, thread};
 use tinyrand::{RandRange, StdRand};
 
 pub mod error;
-pub mod fern;
+pub mod lua;
 pub mod json;
 
 use crate::grammar::{Grammar, Token};
 use crate::lexer::error::LexerError;
-use crate::lexer::fern::{FernLexer, FernLexerState};
+use crate::lexer::lua::{FernLexer, FernLexerState};
 use crate::lexer::json::{JsonLexer, JsonLexerState, JsonTokens};
 
 pub struct LexerOutput<T> {

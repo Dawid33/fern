@@ -11,7 +11,7 @@ use std::time::Instant;
 use core::grammar::Grammar;
 use core::grammar::Token;
 use core::lexer::*;
-use core::lexer::{fern::*, json::*};
+use core::lexer::{lua::*, json::*};
 use core::parser::{ParallelParser, ParseTree};
 use log::{debug, info, trace};
 use memmap::MmapOptions;

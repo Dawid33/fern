@@ -2,7 +2,7 @@ use crate::grammar::reader::TokenTypes;
 use crate::grammar::{Grammar, Token};
 use crate::lexer::error::LexerError;
 use crate::lexer::LexerInterface;
-use log::trace;
+use log::{info, trace};
 use std::collections::HashMap;
 use std::fmt::Debug;
 
@@ -24,12 +24,18 @@ pub struct FernTokens {
     pub eq: Token,
     pub break_t: Token,
     pub goto: Token,
+    pub do_t: Token,
+    pub end: Token,
     pub while_t: Token,
+    pub repeat: Token,
+    pub until: Token,
     pub if_t: Token,
     pub then: Token,
     pub elseif: Token,
-    pub nil: Token,
     pub else_t: Token,
+    pub for_t: Token,
+    pub in_t: Token,
+    pub nil: Token,
     pub false_t: Token,
     pub true_t: Token,
     pub number: Token,
@@ -53,8 +59,8 @@ pub struct FernTokens {
     pub not: Token,
     pub uminus: Token,
     pub sharp: Token,
-    // pub lparenfunc: Token,
-    // pub rparenfunc: Token,
+    pub lparenfunc: Token,
+    pub rparenfunc: Token,
     pub semifield: Token,
     pub xeq: Token,
     pub local: Token,
@@ -81,12 +87,20 @@ impl FernTokens {
             eq: tokens_reverse.get("EQ").unwrap().0,
             break_t: tokens_reverse.get("BREAK").unwrap().0,
             goto: tokens_reverse.get("GOTO").unwrap().0,
+            do_t: tokens_reverse.get("DO").unwrap().0,
+            end: tokens_reverse.get("END").unwrap().0,
             while_t: tokens_reverse.get("WHILE").unwrap().0,
+            repeat: tokens_reverse.get("REPEAT").unwrap().0,
+            until: tokens_reverse.get("UNTIL").unwrap().0,
             if_t: tokens_reverse.get("IF").unwrap().0,
             then: tokens_reverse.get("THEN").unwrap().0,
             elseif: tokens_reverse.get("ELSEIF").unwrap().0,
-            nil: tokens_reverse.get("NIL").unwrap().0,
             else_t: tokens_reverse.get("ELSE").unwrap().0,
+            for_t: tokens_reverse.get("ELSE").unwrap().0,
+            in_t: tokens_reverse.get("ELSE").unwrap().0,
+            fn_t: tokens_reverse.get("FUNCTION").unwrap().0,
+            local: tokens_reverse.get("LOCAL").unwrap().0,
+            nil: tokens_reverse.get("NIL").unwrap().0,
             false_t: tokens_reverse.get("FALSE").unwrap().0,
             true_t: tokens_reverse.get("TRUE").unwrap().0,
             number: tokens_reverse.get("NUMBER").unwrap().0,
@@ -110,12 +124,10 @@ impl FernTokens {
             not: tokens_reverse.get("NOT").unwrap().0,
             uminus: tokens_reverse.get("UMINUS").unwrap().0,
             sharp: tokens_reverse.get("SHARP").unwrap().0,
-            // lparenfunc: tokens_reverse.get("LPARENFUNC").unwrap().0,
-            // rparenfunc: tokens_reverse.get("RPARENFUNC").unwrap().0,
+            lparenfunc: tokens_reverse.get("LPARENFUNC").unwrap().0,
+            rparenfunc: tokens_reverse.get("RPARENFUNC").unwrap().0,
             semifield: tokens_reverse.get("SEMIFIELD").unwrap().0,
             xeq: tokens_reverse.get("XEQ").unwrap().0,
-            local: tokens_reverse.get("LOCAL").unwrap().0,
-            fn_t: tokens_reverse.get("FUNCTION").unwrap().0,
         }
     }
 }
@@ -154,7 +166,7 @@ impl LexerInterface<FernLexerState> for FernLexer {
 
             let c = *c as char;
             let mut push = |t: Token| {
-                trace!("{:?}", self.grammar.token_raw.get(&t).unwrap());
+                info!("{:?}", self.grammar.token_raw.get(&t).unwrap());
                 self.tokens.push(t);
             };
 
@@ -166,8 +178,8 @@ impl LexerInterface<FernLexerState> for FernLexer {
                     }
                     '{' => push(self.tok.lbrace),
                     '}' => push(self.tok.rbrace),
-                    '(' => push(self.tok.lparen),
-                    ')' => push(self.tok.lparen),
+                    '(' => push(self.tok.lparenfunc),
+                    ')' => push(self.tok.rparenfunc),
                     ':' => push(self.tok.colon),
                     ',' => push(self.tok.comma),
                     ';' => push(self.tok.semi),
@@ -230,12 +242,17 @@ impl LexerInterface<FernLexerState> for FernLexer {
                             "nil" => self.tok.nil,
                             "not" => self.tok.not,
                             "or" => self.tok.or,
+                            "repeat" => self.tok.repeat,
+                            "until" => self.tok.until,
+                            "in" => self.tok.until,
+                            "for" => self.tok.until,
                             "return" => self.tok.return_t,
                             "then" => self.tok.then,
                             "true" => self.tok.true_t,
                             "while" => self.tok.while_t,
                             "local" => self.tok.local,
                             "function" => self.tok.fn_t,
+                            "end" => self.tok.end,
                             _ => self.tok.name,
                         };
                         self.buf.clear();

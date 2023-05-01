@@ -7,6 +7,7 @@ use std::thread;
 use std::time::Instant;
 
 use core::grammar::Grammar;
+use core::grammar::Token;
 use core::lexer::json::*;
 use core::lexer::*;
 use core::parser::{ParallelParser, ParseTree};
@@ -26,9 +27,9 @@ fn full_test() -> Result<(), Box<dyn Error>> {
     info!("Total Time to generate grammar : {:?}", now.elapsed());
     now = Instant::now();
 
-    let mut tokens: LinkedList<Vec<u8>> = LinkedList::new();
+    let mut tokens: LinkedList<Vec<Token>> = LinkedList::new();
     {
-        let file = File::open("../data/test.json")?;
+        let file = File::open("data/json/10KB.json")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         info!("Total time to load file: {:?}", now.elapsed());
         now = Instant::now();
