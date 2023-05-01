@@ -2,7 +2,6 @@ use crate::grammar::reader::TokenTypes;
 use crate::grammar::{Grammar, Token};
 use crate::lexer::error::LexerError;
 use crate::lexer::LexerInterface;
-use log::trace;
 use std::collections::HashMap;
 use std::fmt::Debug;
 

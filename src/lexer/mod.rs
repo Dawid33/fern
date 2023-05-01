@@ -1,6 +1,5 @@
 use crossbeam_deque::{Injector, Worker};
 use crossbeam_skiplist::SkipMap;
-use log::{debug, trace};
 use memmap::{Mmap, MmapOptions};
 use std::collections::{HashMap, LinkedList};
 use std::error::Error;
@@ -16,6 +15,7 @@ use std::thread::{Scope, ScopedJoinHandle};
 use std::time::{Duration, Instant};
 use std::{iter, thread};
 use tinyrand::{RandRange, StdRand};
+use tracing::trace;
 
 pub mod error;
 pub mod lua;

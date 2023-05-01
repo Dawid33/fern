@@ -1,7 +1,6 @@
 use crate::grammar::error::GrammarError;
 use crate::grammar::reader::TokenTypes::{Axiom, NonTerminal, Terminal};
 use crate::grammar::{Grammar, Rule, Token};
-use log::info;
 use std::collections::HashMap;
 use std::fs;
 use std::io::{BufReader, Read};
