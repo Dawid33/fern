@@ -3,3 +3,4 @@ test.json
 *.idea
 scripts
 *.txt
+.cached-grammar

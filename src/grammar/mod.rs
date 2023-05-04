@@ -2,6 +2,7 @@ use crate::grammar::error::GrammarError;
 use crate::grammar::reader::TokenTypes::{NonTerminal, Terminal};
 use crate::grammar::reader::{read_grammar_file, TokenTypes};
 use crate::grammar::Associativity::{Equal, Left, Right};
+use serde::{Serialize, Deserialize};
 use std::collections::hash_map::HashMap;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::error::Error;
@@ -10,14 +11,14 @@ use std::fs;
 use std::fs::File;
 use std::hash::Hash;
 use std::io::{Read, Write};
-use tracing::debug;
+use log::debug;
 
 mod error;
 pub mod reader;
 
 pub type Token = u16;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Rule {
     pub left: Token,
     pub right: Vec<Token>,
@@ -38,7 +39,7 @@ impl Rule {
     }
 }
 
-#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[allow(unused)]
 pub enum Associativity {
     None,
@@ -48,7 +49,7 @@ pub enum Associativity {
     Undefined,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Grammar {
     pub non_terminals: Vec<Token>,
     pub terminals: Vec<Token>,
@@ -956,45 +957,48 @@ impl Grammar {
         }
 
         // Print op_table
-        // let mut sorted = Vec::new();
-        // for t in terminals {
-        //     sorted.push(token_raw.get(&t).unwrap());
-        // }
-        // sorted.sort();
-        // let terminals: Vec<Token> = sorted.into_iter().map(|n| {tokens_reverse.get(n.as_str()).unwrap().0}).collect();
-        //
-        // let mut largest = 0;
-        // terminals.iter().for_each(|x| {
-        //     let s_len = token_raw.get(x).unwrap().len();
-        //     if s_len > largest {
-        //         largest = s_len
-        //     }
-        // });
+        let mut f = File::create("op.txt").unwrap();
+        let mut sorted = Vec::new();
+        for t in terminals {
+            sorted.push(token_raw.get(&t).unwrap());
+        }
+        sorted.sort();
+        let terminals: Vec<Token> = sorted.into_iter().map(|n| {tokens_reverse.get(n.as_str()).unwrap().0}).collect();
+
+        let mut largest = 11;
+        terminals.iter().for_each(|x| {
+            let s_len = token_raw.get(x).unwrap().len();
+            if s_len > largest {
+                // largest = s_len
+            }
+        });
         // largest += 1;
-        // let mut builder = String::new();
-        // builder.push_str(format!("{:<l$}", "", l = largest).as_str());
-        // for row in &terminals {
-        //     builder.push_str(format!("{:<l$}", token_raw.get(row).unwrap(), l = largest).as_str());
-        // }
-        // debug!("{}", builder);
-        // builder.clear();
-        //
-        // for row in &terminals {
-        //     builder.push_str(format!("{:<l$}", token_raw.get(row).unwrap(), l = largest).as_str());
-        //     let curr_row = op_table.get(row).unwrap();
-        //     for col in &terminals {
-        //         builder.push_str(
-        //             format!(
-        //                 "{:<l$}",
-        //                 format!("{:?}", curr_row.get(col).unwrap()),
-        //                 l = largest
-        //             )
-        //             .as_str(),
-        //         );
-        //     }
-        //     debug!("{}", builder);
-        //     builder.clear();
-        // }
+        let mut builder = String::new();
+        builder.push_str(format!("{:<l$}", "", l = largest).as_str());
+        for row in &terminals {
+            builder.push_str(format!("{:<l$}", token_raw.get(row).unwrap(), l = largest).as_str());
+        }
+        builder.push('\n');
+        f.write(builder.as_bytes());
+        builder.clear();
+
+        for row in &terminals {
+            builder.push_str(format!("{:<l$}", token_raw.get(row).unwrap(), l = largest).as_str());
+            let curr_row = op_table.get(row).unwrap();
+            for col in &terminals {
+                builder.push_str(
+                    format!(
+                        "{:<l$}",
+                        format!("{:?}", curr_row.get(col).unwrap()),
+                        l = largest
+                    )
+                    .as_str(),
+                );
+            }
+            builder.push('\n');
+            f.write(builder.as_bytes());
+            builder.clear();
+        }
 
         Ok(Grammar {
             token_raw,

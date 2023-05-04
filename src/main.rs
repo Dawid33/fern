@@ -7,8 +7,7 @@ use std::fs::File;
 use std::io::Write;
 use std::thread;
 use std::time::Instant;
-use tracing::{event_enabled, info, Level, span};
-use tracing_subscriber::FmtSubscriber;
+use log::{info, LevelFilter};
 
 use core::grammar::Grammar;
 use core::grammar::Token;
@@ -17,29 +16,31 @@ use core::lexer::{lua::*, json::*};
 use core::parser::{ParallelParser, ParseTree};
 use memmap::MmapOptions;
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn do_work() -> Result<(), Box<dyn Error>> {
     let mut now = Instant::now();
-    let subscriber = FmtSubscriber::builder()
-        .without_time()
-        .with_target(false)
-        .with_max_level(Level::TRACE)
-        .finish();
+    let grammar = match File::open(".cached-grammar") {
+        Ok(f) => {
+            info!("Using cached grammar from file : .cached-grammar");
+            let grammar = ciborium::de::from_reader::<'_, Grammar, _>(f).unwrap();
+            grammar
+        }
+        Err(_) => {
+            info!("Generating grammar from scratch...");
+            let grammar = Grammar::from("data/grammar/lua.g");
+            // let f = File::create(".cached-grammar").unwrap();
+            // info!("Grammar saved to .cached-grammar");
+            // ciborium::ser::into_writer(&grammar, f).unwrap();
+            grammar
+        }
+    };
 
-    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
-
-    let span = span!(Level::TRACE, "grammar");
-    let span = span.enter();
-    let grammar = Grammar::from("data/grammar/lua.g");
-    drop(span);
-    info!("Total Time to generate grammar : {:?}", now.elapsed());
+    info!("Total Time to get grammar : {:?}", now.elapsed());
     now = Instant::now();
 
     let tokens: LinkedList<Vec<Token>> = {
         let file = File::open("data/test.lua")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         thread::scope(|s| {
-            let span = span!(Level::TRACE, "lexer");
-            span.enter();
             let mut lexer: ParallelLexer<FernLexerState, FernLexer> = ParallelLexer::new(
                 grammar.clone(),
                 s,
@@ -59,15 +60,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     info!("Total Time to lex: {:?}", now.elapsed());
     now = Instant::now();
 
-    let span = span!(Level::TRACE, "parser");
-    let span = span.enter();
     let tree: ParseTree = {
         let mut parser = ParallelParser::new(grammar.clone(), 1);
         parser.parse(tokens);
         parser.parse(LinkedList::from([vec![grammar.delim]]));
         parser.collect_parse_tree().unwrap()
     };
-    drop(span);
 
     tree.print();
     let _json: core::parser::json::JsonValue = tree.into();
@@ -79,5 +77,17 @@ fn main() -> Result<(), Box<dyn Error>> {
         "Total Time to transform ParseTree -> AST Conversion: {:?}",
         now.elapsed()
     );
+    Ok(())
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let config: simplelog::Config = simplelog::ConfigBuilder::new()
+        .set_time_level(LevelFilter::Off)
+        .set_target_level(LevelFilter::Off)
+        .set_thread_level(LevelFilter::Off)
+        .build();
+    let _ = simplelog::SimpleLogger::init(LevelFilter::Trace, config);
+    // core::server::start_http_server();
+    do_work()?;
     Ok(())
 }

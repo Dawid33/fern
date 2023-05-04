@@ -1,6 +1,7 @@
 use crate::grammar::error::GrammarError;
 use crate::grammar::reader::TokenTypes::{Axiom, NonTerminal, Terminal};
 use crate::grammar::{Grammar, Rule, Token};
+use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use std::fs;
 use std::io::{BufReader, Read};
@@ -19,7 +20,7 @@ enum SymbolParserState {
     InIdent,
 }
 
-#[derive(Clone, Debug, Copy, PartialEq, Eq)]
+#[derive(Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize)]
 enum RuleParserState {
     InData,
     AwaitingRuleRight,
@@ -28,7 +29,7 @@ enum RuleParserState {
     InRuleLeft,
 }
 
-#[derive(Clone, Debug, Copy, PartialEq)]
+#[derive(Clone, Debug, Copy, PartialEq, Serialize, Deserialize)]
 pub enum TokenTypes {
     Terminal,
     Axiom,

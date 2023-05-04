@@ -15,7 +15,7 @@ use std::thread::{Scope, ScopedJoinHandle};
 use std::time::{Duration, Instant};
 use std::{iter, thread};
 use tinyrand::{RandRange, StdRand};
-use tracing::trace;
+use log::trace;
 
 pub mod error;
 pub mod lua;
@@ -76,7 +76,7 @@ where
         let outputs: HashMap<String, Batch<T>> = HashMap::new();
 
         let mut handles = vec![];
-        for _ in 0..threads {
+        for i in 0..threads {
             let reciever = recv.clone();
             let global = queue.clone();
             let grammar = grammar.clone();

@@ -4,7 +4,7 @@ use crate::lexer::error::LexerError;
 use crate::lexer::LexerInterface;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use tracing::info;
+use log::trace;
 
 pub struct FernTokens {
     pub endfile: Token,
@@ -166,7 +166,7 @@ impl LexerInterface<FernLexerState> for FernLexer {
 
             let c = *c as char;
             let mut push = |t: Token| {
-                info!("{:?}", self.grammar.token_raw.get(&t).unwrap());
+                trace!("{}", self.grammar.token_raw.get(&t).unwrap());
                 self.tokens.push(t);
             };
 

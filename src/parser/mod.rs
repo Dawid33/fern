@@ -1,7 +1,6 @@
 pub mod json;
 
 use crate::grammar::{Associativity, Grammar, Rule, Token};
-use tracing::Level;
 use std::any::Any;
 use std::collections::{HashMap, LinkedList, VecDeque};
 use std::error::Error;
@@ -9,7 +8,7 @@ use std::io::ErrorKind::AlreadyExists;
 use std::io::Read;
 use std::panic::{resume_unwind, set_hook};
 use std::thread::current;
-use tracing::{debug, event, warn};
+use log::{warn, debug, info};
 
 #[allow(unused)]
 pub struct ParseTree {
@@ -177,7 +176,7 @@ impl ParallelParser {
                             }
                         }
                     }
-                    event!(Level::DEBUG, "{} FINAL Open nodes: {}", self.iteration, output);
+                    debug!("{} FINAL Open nodes: {}", self.iteration, output);
                     self.print_stack();
                     return Ok(());
                 }
@@ -222,9 +221,8 @@ impl ParallelParser {
                     .as_str(),
                 );
             }
-            event!(Level::DEBUG, "{} Open nodes: {}", self.iteration, output);
-            event!(
-                Level::DEBUG,
+            debug!("{} Open nodes: {}", self.iteration, output);
+            debug!(
                 "{} Applying {:?} {:?}",
                 self.iteration,
                 self.g.token_raw.get(token).unwrap(),
@@ -242,14 +240,14 @@ impl ParallelParser {
             if precedence == Associativity::Equal {
                 let t = TokenGrammarTuple::new(*token, Associativity::Equal, self);
                 self.stack.push(t);
-                event!(Level::DEBUG, "{} Append", self.iteration);
+                debug!("{} Append", self.iteration);
                 return Ok(());
             }
 
             if self.g.non_terminals.contains(token) {
                 let t = TokenGrammarTuple::new(*token, Associativity::Undefined, self);
                 self.stack.push(t);
-                event!(Level::DEBUG, "{}, Append", self.iteration);
+                debug!("{}, Append", self.iteration);
                 return Ok(());
             }
 
@@ -264,7 +262,7 @@ impl ParallelParser {
                 if i < 0 {
                     let t = TokenGrammarTuple::new(*token, Associativity::Right, self);
                     self.stack.push(t);
-                    event!(Level::DEBUG, "{}, Append", self.iteration);
+                    debug!("{}, Append", self.iteration);
                     return Ok(());
                 } else {
                     if i - 1 >= 0 {
@@ -337,7 +335,7 @@ impl ParallelParser {
                 if r.right.len() > longest as usize {
                     longest = r.right.len() as i32;
 
-                    event!(Level::DEBUG, "Found rule {:?}", self.g.token_raw.get(&r.left).unwrap());
+                    debug!("Found rule {:?}", self.g.token_raw.get(&r.left).unwrap());
 
                     if rewrites.is_empty() {
                         rule = Some((*r).clone());
@@ -378,7 +376,7 @@ impl ParallelParser {
             let left = TokenGrammarTuple::new(rule.left, Associativity::Undefined, self);
             self.open_nodes.insert(left.id, parent);
             self.stack.insert((i + offset) as usize, left);
-            event!(Level::DEBUG, "{} Reduce", self.iteration);
+            debug!("{} Reduce", self.iteration);
             self.should_reconsume = true;
         } else {
             warn!("{} SHOULD PROBABLY REDUCE BUT DIDN'T", self.iteration);
@@ -399,7 +397,7 @@ impl ParallelParser {
                 format!("({:?}, {}) ", self.g.token_raw.get(&i.token).unwrap(), x).as_str(),
             );
         }
-        event!(Level::DEBUG, "{} Stack: {}", self.iteration, output);
+        debug!("{} Stack: {}", self.iteration, output);
     }
 
     pub fn collect_parse_tree(self) -> Result<ParseTree, Box<dyn Error>> {
