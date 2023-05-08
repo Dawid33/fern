@@ -11,7 +11,7 @@ use std::fs;
 use std::fs::File;
 use std::hash::Hash;
 use std::io::{Read, Write};
-use log::debug;
+use log::{debug, info};
 
 mod error;
 pub mod reader;
@@ -213,7 +213,6 @@ impl Grammar {
                 terminals.push(*id);
             }
         }
-        terminals.sort();
 
         // Validate that the grammar is in OPG form
         let repeated_rules = Self::get_repeated_rhs(&rules);
@@ -397,74 +396,74 @@ impl Grammar {
             }
             let dict_rules = copied_dict;
 
-            // let mut f = File::create("V.txt").unwrap();
-            // for val in &V {
-            //     let mut builder = String::new();
-            //     builder.push_str("[");
-            //     let mut sorted = Vec::new();
-            //     for x in val.iter() {
-            //         sorted.push(token_raw.get(x).unwrap());
-            //     }
-            //     sorted.sort();
-            //
-            //     let mut val_iter = sorted.iter();
-            //     if val_iter.len() > 0 {
-            //         builder.push_str(format!("\'{}\'", val_iter.next().unwrap()).as_str());
-            //     }
-            //     while let Some(t) = val_iter.next() {
-            //         builder.push_str(", ");
-            //         builder.push_str(format!("\'{}\'", t).as_str());
-            //     }
-            //     builder.push_str("]\n");
-            //     f.write(builder.as_bytes());
-            // }
-            // Grammar::print_dict("dict_rules_before.txt", &dict_rules, &token_raw);
-            // let mut f = File::create("new_dict_rules.txt").unwrap();
-            // for (key, val) in &new_dict_rules {
-            //     let mut builder = String::new();
-            //     builder.push_str("[");
-            //     if !key.is_empty() {
-            //         let mut val_iter = key.get(0).unwrap().iter();
-            //         if val_iter.len() > 0 {
-            //             builder.push_str(format!("\'{}\'", token_raw.get(val_iter.next().unwrap()).unwrap()).as_str());
-            //         }
-            //         while let Some(t) = val_iter.next() {
-            //             builder.push_str(", ");
-            //             builder.push_str(format!("\'{}\'", token_raw.get(t).unwrap()).as_str());
-            //         }
-            //         if key.len() > 1 {
-            //             for k in &key[1..key.len()] {
-            //                 builder.push_str(", [");
-            //                 let mut val_iter = key.get(0).unwrap().iter();
-            //                 if val_iter.len() > 0 {
-            //                     builder.push_str(format!("\'{}\'", token_raw.get(val_iter.next().unwrap()).unwrap()).as_str());
-            //                 }
-            //                 while let Some(t) = val_iter.next() {
-            //                     builder.push_str(", ");
-            //                     builder.push_str(format!("\'{}\'", token_raw.get(t).unwrap()).as_str());
-            //                 }
-            //             }
-            //         }
-            //         builder.push_str("] = [");
-            //
-            //         let mut sorted = Vec::new();
-            //         for x in val.iter() {
-            //             sorted.push(token_raw.get(x).unwrap());
-            //         }
-            //         sorted.sort();
-            //
-            //         let mut val_iter = sorted.iter();
-            //         if val_iter.len() > 0 {
-            //             builder.push_str(format!("\'{}\'", val_iter.next().unwrap()).as_str());
-            //         }
-            //         while let Some(t) = val_iter.next() {
-            //             builder.push_str(", ");
-            //             builder.push_str(format!("\'{}\'", t).as_str());
-            //         }
-            //     }
-            //     builder.push_str("]\n");
-            //     f.write(builder.as_bytes());
-            // }
+            let mut f = File::create("V.txt").unwrap();
+            for val in &V {
+                let mut builder = String::new();
+                builder.push_str("[");
+                let mut sorted = Vec::new();
+                for x in val.iter() {
+                    sorted.push(token_raw.get(x).unwrap());
+                }
+                sorted.sort();
+
+                let mut val_iter = sorted.iter();
+                if val_iter.len() > 0 {
+                    builder.push_str(format!("\'{}\'", val_iter.next().unwrap()).as_str());
+                }
+                while let Some(t) = val_iter.next() {
+                    builder.push_str(", ");
+                    builder.push_str(format!("\'{}\'", t).as_str());
+                }
+                builder.push_str("]\n");
+                f.write(builder.as_bytes());
+            }
+            Grammar::print_dict("dict_rules_before.txt", &dict_rules, &token_raw);
+            let mut f = File::create("new_dict_rules.txt").unwrap();
+            for (key, val) in &new_dict_rules {
+                let mut builder = String::new();
+                builder.push_str("[");
+                if !key.is_empty() {
+                    let mut val_iter = key.get(0).unwrap().iter();
+                    if val_iter.len() > 0 {
+                        builder.push_str(format!("\'{}\'", token_raw.get(val_iter.next().unwrap()).unwrap()).as_str());
+                    }
+                    while let Some(t) = val_iter.next() {
+                        builder.push_str(", ");
+                        builder.push_str(format!("\'{}\'", token_raw.get(t).unwrap()).as_str());
+                    }
+                    if key.len() > 1 {
+                        for k in &key[1..key.len()] {
+                            builder.push_str(", [");
+                            let mut val_iter = key.get(0).unwrap().iter();
+                            if val_iter.len() > 0 {
+                                builder.push_str(format!("\'{}\'", token_raw.get(val_iter.next().unwrap()).unwrap()).as_str());
+                            }
+                            while let Some(t) = val_iter.next() {
+                                builder.push_str(", ");
+                                builder.push_str(format!("\'{}\'", token_raw.get(t).unwrap()).as_str());
+                            }
+                        }
+                    }
+                    builder.push_str("] = [");
+
+                    let mut sorted = Vec::new();
+                    for x in val.iter() {
+                        sorted.push(token_raw.get(x).unwrap());
+                    }
+                    sorted.sort();
+
+                    let mut val_iter = sorted.iter();
+                    if val_iter.len() > 0 {
+                        builder.push_str(format!("\'{}\'", val_iter.next().unwrap()).as_str());
+                    }
+                    while let Some(t) = val_iter.next() {
+                        builder.push_str(", ");
+                        builder.push_str(format!("\'{}\'", t).as_str());
+                    }
+                }
+                builder.push_str("]\n");
+                f.write(builder.as_bytes());
+            }
 
             // Add the new rules by expanding nonterminals in the rhs
             let mut dict_rules_for_iteration: HashMap<Vec<Vec<Token>>, BTreeSet<Token>> = HashMap::new();
@@ -497,54 +496,52 @@ impl Grammar {
                 cnt += 1;
             }
 
+            let into_str = | builder: &mut String, input: &Vec<Token> | {
+                let mut output = Vec::new();
+                let mut should_sort = true;
+                for x in input {
+                    output.push(format!("{}", token_raw.get(x).unwrap()));
+                    if terminals.contains(x) {
+                        should_sort = false;
+                    }
+                }
+                if should_sort {
+                    output.sort();
+                }
+                let mut iter = output.into_iter();
+                if let Some(x) = iter.next() {
+                    builder.push_str(format!("\'{}\'", x).as_str());
+                }
+                while let Some(x) = iter.next() {
+                    builder.push_str(format!(", \'{}\'", x).as_str());
+                }
+            };
 
-            // let mut f = File::create("expanded.txt").unwrap();
-            // for (key, val) in &new_dict_rules {
-            //     let mut builder = String::new();
-            //     builder.push_str("['");
-            //
-            //     let mut strings = Vec::new();
-            //     for x in key {
-            //         let mut tmp = String::new();
-            //         let mut to_sort = x.clone();
-            //         to_sort.sort();
-            //         let mut iter = to_sort.iter();
-            //         if let Some(s) = iter.next() {
-            //             tmp.push_str(format!("{}", token_raw.get(s).unwrap()).as_str());
-            //         }
-            //         while let Some(s) = iter.next() {
-            //             tmp.push_str(format!("_{}", token_raw.get(s).unwrap()).as_str());
-            //         }
-            //         strings.push(tmp);
-            //     }
-            //     strings.sort();
-            //     let mut iter = strings.iter();
-            //     if let Some(s) = iter.next() {
-            //         builder.push_str(s);
-            //     }
-            //     while let Some(s) = iter.next() {
-            //         builder.push_str(format!("_{}", s).as_str());
-            //     }
-            //
-            //     builder.push_str("'] = [");
-            //
-            //     let mut sorted = Vec::new();
-            //     for x in val.iter() {
-            //         sorted.push(token_raw.get(x).unwrap());
-            //     }
-            //     sorted.sort();
-            //
-            //     let mut val_iter = sorted.iter();
-            //     if val_iter.len() > 0 {
-            //         builder.push_str(format!("\'{}\'", val_iter.next().unwrap()).as_str());
-            //     }
-            //     while let Some(t) = val_iter.next() {
-            //         builder.push_str(", ");
-            //         builder.push_str(format!("\'{}\'", t).as_str());
-            //     }
-            //     builder.push_str("]\n");
-            //     f.write(builder.as_bytes());
-            // }
+            let mut f = File::create("debug.txt").unwrap();
+            for (key, val) in &new_dict_rules{
+                let mut builder = String::new();
+                builder.push_str("[");
+                if !key.is_empty() {
+                    builder.push_str("[");
+                    into_str(&mut builder, key.get(0).unwrap());
+                    builder.push_str("]");
+                    if key.len() > 1 {
+                        for k in &key[1..key.len()] {
+                            builder.push_str(", [");
+                            into_str(&mut builder, k);
+                            builder.push_str("]");
+                        }
+                    } else {
+                        // builder.push_str(",");
+                    }
+                    builder.push_str("] = [");
+
+                    into_str(&mut builder, &val.clone().into_iter().collect());
+                }
+                builder.push_str("]\n");
+                f.write(builder.as_bytes());
+            }
+
             // List of nonterminals of the invertible grammar G
             let mut V: BTreeSet<BTreeSet<Token>> = new_dict_rules.clone().into_values().collect();
 
@@ -586,42 +583,6 @@ impl Grammar {
                 }
             }
 
-            // info!("LEN {}", new_dict_rules.len());
-            // let mut f = File::create("final.txt").unwrap();
-            // for (key, val) in &new_dict_rules{
-            //     let mut builder = String::new();
-            //     builder.push_str("(");
-            //     if !key.is_empty() {
-            //         builder.push_str("[");
-            //         for x in key.get(0).unwrap() {
-            //             builder.push_str(format!("\'{}\'", token_raw.get(x).unwrap()).as_str());
-            //         }
-            //         builder.push_str("]");
-            //         if key.len() > 1 {
-            //             for k in &key[1..key.len()] {
-            //                 builder.push_str(", [");
-            //                 for x in k {
-            //                     builder.push_str(format!("\'{}\' ", token_raw.get(x).unwrap()).as_str());
-            //                 }
-            //                 builder.push_str("]");
-            //             }
-            //         } else {
-            //             builder.push_str(",");
-            //         }
-            //         builder.push_str(") = (");
-            //
-            //         let mut val_iter = val.iter();
-            //         if val_iter.len() > 0 {
-            //             builder.push_str(format!("\'{}\'", token_raw.get(val_iter.next().unwrap()).unwrap()).as_str());
-            //         }
-            //         while let Some(t) = val_iter.next() {
-            //             builder.push_str(", ");
-            //             builder.push_str(format!("\'{}\'", token_raw.get(t).unwrap()).as_str());
-            //         }
-            //     }
-            //     builder.push_str(")\n");
-            //     f.write(builder.as_bytes());
-            // }
 
             V.insert(BTreeSet::from([new_axiom]));
 
@@ -636,6 +597,31 @@ impl Grammar {
                     }
                     new_dict_rules.insert(temp, BTreeSet::from([new_axiom]));
                 }
+            }
+
+            let mut f = File::create("finalforreal.txt").unwrap();
+            for (key, val) in &new_dict_rules{
+                let mut builder = String::new();
+                builder.push_str("[");
+                if !key.is_empty() {
+                    builder.push_str("[");
+                    into_str(&mut builder, key.get(0).unwrap());
+                    builder.push_str("]");
+                    if key.len() > 1 {
+                        for k in &key[1..key.len()] {
+                            builder.push_str(", [");
+                            into_str(&mut builder, k);
+                            builder.push_str("]");
+                        }
+                    } else {
+                        // builder.push_str(",");
+                    }
+                    builder.push_str("] = [");
+
+                    into_str(&mut builder, &val.clone().into_iter().collect());
+                }
+                builder.push_str("]\n");
+                f.write(builder.as_bytes());
             }
 
             rules.clear();
@@ -678,7 +664,6 @@ impl Grammar {
                 }
 
                 for mut token in rhs {
-                    token.sort();
                     let mut is_terminal = false;
                     for x in &token {
                         if terminals.contains(x) || token.len() == 1 {
@@ -687,7 +672,7 @@ impl Grammar {
                         }
                     }
                     if is_terminal {
-                        current_rule.right.push(*token.get(0).unwrap());
+                        current_rule.right.append(&mut token);
                     } else {
                         let joined = Self::list_to_string(&token, &token_raw);
                         if let Some((t,_)) = tokens_reverse.get(joined.as_str()) {
@@ -710,6 +695,20 @@ impl Grammar {
         }
 
         // End of grammar fixing.
+        // Print rules to file
+        let mut f = File::create("rules.txt").unwrap();
+        for r in &rules {
+            let mut line = String::from(format!("{} : [", token_raw.get(&r.left).unwrap()));
+            let mut iter = r.right.iter();
+            if let Some(x) = iter.next() {
+                line.push_str(format!("'{}'", token_raw.get(x).unwrap()).as_str());
+            }
+            while let Some(x) = iter.next() {
+                line.push_str(format!(", '{}'", token_raw.get(x).unwrap()).as_str());
+            }
+            line.push_str("]\n");
+            f.write(line.as_bytes());
+        }
 
         let mut rewrite_rules: HashMap<Token, Vec<Token>> = HashMap::new();
         for t in &non_terminals {
@@ -1015,13 +1014,18 @@ impl Grammar {
     }
 
     pub fn list_to_string(list: &Vec<Token>, token_raw: &HashMap<Token, String>) -> String {
+        let mut sorted = Vec::new();
+        for t in list {
+            sorted.push(token_raw.get(t).unwrap().as_str());
+        }
+        sorted.sort();
         let mut b = String::new();
-        let mut iter = list.iter();
+        let mut iter = sorted.iter();
         if let Some(t) = iter.next() {
-            b.push_str(format!("_{}", token_raw.get(t).unwrap()).as_str())
+            b.push_str(format!("_{}", t).as_str());
         }
         while let Some(t) = iter.next() {
-            b.push_str(format!("__{}", token_raw.get(t).unwrap()).as_str());
+            b.push_str(format!("__{}", t).as_str());
         }
         b
     }

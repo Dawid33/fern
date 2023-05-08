@@ -185,7 +185,7 @@ impl LexerInterface<FernLexerState> for FernLexer {
                     ';' => push(self.tok.semi),
                     '>' => push(self.tok.gt),
                     '<' => push(self.tok.lt),
-                    '=' => push(self.tok.eq),
+                    '=' => push(self.tok.xeq),
                     '-' => push(self.tok.minus),
                     '\"' => {
                         self.state = FernLexerState::InString;
