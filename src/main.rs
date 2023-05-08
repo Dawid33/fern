@@ -27,9 +27,9 @@ fn do_work() -> Result<(), Box<dyn Error>> {
         Err(_) => {
             info!("Generating grammar from scratch...");
             let grammar = Grammar::from("data/grammar/lua.g");
-            // let f = File::create(".cached-grammar").unwrap();
-            // info!("Grammar saved to .cached-grammar");
-            // ciborium::ser::into_writer(&grammar, f).unwrap();
+            let f = File::create(".cached-grammar").unwrap();
+            info!("Grammar saved to .cached-grammar");
+            ciborium::ser::into_writer(&grammar, f).unwrap();
             grammar
         }
     };
