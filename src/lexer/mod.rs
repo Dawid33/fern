@@ -20,10 +20,11 @@ use log::trace;
 pub mod error;
 pub mod lua;
 pub mod json;
+pub mod fern;
 
 use crate::grammar::{Grammar, Token};
 use crate::lexer::error::LexerError;
-use crate::lexer::lua::{FernLexer, FernLexerState};
+use crate::lexer::lua::{LuaLexer, LuaLexerState};
 use crate::lexer::json::{JsonLexer, JsonLexerState, JsonTokens};
 
 pub struct LexerOutput<T> {

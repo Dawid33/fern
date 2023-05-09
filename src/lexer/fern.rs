@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use log::trace;
 
-pub struct LuaTokens {
+pub struct FernTokens {
     pub endfile: Token,
     pub return_t: Token,
     pub semi: Token,
@@ -67,9 +67,9 @@ pub struct LuaTokens {
     pub fn_t: Token,
 }
 
-impl LuaTokens {
-    pub fn new(tokens_reverse: &HashMap<String, (Token, TokenTypes)>) -> LuaTokens {
-        LuaTokens {
+impl FernTokens {
+    pub fn new(tokens_reverse: &HashMap<String, (Token, TokenTypes)>) -> FernTokens {
+        FernTokens {
             endfile: tokens_reverse.get("ENDFILE").unwrap().0,
             return_t: tokens_reverse.get("RETURN").unwrap().0,
             semi: tokens_reverse.get("SEMI").unwrap().0,
@@ -96,8 +96,8 @@ impl LuaTokens {
             then: tokens_reverse.get("THEN").unwrap().0,
             elseif: tokens_reverse.get("ELSEIF").unwrap().0,
             else_t: tokens_reverse.get("ELSE").unwrap().0,
-            for_t: tokens_reverse.get("FOR").unwrap().0,
-            in_t: tokens_reverse.get("IN").unwrap().0,
+            for_t: tokens_reverse.get("ELSE").unwrap().0,
+            in_t: tokens_reverse.get("ELSE").unwrap().0,
             fn_t: tokens_reverse.get("FUNCTION").unwrap().0,
             local: tokens_reverse.get("LOCAL").unwrap().0,
             nil: tokens_reverse.get("NIL").unwrap().0,
@@ -133,30 +133,30 @@ impl LuaTokens {
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
-pub enum LuaLexerState {
+pub enum FernLexerState {
     Start,
     InString,
     InName,
     InNumber,
 }
 
-pub struct LuaLexer {
+pub struct FernLexer {
     pub tokens: Vec<Token>,
     pub data: HashMap<usize, String>,
-    pub state: LuaLexerState,
+    pub state: FernLexerState,
     buf: String,
     grammar: Grammar,
-    tok: LuaTokens,
+    tok: FernTokens,
 }
 
-impl LexerInterface<LuaLexerState> for LuaLexer {
-    fn new(grammar: Grammar, start_state: LuaLexerState) -> Self {
-        LuaLexer {
+impl LexerInterface<FernLexerState> for FernLexer {
+    fn new(grammar: Grammar, start_state: FernLexerState) -> Self {
+        FernLexer {
             tokens: Vec::new(),
             state: start_state,
             buf: String::new(),
             data: HashMap::new(),
-            tok: LuaTokens::new(&grammar.tokens_reverse),
+            tok: FernTokens::new(&grammar.tokens_reverse),
             grammar,
         }
     }
@@ -171,9 +171,9 @@ impl LexerInterface<LuaLexerState> for LuaLexer {
             };
 
             match self.state {
-                LuaLexerState::Start => match c {
+                FernLexerState::Start => match c {
                     'a'..='z' | 'A'..='Z' => {
-                        self.state = LuaLexerState::InName;
+                        self.state = FernLexerState::InName;
                         self.buf.push(c);
                     },
                     '{' => push(self.tok.lbrace),
@@ -191,10 +191,10 @@ impl LexerInterface<LuaLexerState> for LuaLexer {
                     '<' => push(self.tok.lt),
                     '=' => push(self.tok.xeq),
                     '\"' => {
-                        self.state = LuaLexerState::InString;
+                        self.state = FernLexerState::InString;
                     },
                     '0'..='9' => {
-                        self.state = LuaLexerState::InNumber;
+                        self.state = FernLexerState::InNumber;
                         self.buf.push(c);
                     },
                     '\n' | ' ' | '\t' => {}
@@ -205,9 +205,9 @@ impl LexerInterface<LuaLexerState> for LuaLexer {
                         )));
                     }
                 },
-                LuaLexerState::InString => match c {
+                FernLexerState::InString => match c {
                     '\"' => {
-                        self.state = LuaLexerState::Start;
+                        self.state = FernLexerState::Start;
                         self.buf.clear();
                         push(self.tok.string);
                     }
@@ -218,22 +218,22 @@ impl LexerInterface<LuaLexerState> for LuaLexer {
                     }
                     _ => self.buf.push(c),
                 },
-                LuaLexerState::InNumber => match c {
+                FernLexerState::InNumber => match c {
                     '0'..='9' => self.buf.push(c),
                     _ => {
-                        self.state = LuaLexerState::Start;
+                        self.state = FernLexerState::Start;
                         push(self.tok.number);
                         self.data.insert(self.tokens.len(), self.buf.clone());
                         self.buf.clear();
                         should_reconsume = true;
                     }
                 },
-                LuaLexerState::InName => match c {
+                FernLexerState::InName => match c {
                     'a'..='z' | 'A'..='Z' | '_' => {
                         self.buf.push(c);
                     }
                     '\n' | ' ' | '\t' | ';' | ',' | '(' => {
-                        self.state = LuaLexerState::Start;
+                        self.state = FernLexerState::Start;
                         let token = match self.buf.as_str() {
                             "and" => self.tok.and,
                             "break" => self.tok.break_t,
@@ -247,8 +247,8 @@ impl LexerInterface<LuaLexerState> for LuaLexer {
                             "or" => self.tok.or,
                             "repeat" => self.tok.repeat,
                             "until" => self.tok.until,
-                            "in" => self.tok.in_t,
-                            "for" => self.tok.for_t,
+                            "in" => self.tok.until,
+                            "for" => self.tok.until,
                             "return" => self.tok.return_t,
                             "then" => self.tok.then,
                             "true" => self.tok.true_t,
@@ -256,7 +256,6 @@ impl LexerInterface<LuaLexerState> for LuaLexer {
                             "local" => self.tok.local,
                             "function" => self.tok.fn_t,
                             "end" => self.tok.end,
-                            "do" => self.tok.do_t,
                             _ => self.tok.name,
                         };
                         self.buf.clear();
@@ -279,7 +278,7 @@ impl LexerInterface<LuaLexerState> for LuaLexer {
         }
         return Ok(());
     }
-    fn take(self) -> (LuaLexerState, Vec<Token>) {
+    fn take(self) -> (FernLexerState, Vec<Token>) {
         (self.state, self.tokens)
     }
 }

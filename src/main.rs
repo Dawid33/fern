@@ -12,11 +12,11 @@ use log::{info, LevelFilter};
 use core::grammar::Grammar;
 use core::grammar::Token;
 use core::lexer::*;
-use core::lexer::{lua::*, json::*};
+use core::lexer::{lua::*, json::*, fern::*};
 use core::parser::{ParallelParser, ParseTree};
 use memmap::MmapOptions;
 
-fn do_work() -> Result<(), Box<dyn Error>> {
+fn lua() -> Result<(), Box<dyn Error>> {
     let mut now = Instant::now();
     let grammar = match File::open(".cached-grammar") {
         Ok(f) => {
@@ -41,12 +41,12 @@ fn do_work() -> Result<(), Box<dyn Error>> {
         let file = File::open("data/test.lua")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         thread::scope(|s| {
-            let mut lexer: ParallelLexer<FernLexerState, FernLexer> = ParallelLexer::new(
+            let mut lexer: ParallelLexer<LuaLexerState, LuaLexer> = ParallelLexer::new (
                 grammar.clone(),
                 s,
                 1,
-                &[FernLexerState::Start],
-                FernLexerState::Start,
+                &[LuaLexerState::Start],
+                LuaLexerState::Start,
             );
             let batch = lexer.new_batch();
             lexer.add_to_batch(&batch, &mmap[..], 0);
@@ -55,7 +55,6 @@ fn do_work() -> Result<(), Box<dyn Error>> {
             tokens
         })
     };
-
 
     info!("Total Time to lex: {:?}", now.elapsed());
     now = Instant::now();
@@ -88,6 +87,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         .build();
     let _ = simplelog::SimpleLogger::init(LevelFilter::Trace, config);
     // core::server::start_http_server();
-    do_work()?;
+    lua()?;
     Ok(())
 }

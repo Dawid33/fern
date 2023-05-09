@@ -1,3 +1,3 @@
 # Fern
 
-A parallel compiler implementation.
+A parallel compiler implementation. Name is wip.

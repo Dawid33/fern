@@ -67,7 +67,7 @@
 %terminal ELSE
 %terminal FOR
 %terminal IN
-%terminal FN
+%terminal FUNCTION
 %terminal LOCAL
 %terminal NIL
 %terminal FALSE
@@ -100,6 +100,7 @@
 
 %%
 
+
 chunk : block
 	| ENDFILE
 	;
@@ -119,36 +120,38 @@ statList : stat
 	| statList SEMI
 	;
 
+
 stat :  varList XEQ exprList
+	| functionCall
 	| label
 	| BREAK
-	| GOTO name
-	| LBRACE block RBRACE
-	| LBRACE RBRACE
-	| WHILE expr LBRACE block RBRACE
-	| WHILE expr LBRACE RBRACE
+	| GOTO NAME
+	| DO block END
+	| DO END
+	| WHILE expr DO block END
+	| WHILE expr DO END
 	| REPEAT block UNTIL expr
 	| REPEAT UNTIL expr
-	| IF exprThen RBRACE
-	| IF exprThen ELSE block RBRACE
-	| IF exprThen ELSE RBRACE
-	| IF exprThenElseIfB RBRACE
-	| IF exprThenElseIfB ELSE block RBRACE
-	| IF exprThenElseIfB ELSE RBRACE
-	| FOR name XEQ eCe LBRACE block RBRACE
-	| FOR name XEQ eCeCe LBRACE block RBRACE
-	| FOR nameList IN exprList LBRACE block RBRACE
-	| FN funcName LPARENFUNC parList RPARENFUNC block RBRACE
-	| FN funcName LPARENFUNC RPARENFUNC block RBRACE
-	| FOR name XEQ eCe LBRACE RBRACE
-	| FOR name XEQ eCeCe LBRACE RBRACE
-	| FOR nameList IN exprList LBRACE RBRACE
-	| FN funcName LPARENFUNC parList RPARENFUNC RBRACE
-	| FN funcName LPARENFUNC RPARENFUNC RBRACE
-	| LOCAL FN name LPARENFUNC parList RPARENFUNC block RBRACE
-	| LOCAL FN name LPARENFUNC RPARENFUNC block RBRACE
-	| LOCAL FN name LPARENFUNC parList RPARENFUNC RBRACE
-	| LOCAL FN name LPARENFUNC RPARENFUNC RBRACE
+	| IF exprThen END
+	| IF exprThen ELSE block END
+	| IF exprThen ELSE END
+	| IF exprThenElseIfB END
+	| IF exprThenElseIfB ELSE block END
+	| IF exprThenElseIfB ELSE END
+	| FOR name XEQ eCe DO block END
+	| FOR name XEQ eCeCe DO block END
+	| FOR nameList IN exprList DO block END
+	| FUNCTION funcName LPARENFUNC parList RPARENFUNC block END
+	| FUNCTION funcName LPARENFUNC RPARENFUNC block END
+	| FOR name XEQ eCe DO END
+	| FOR name XEQ eCeCe DO END
+	| FOR nameList IN exprList DO END
+	| FUNCTION funcName LPARENFUNC parList RPARENFUNC END
+	| FUNCTION funcName LPARENFUNC RPARENFUNC END
+	| LOCAL FUNCTION name LPARENFUNC parList RPARENFUNC block END
+	| LOCAL FUNCTION name LPARENFUNC RPARENFUNC block END
+	| LOCAL FUNCTION name LPARENFUNC parList RPARENFUNC END
+	| LOCAL FUNCTION name LPARENFUNC RPARENFUNC END
 	| LOCAL nameList
 	| LOCAL nameList XEQ exprList
 	;
@@ -193,7 +196,7 @@ funcName : nameDotList
 	| nameDotList COLON name
 	;
 
-nameDotList : name
+nameDotList : NAME
 	| nameDotList DOT NAME
 	;
 
@@ -201,12 +204,12 @@ varList : var
 	| varList COMMA var
 	;
 
-var : name
+var : NAME
 	| prefixExp LBRACK expr RBRACK
 	| prefixExp DOT NAME
 	;
 
-nameList : name
+nameList : NAME
 	| nameList COMMA name
 	;
 
@@ -267,21 +270,40 @@ baseExp : NIL
 	| DOT3
 	| functionDef
 	| prefixExp
+	| tableConstructor
 	;
 
 prefixExp : var
+	| functionCall
 	| LPAREN expr RPAREN
 	;
 
-functionDef :FN LPARENFUNC parList RPARENFUNC block RBRACE
-	| FN LPARENFUNC RPARENFUNC block RBRACE
-	| FN LPARENFUNC parList RPARENFUNC RBRACE
-	| FN LPARENFUNC RPARENFUNC RBRACE
+functionCall : prefixExp LPAREN exprList RPAREN
+	| prefixExp LPAREN RPAREN
+	| prefixExp LBRACE fieldList RBRACE
+	| prefixExp LBRACE RBRACE
+	| prefixExp STRING
+	| prefixExp COLON name LPAREN exprList RPAREN
+	| prefixExp COLON name LPAREN RPAREN
+	| prefixExp COLON name LBRACE fieldList RBRACE
+	| prefixExp COLON name LBRACE RBRACE
+	| prefixExp COLON name STRING
+	;
+
+
+functionDef : FUNCTION LPARENFUNC parList RPARENFUNC block END
+	| FUNCTION LPARENFUNC RPARENFUNC block END
+	| FUNCTION LPARENFUNC parList RPARENFUNC END
+	| FUNCTION LPARENFUNC RPARENFUNC END
 	;
 
 parList : nameList
 	| nameList COMMA dot3
 	| DOT3
+	;
+
+tableConstructor : LBRACE fieldList RBRACE
+	| LBRACE RBRACE
 	;
 
 fieldList : fieldListBody
