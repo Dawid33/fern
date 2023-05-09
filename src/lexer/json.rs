@@ -1,5 +1,5 @@
 use crate::grammar::reader::TokenTypes;
-use crate::grammar::{Grammar, Token};
+use crate::grammar::{OpGrammar, Token};
 use crate::lexer::error::LexerError;
 use crate::lexer::LexerInterface;
 use std::collections::HashMap;
@@ -47,12 +47,12 @@ pub struct JsonLexer {
     pub data: HashMap<usize, String>,
     pub state: JsonLexerState,
     buf: String,
-    grammar: Grammar,
+    grammar: OpGrammar,
     tok: JsonTokens,
 }
 
 impl LexerInterface<JsonLexerState> for JsonLexer {
-    fn new(grammar: Grammar, start_state: JsonLexerState) -> JsonLexer {
+    fn new(grammar: OpGrammar, start_state: JsonLexerState) -> JsonLexer {
         // Create a list of terminals that the lexer can output.
         // TODO: Figure out how to put this in the grammar file.
         JsonLexer {
@@ -60,7 +60,7 @@ impl LexerInterface<JsonLexerState> for JsonLexer {
             state: start_state,
             buf: String::new(),
             data: HashMap::new(),
-            tok: JsonTokens::new(&grammar.tokens_reverse),
+            tok: JsonTokens::new(&grammar.token_reverse),
             grammar,
         }
     }
@@ -94,10 +94,7 @@ impl LexerInterface<JsonLexerState> for JsonLexer {
                     }
                     '\n' | ' ' | '\t' => {}
                     _ => {
-                        return Err(LexerError::from(format!(
-                            "Unrecognized char consumed by lexer '{}'",
-                            c
-                        )));
+                        return Err(LexerError::from(format!("Unrecognized char consumed by lexer '{}'", c)));
                     }
                 },
                 JsonLexerState::InString => match c {
@@ -106,9 +103,7 @@ impl LexerInterface<JsonLexerState> for JsonLexer {
                         push(self.tok.quotes);
                     }
                     '\n' => {
-                        return Err(LexerError::from(
-                            "Cannot have newlines in strings".to_string(),
-                        ));
+                        return Err(LexerError::from("Cannot have newlines in strings".to_string()));
                     }
                     _ => push(self.tok.char),
                 },

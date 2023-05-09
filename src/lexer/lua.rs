@@ -1,10 +1,10 @@
 use crate::grammar::reader::TokenTypes;
-use crate::grammar::{Grammar, Token};
+use crate::grammar::{OpGrammar, Token};
 use crate::lexer::error::LexerError;
 use crate::lexer::LexerInterface;
+use log::trace;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use log::trace;
 
 pub struct LuaTokens {
     pub endfile: Token,
@@ -145,25 +145,27 @@ pub struct LuaLexer {
     pub data: HashMap<usize, String>,
     pub state: LuaLexerState,
     buf: String,
-    grammar: Grammar,
+    grammar: OpGrammar,
     tok: LuaTokens,
 }
 
 impl LexerInterface<LuaLexerState> for LuaLexer {
-    fn new(grammar: Grammar, start_state: LuaLexerState) -> Self {
+    fn new(grammar: OpGrammar, start_state: LuaLexerState) -> Self {
         LuaLexer {
             tokens: Vec::new(),
             state: start_state,
             buf: String::new(),
             data: HashMap::new(),
-            tok: LuaTokens::new(&grammar.tokens_reverse),
+            tok: LuaTokens::new(&grammar.token_reverse),
             grammar,
         }
     }
     fn consume(&mut self, c: &u8) -> Result<(), LexerError> {
+        trace!("Letter: {}", c);
         loop {
             let mut should_reconsume = false;
 
+            trace!("Reconsumed: {}", c);
             let c = *c as char;
             let mut push = |t: Token| {
                 trace!("{}", self.grammar.token_raw.get(&t).unwrap());
@@ -175,9 +177,11 @@ impl LexerInterface<LuaLexerState> for LuaLexer {
                     'a'..='z' | 'A'..='Z' => {
                         self.state = LuaLexerState::InName;
                         self.buf.push(c);
-                    },
+                    }
                     '{' => push(self.tok.lbrace),
                     '}' => push(self.tok.rbrace),
+                    '[' => push(self.tok.lbrack),
+                    ']' => push(self.tok.rbrack),
                     '(' => push(self.tok.lparenfunc),
                     ')' => push(self.tok.rparenfunc),
                     ':' => push(self.tok.colon),
@@ -192,17 +196,14 @@ impl LexerInterface<LuaLexerState> for LuaLexer {
                     '=' => push(self.tok.xeq),
                     '\"' => {
                         self.state = LuaLexerState::InString;
-                    },
+                    }
                     '0'..='9' => {
                         self.state = LuaLexerState::InNumber;
                         self.buf.push(c);
-                    },
+                    }
                     '\n' | ' ' | '\t' => {}
                     _ => {
-                        return Err(LexerError::from(format!(
-                            "Unrecognized char consumed by lexer '{}'",
-                            c
-                        )));
+                        return Err(LexerError::from(format!("Unrecognized char consumed by lexer '{}'", c)));
                     }
                 },
                 LuaLexerState::InString => match c {
@@ -212,9 +213,7 @@ impl LexerInterface<LuaLexerState> for LuaLexer {
                         push(self.tok.string);
                     }
                     '\n' => {
-                        return Err(LexerError::from(
-                            "Cannot have newlines in strings".to_string(),
-                        ));
+                        return Err(LexerError::from("Cannot have newlines in strings".to_string()));
                     }
                     _ => self.buf.push(c),
                 },
@@ -232,7 +231,7 @@ impl LexerInterface<LuaLexerState> for LuaLexer {
                     'a'..='z' | 'A'..='Z' | '_' => {
                         self.buf.push(c);
                     }
-                    '\n' | ' ' | '\t' | ';' | ',' | '(' => {
+                    '\n' | ' ' | '\t' | ';' | ',' | '(' | '[' | ']' => {
                         self.state = LuaLexerState::Start;
                         let token = match self.buf.as_str() {
                             "and" => self.tok.and,
@@ -261,14 +260,10 @@ impl LexerInterface<LuaLexerState> for LuaLexer {
                         };
                         self.buf.clear();
                         push(token);
-                        if c == ';' || c == ',' || c == '(' {
-                            should_reconsume = true
-                        };
+                        should_reconsume = true
                     }
                     _ => {
-                        return Err(LexerError::from(
-                            "Cannot have newlines in strings".to_string(),
-                        ));
+                        return Err(LexerError::from("Illegal character in name".to_string()));
                     }
                 },
             }

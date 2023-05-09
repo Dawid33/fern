@@ -68,7 +68,7 @@
 %terminal FOR
 %terminal IN
 %terminal FUNCTION
-%terminal LOCAL
+%terminal LET
 %terminal NIL
 %terminal FALSE
 %terminal TRUE
@@ -148,12 +148,12 @@ stat :  varList XEQ exprList
 	| FOR nameList IN exprList DO END
 	| FUNCTION funcName LPARENFUNC parList RPARENFUNC END
 	| FUNCTION funcName LPARENFUNC RPARENFUNC END
-	| LOCAL FUNCTION name LPARENFUNC parList RPARENFUNC block END
-	| LOCAL FUNCTION name LPARENFUNC RPARENFUNC block END
-	| LOCAL FUNCTION name LPARENFUNC parList RPARENFUNC END
-	| LOCAL FUNCTION name LPARENFUNC RPARENFUNC END
-	| LOCAL nameList
-	| LOCAL nameList XEQ exprList
+	| LET FUNCTION name LPARENFUNC parList RPARENFUNC block END
+	| LET FUNCTION name LPARENFUNC RPARENFUNC block END
+	| LET FUNCTION name LPARENFUNC parList RPARENFUNC END
+	| LET FUNCTION name LPARENFUNC RPARENFUNC END
+	| LET nameList
+	| LET nameList XEQ exprList
 	;
 
 elseIfBlock : block ELSEIF expr THEN block

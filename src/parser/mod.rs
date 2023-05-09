@@ -1,24 +1,27 @@
 pub mod json;
 
-use crate::grammar::{Associativity, Grammar, Rule, Token};
+use crate::grammar::{Associativity, OpGrammar, Rule, Token};
+use log::{debug, info, warn};
 use std::any::Any;
 use std::collections::{HashMap, LinkedList, VecDeque};
 use std::error::Error;
 use std::io::ErrorKind::AlreadyExists;
 use std::io::Read;
+use std::ops::Add;
 use std::panic::{resume_unwind, set_hook};
 use std::thread::current;
-use log::{warn, debug, info};
+use std::time::Duration;
+use tokio::time::Instant;
 
 #[allow(unused)]
 pub struct ParseTree {
-    pub g: Grammar,
+    pub g: OpGrammar,
     root: Node,
 }
 
 impl ParseTree {
     #[allow(unused)]
-    pub fn new(root: Node, g: Grammar) -> Self {
+    pub fn new(root: Node, g: OpGrammar) -> Self {
         Self { g, root }
     }
 }
@@ -62,8 +65,7 @@ impl TokenGrammarTuple {
 impl ParseTree {
     pub fn print(&self) {
         let mut node_stack: Vec<&Node> = vec![&self.root];
-        let mut child_count_stack: Vec<(i32, i32)> =
-            vec![(0, (self.root.children.len() - 1) as i32)];
+        let mut child_count_stack: Vec<(i32, i32)> = vec![(0, (self.root.children.len() - 1) as i32)];
 
         println!("{}", self.g.token_raw.get(&self.root.symbol).unwrap());
         while !node_stack.is_empty() {
@@ -119,15 +121,16 @@ impl ParseTree {
 
 pub struct ParallelParser {
     stack: Vec<TokenGrammarTuple>,
-    pub g: Grammar,
+    pub g: OpGrammar,
     open_nodes: HashMap<u64, Node>,
     should_reconsume: bool,
     highest_id: u64,
     iteration: u64,
+    pub time_spent_rule_searching: Duration,
 }
 
 impl ParallelParser {
-    pub fn new(grammar: Grammar, threads: usize) -> Self {
+    pub fn new(grammar: OpGrammar, threads: usize) -> Self {
         let _ = threads;
         let parser = Self {
             stack: Vec::new(),
@@ -136,6 +139,7 @@ impl ParallelParser {
             open_nodes: HashMap::new(),
             highest_id: 0,
             iteration: 0,
+            time_spent_rule_searching: Duration::new(0, 0),
         };
 
         return parser;
@@ -212,14 +216,7 @@ impl ParallelParser {
 
             let mut output = String::new();
             for (key, node) in &self.open_nodes {
-                output.push_str(
-                    format!(
-                        "({:?} {:?}) ",
-                        key,
-                        self.g.token_raw.get(&node.symbol).unwrap()
-                    )
-                    .as_str(),
-                );
+                output.push_str(format!("({:?} {:?}) ", key, self.g.token_raw.get(&node.symbol).unwrap()).as_str());
             }
             debug!("{} Open nodes: {}", self.iteration, output);
             debug!(
@@ -300,14 +297,14 @@ impl ParallelParser {
         let mut apply_rewrites: HashMap<Token, Token> = HashMap::new();
         let mut longest: i32 = 0;
 
+        let now = Instant::now();
         for r in &self.g.rules {
             let mut rewrites: HashMap<Token, Token> = HashMap::new();
             let mut rule_applies = true;
             for j in 0..r.right.len() {
                 let j = j as i32;
 
-                let curr: Token = if i + j + offset >= 0 && i + j + offset < self.stack.len() as i32
-                {
+                let curr: Token = if i + j + offset >= 0 && i + j + offset < self.stack.len() as i32 {
                     self.stack.get((i + j + offset) as usize).unwrap().token
                 } else {
                     rule_applies = false;
@@ -347,6 +344,10 @@ impl ParallelParser {
                 }
             }
         }
+        let time = now.elapsed();
+        debug!("Time spend searching: {:?}", &time);
+        self.time_spent_rule_searching = self.time_spent_rule_searching.add(time);
+
         if let Some(rule) = rule {
             if !apply_rewrites.is_empty() {
                 for _ in 0..rule.right.len() {
@@ -393,9 +394,7 @@ impl ParallelParser {
                 Associativity::Undefined => '?',
                 Associativity::None => '!',
             };
-            output.push_str(
-                format!("({:?}, {}) ", self.g.token_raw.get(&i.token).unwrap(), x).as_str(),
-            );
+            output.push_str(format!("({:?}, {}) ", self.g.token_raw.get(&i.token).unwrap(), x).as_str());
         }
         debug!("{} Stack: {}", self.iteration, output);
     }

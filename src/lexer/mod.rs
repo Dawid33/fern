@@ -1,5 +1,6 @@
 use crossbeam_deque::{Injector, Worker};
 use crossbeam_skiplist::SkipMap;
+use log::trace;
 use memmap::{Mmap, MmapOptions};
 use std::collections::{HashMap, LinkedList};
 use std::error::Error;
@@ -15,17 +16,16 @@ use std::thread::{Scope, ScopedJoinHandle};
 use std::time::{Duration, Instant};
 use std::{iter, thread};
 use tinyrand::{RandRange, StdRand};
-use log::trace;
 
 pub mod error;
-pub mod lua;
-pub mod json;
 pub mod fern;
+pub mod json;
+pub mod lua;
 
-use crate::grammar::{Grammar, Token};
+use crate::grammar::{OpGrammar, Token};
 use crate::lexer::error::LexerError;
-use crate::lexer::lua::{LuaLexer, LuaLexerState};
 use crate::lexer::json::{JsonLexer, JsonLexerState, JsonTokens};
+use crate::lexer::lua::{LuaLexer, LuaLexerState};
 
 pub struct LexerOutput<T> {
     lists: Option<HashMap<T, LexerPartialOutput<T>>>,
@@ -55,7 +55,7 @@ pub struct Batch<T> {
 }
 
 pub trait LexerInterface<T> {
-    fn new(grammar: Grammar, start_state: T) -> Self;
+    fn new(grammar: OpGrammar, start_state: T) -> Self;
     fn consume(&mut self, c: &u8) -> Result<(), LexerError>;
     fn take(self) -> (T, Vec<Token>);
 }
@@ -66,7 +66,7 @@ where
     Lexer: LexerInterface<T>,
 {
     pub fn new(
-        grammar: Grammar,
+        grammar: OpGrammar,
         scope: &'a Scope<'a, '_>,
         threads: usize,
         possible_start_states: &[T],
@@ -77,7 +77,7 @@ where
         let outputs: HashMap<String, Batch<T>> = HashMap::new();
 
         let mut handles = vec![];
-        for i in 0..threads {
+        for _ in 0..threads {
             let reciever = recv.clone();
             let global = queue.clone();
             let grammar = grammar.clone();
@@ -109,6 +109,18 @@ where
                             }
                         }
 
+                        // Send whitespace to make sure any tokens at then end of the chunk
+                        // so that any remaining tokens in the buffer actually get created.
+                        // This is okay because we split up the input string on word boundaries so
+                        // adding whitespace should make no difference.
+                        for (lexer, _, is_successful) in &mut lexers {
+                            if *is_successful {
+                                if let Err(_) = lexer.consume(&(' ' as u8)) {
+                                    *is_successful = false;
+                                }
+                            }
+                        }
+
                         let mut map: HashMap<T, LexerPartialOutput<T>> = HashMap::new();
                         for (lexer, start_state, is_successful) in lexers {
                             let (finish_state, tokens) = lexer.take();
@@ -121,8 +133,7 @@ where
                                 },
                             );
                         }
-                        task.2
-                            .insert(task.0, RwLock::new(LexerOutput { lists: Some(map) }));
+                        task.2.insert(task.0, RwLock::new(LexerOutput { lists: Some(map) }));
                     } else if let Ok(_) = reciever.try_recv() {
                         should_run = false;
                     } else {
@@ -176,8 +187,7 @@ where
     pub fn add_to_batch(&mut self, id: &String, input: &'a [u8], order: usize) {
         let mut batch = self.outputs.get_mut(id).unwrap();
         batch.size += 1;
-        self.queue
-            .push(WorkUnit(order, input, (*batch).output.clone()));
+        self.queue.push(WorkUnit(order, input, (*batch).output.clone()));
     }
 
     fn print_lexer_state_list(list: &Vec<Token>) {
@@ -216,11 +226,7 @@ where
             let mut val = x.value().write().unwrap();
             let mut found_match = false;
             for (start_state, partial_output) in val.lists.take().unwrap() {
-                trace!(
-                    "Checking {:?} -> {:?} : ",
-                    previous_finish_state,
-                    start_state
-                );
+                trace!("Checking {:?} -> {:?} : ", previous_finish_state, start_state);
                 if previous_finish_state == start_state {
                     trace!("yes");
 
@@ -250,10 +256,7 @@ where
     }
 }
 
-pub fn split_mmap_into_chunks<'a>(
-    mmap: &'a mut Mmap,
-    step: usize,
-) -> Result<Vec<&'a [u8]>, Box<dyn Error>> {
+pub fn split_mmap_into_chunks<'a>(mmap: &'a mut Mmap, step: usize) -> Result<Vec<&'a [u8]>, Box<dyn Error>> {
     let mut indices = vec![];
     let mut i = 0;
     let mut prev = 0;
@@ -281,11 +284,7 @@ pub fn split_mmap_into_chunks<'a>(
     return Ok(units);
 }
 
-pub fn lex(
-    input: &str,
-    grammar: &Grammar,
-    threads: usize,
-) -> Result<LinkedList<Vec<Token>>, Box<dyn Error>> {
+pub fn lex(input: &str, grammar: &OpGrammar, threads: usize) -> Result<LinkedList<Vec<Token>>, Box<dyn Error>> {
     let mut tokens: LinkedList<Vec<Token>> = LinkedList::new();
     {
         thread::scope(|s| {
@@ -307,8 +306,8 @@ pub fn lex(
 
 #[test]
 pub fn test_lexer() -> Result<(), Box<dyn Error>> {
-    let grammar = Grammar::from("data/grammar/json.g");
-    let t = json::JsonTokens::new(&grammar.tokens_reverse);
+    let grammar = OpGrammar::from("data/grammar/json.g");
+    let t = json::JsonTokens::new(&grammar.token_reverse);
 
     let test = |input: &str, expected: Vec<Token>| -> Result<(), Box<dyn Error>> {
         let mut ll = lex(input, &grammar, 1)?;

@@ -1,10 +1,10 @@
 use crate::grammar::reader::TokenTypes;
-use crate::grammar::{Grammar, Token};
+use crate::grammar::{OpGrammar, Token};
 use crate::lexer::error::LexerError;
 use crate::lexer::LexerInterface;
+use log::trace;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use log::trace;
 
 pub struct FernTokens {
     pub endfile: Token,
@@ -145,18 +145,18 @@ pub struct FernLexer {
     pub data: HashMap<usize, String>,
     pub state: FernLexerState,
     buf: String,
-    grammar: Grammar,
+    grammar: OpGrammar,
     tok: FernTokens,
 }
 
 impl LexerInterface<FernLexerState> for FernLexer {
-    fn new(grammar: Grammar, start_state: FernLexerState) -> Self {
+    fn new(grammar: OpGrammar, start_state: FernLexerState) -> Self {
         FernLexer {
             tokens: Vec::new(),
             state: start_state,
             buf: String::new(),
             data: HashMap::new(),
-            tok: FernTokens::new(&grammar.tokens_reverse),
+            tok: FernTokens::new(&grammar.token_reverse),
             grammar,
         }
     }
@@ -175,7 +175,7 @@ impl LexerInterface<FernLexerState> for FernLexer {
                     'a'..='z' | 'A'..='Z' => {
                         self.state = FernLexerState::InName;
                         self.buf.push(c);
-                    },
+                    }
                     '{' => push(self.tok.lbrace),
                     '}' => push(self.tok.rbrace),
                     '(' => push(self.tok.lparenfunc),
@@ -192,17 +192,14 @@ impl LexerInterface<FernLexerState> for FernLexer {
                     '=' => push(self.tok.xeq),
                     '\"' => {
                         self.state = FernLexerState::InString;
-                    },
+                    }
                     '0'..='9' => {
                         self.state = FernLexerState::InNumber;
                         self.buf.push(c);
-                    },
+                    }
                     '\n' | ' ' | '\t' => {}
                     _ => {
-                        return Err(LexerError::from(format!(
-                            "Unrecognized char consumed by lexer '{}'",
-                            c
-                        )));
+                        return Err(LexerError::from(format!("Unrecognized char consumed by lexer '{}'", c)));
                     }
                 },
                 FernLexerState::InString => match c {
@@ -212,9 +209,7 @@ impl LexerInterface<FernLexerState> for FernLexer {
                         push(self.tok.string);
                     }
                     '\n' => {
-                        return Err(LexerError::from(
-                            "Cannot have newlines in strings".to_string(),
-                        ));
+                        return Err(LexerError::from("Cannot have newlines in strings".to_string()));
                     }
                     _ => self.buf.push(c),
                 },
@@ -265,9 +260,7 @@ impl LexerInterface<FernLexerState> for FernLexer {
                         };
                     }
                     _ => {
-                        return Err(LexerError::from(
-                            "Cannot have newlines in strings".to_string(),
-                        ));
+                        return Err(LexerError::from("Cannot have newlines in strings".to_string()));
                     }
                 },
             }

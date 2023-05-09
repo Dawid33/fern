@@ -1,6 +1,6 @@
 extern crate core;
 
-use core::grammar::Grammar;
+use core::grammar::OpGrammar;
 use core::lexer::json::*;
 use core::lexer::*;
 use std::collections::LinkedList;
@@ -13,7 +13,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use memmap::MmapOptions;
 
 fn fair_sequential_lexing(path: &str) -> Result<(), Box<dyn Error>> {
-    let grammar = Grammar::from("data/grammar/json.g");
+    let grammar = OpGrammar::from("data/grammar/json.g");
     let mut tokens: LinkedList<Vec<u8>> = LinkedList::new();
     {
         let file = File::open(path)?;
@@ -36,7 +36,7 @@ fn fair_sequential_lexing(path: &str) -> Result<(), Box<dyn Error>> {
 }
 
 fn bench_parallel_lexing(path: &str, threads: usize) {
-    let grammar = Grammar::from("data/grammar/json.g");
+    let grammar = OpGrammar::from("data/grammar/json.g");
     let file = File::open(path).unwrap();
     let mut memmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file).unwrap() };
     let chunks = core::lexer::split_mmap_into_chunks(&mut memmap, 6000).unwrap();

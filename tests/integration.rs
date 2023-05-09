@@ -6,7 +6,7 @@ use std::fs::File;
 use std::thread;
 use std::time::Instant;
 
-use core::grammar::Grammar;
+use core::grammar::OpGrammar;
 use core::grammar::Token;
 use core::lexer::json::*;
 use core::lexer::*;
@@ -23,13 +23,13 @@ fn full_test() -> Result<(), Box<dyn Error>> {
         .build();
     let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Info, config);
     let mut now = Instant::now();
-    let grammar = Grammar::from("data/grammar/json.g");
+    let grammar = OpGrammar::from("data/grammar/json.g");
     info!("Total Time to generate grammar : {:?}", now.elapsed());
     now = Instant::now();
 
     let mut tokens: LinkedList<Vec<Token>> = LinkedList::new();
     {
-        let file = File::open("data/json/10KB.json")?;
+        let file = File::open("data/test.json")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         info!("Total time to load file: {:?}", now.elapsed());
         now = Instant::now();
@@ -59,14 +59,11 @@ fn full_test() -> Result<(), Box<dyn Error>> {
 
     debug!("Total Parsing Time: {:?}", now.elapsed());
 
-    let _ = tree;
+    tree.print();
 
     now = Instant::now();
 
-    debug!(
-        "Total Time For ParseTree -> AST Conversion: {:?}",
-        now.elapsed()
-    );
+    debug!("Total Time For ParseTree -> AST Conversion: {:?}", now.elapsed());
     Ok(())
 }
 
@@ -80,7 +77,7 @@ fn full_test_parallel() -> Result<(), Box<dyn Error>> {
     let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Trace, config);
 
     let now = Instant::now();
-    let grammar = Grammar::from("data/grammar/json.g");
+    let grammar = OpGrammar::from("data/grammar/json.g");
     info!("Total Time to generate grammar : {:?}", now.elapsed());
     let now = Instant::now();
 

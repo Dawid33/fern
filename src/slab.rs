@@ -10,9 +10,7 @@ where
     T: Sized,
 {
     pub fn new() -> Self {
-        Self {
-            t: Default::default(),
-        }
+        Self { t: Default::default() }
     }
     pub fn alloc() -> () {
         ()
