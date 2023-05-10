@@ -35,7 +35,6 @@
 %nonterminal fieldList
 %nonterminal fieldListBody
 %nonterminal field
-%nonterminal bracketedExp
 
 %axiom chunk
 
@@ -123,90 +122,36 @@ statList : stat
 
 stat :  varList XEQ exprList
 	| functionCall
-	| label
-	| BREAK
-	| GOTO NAME
-	| DO block END
-	| DO END
-	| WHILE expr DO block END
-	| WHILE expr DO END
-	| REPEAT block UNTIL expr
-	| REPEAT UNTIL expr
-	| IF exprThen END
-	| IF exprThen ELSE block END
-	| IF exprThen ELSE END
-	| IF exprThenElseIfB END
-	| IF exprThenElseIfB ELSE block END
-	| IF exprThenElseIfB ELSE END
-	| FOR name XEQ eCe DO block END
-	| FOR name XEQ eCeCe DO block END
-	| FOR nameList IN exprList DO block END
-	| FUNCTION funcName LPARENFUNC parList RPARENFUNC block END
-	| FUNCTION funcName LPARENFUNC RPARENFUNC block END
-	| FOR name XEQ eCe DO END
-	| FOR name XEQ eCeCe DO END
-	| FOR nameList IN exprList DO END
-	| FUNCTION funcName LPARENFUNC parList RPARENFUNC END
-	| FUNCTION funcName LPARENFUNC RPARENFUNC END
-	| LET FUNCTION name LPARENFUNC parList RPARENFUNC block END
-	| LET FUNCTION name LPARENFUNC RPARENFUNC block END
-	| LET FUNCTION name LPARENFUNC parList RPARENFUNC END
-	| LET FUNCTION name LPARENFUNC RPARENFUNC END
+	| LBRACE block RBRACE
+	| LBRACE RBRACE
+	| IF exprThen RBRACE
+	| IF exprThen ELSE block RBRACE
+	| IF exprThen ELSE RBRACE
+	| IF exprThenElseIfB RBRACE
+	| IF exprThenElseIfB ELSE block RBRACE
+	| IF exprThenElseIfB ELSE RBRACE
+	| FOR nameList IN exprList LBRACE block RBRACE
+	| FOR nameList IN exprList LBRACE RBRACE
 	| LET nameList
 	| LET nameList XEQ exprList
 	;
 
-elseIfBlock : block ELSEIF expr THEN block
-	| block ELSEIF expr THEN elseIfBlock
-	| ELSEIF expr THEN block
-	| block ELSEIF expr THEN
-	| ELSEIF expr THEN
-	| ELSEIF expr THEN elseIfBlock
+elseIfBlock : block ELSEIF expr LBRACE block
+	| block ELSEIF expr LBRACE elseIfBlock
+	| ELSEIF expr LBRACE block
+	| block ELSEIF expr LBRACE
+	| ELSEIF expr LBRACE
+	| ELSEIF expr LBRACE elseIfBlock
 	;
 
-exprThenElseIfB : expr THEN elseIfBlock
+exprThenElseIfB : expr LBRACE elseIfBlock
  	;
 
-exprThen : expr THEN block
-	| expr THEN
+exprThen : expr LBRACE block
+	| expr LBRACE
 	;
 
 name : NAME
-	;
-
-eCe : expr COMMA expr
-	;
-
-eCeCe  : eCe COMMA expr
-	;
-
-dot3 : DOT3
-	;
-
-retStat : RETURN SEMI
-	| RETURN exprList SEMI
-	| RETURN
-	| RETURN exprList
-	;
-
-label : COLON2 NAME COLON2
-	;
-
-funcName : nameDotList
-	| nameDotList COLON name
-	;
-
-nameDotList : NAME
-	| nameDotList DOT NAME
-	;
-
-varList : var
-	| varList COMMA var
-	;
-
-var : NAME
-	| prefixExp LBRACK expr RBRACK
-	| prefixExp DOT NAME
 	;
 
 nameList : NAME
@@ -267,10 +212,7 @@ baseExp : NIL
 	| TRUE
 	| NUMBER
 	| STRING
-	| DOT3
-	| functionDef
 	| prefixExp
-	| tableConstructor
 	;
 
 prefixExp : var
@@ -290,22 +232,6 @@ functionCall : prefixExp LPAREN exprList RPAREN
 	| prefixExp COLON name STRING
 	;
 
-
-functionDef : FUNCTION LPARENFUNC parList RPARENFUNC block END
-	| FUNCTION LPARENFUNC RPARENFUNC block END
-	| FUNCTION LPARENFUNC parList RPARENFUNC END
-	| FUNCTION LPARENFUNC RPARENFUNC END
-	;
-
-parList : nameList
-	| nameList COMMA dot3
-	| DOT3
-	;
-
-tableConstructor : LBRACE fieldList RBRACE
-	| LBRACE RBRACE
-	;
-
 fieldList : fieldListBody
 	| fieldListBody COMMA
 	| fieldListBody SEMIFIELD
@@ -316,10 +242,14 @@ fieldListBody : field
 	| fieldListBody SEMIFIELD field
 	;
 
-field : bracketedExp EQ expr
-	| name EQ expr
+field : name EQ expr
 	| expr
 	;
 
-bracketedExp : LBRACK expr RBRACK
+var : NAME
+	| prefixExp DOT NAME
+	;
+
+varList : var
+	| varList COMMA var
 	;

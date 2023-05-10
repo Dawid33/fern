@@ -63,7 +63,7 @@ pub struct FernTokens {
     pub rparenfunc: Token,
     pub semifield: Token,
     pub xeq: Token,
-    pub local: Token,
+    pub let_t: Token,
     pub fn_t: Token,
 }
 
@@ -99,7 +99,7 @@ impl FernTokens {
             for_t: tokens_reverse.get("ELSE").unwrap().0,
             in_t: tokens_reverse.get("ELSE").unwrap().0,
             fn_t: tokens_reverse.get("FUNCTION").unwrap().0,
-            local: tokens_reverse.get("LOCAL").unwrap().0,
+            let_t: tokens_reverse.get("LET").unwrap().0,
             nil: tokens_reverse.get("NIL").unwrap().0,
             false_t: tokens_reverse.get("FALSE").unwrap().0,
             true_t: tokens_reverse.get("TRUE").unwrap().0,
@@ -248,8 +248,8 @@ impl LexerInterface<FernLexerState> for FernLexer {
                             "then" => self.tok.then,
                             "true" => self.tok.true_t,
                             "while" => self.tok.while_t,
-                            "local" => self.tok.local,
-                            "function" => self.tok.fn_t,
+                            "let" => self.tok.let_t,
+                            "fn" => self.tok.fn_t,
                             "end" => self.tok.end,
                             _ => self.tok.name,
                         };
