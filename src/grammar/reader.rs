@@ -65,7 +65,7 @@ pub struct RawGrammar {
 }
 
 impl RawGrammar {
-    pub fn from(path: &str) -> Result<(Self), Box<dyn Error>> {
+    pub fn from(path: &str) -> Result<Self, Box<dyn Error>> {
         let mut file = fs::File::open(path).unwrap();
         let mut buf = String::new();
         file.read_to_string(&mut buf).unwrap();
