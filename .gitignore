@@ -4,3 +4,4 @@ test.json
 scripts
 *.txt
 .cached-grammar
+log.toml

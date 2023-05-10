@@ -17,6 +17,7 @@ use core::lexer::{fern::*, json::*, lua::*};
 use core::parser::{ParallelParser, ParseTree};
 use memmap::MmapOptions;
 use std::thread::park;
+use flexi_logger::Logger;
 
 fn lua() -> Result<(), Box<dyn Error>> {
     let mut now = Instant::now();
@@ -76,12 +77,7 @@ fn lua() -> Result<(), Box<dyn Error>> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let config: simplelog::Config = simplelog::ConfigBuilder::new()
-        .set_time_level(LevelFilter::Off)
-        .set_target_level(LevelFilter::Off)
-        .set_thread_level(LevelFilter::Off)
-        .build();
-    let _ = simplelog::SimpleLogger::init(LevelFilter::Trace, config);
+    Logger::try_with_str("info")?.start_with_specfile("log.toml")?;
     lua()?;
     Ok(())
 }

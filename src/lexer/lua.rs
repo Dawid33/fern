@@ -161,11 +161,10 @@ impl LexerInterface<LuaLexerState> for LuaLexer {
         }
     }
     fn consume(&mut self, c: &u8) -> Result<(), LexerError> {
-        trace!("Letter: {}", c);
+        trace!("Letter: {}", *c as char);
         loop {
             let mut should_reconsume = false;
 
-            trace!("Reconsumed: {}", c);
             let c = *c as char;
             let mut push = |t: Token| {
                 trace!("{}", self.grammar.token_raw.get(&t).unwrap());
@@ -271,6 +270,7 @@ impl LexerInterface<LuaLexerState> for LuaLexer {
             if !should_reconsume {
                 break;
             }
+            trace!("Reconsumed: {}", c as char);
         }
         return Ok(());
     }

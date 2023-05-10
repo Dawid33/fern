@@ -18,8 +18,8 @@ crossbeam-channel = { version = "0.5.7", optional = false }
 crossbeam-skiplist = { version = "0.1", optional = false }
 memmap = { version = "0.7.0", optional = false }
 serde = { version = "1.0", features = ["derive"] }
-simplelog = "*"
-log = "*"
+flexi_logger = { version = "0.25", features = ["specfile_without_notification", "colors"] }
+log = "0.4"
 ciborium = "0.2.0"
 futures = { version = "0.3" }
 tokio = { version = "1.0", features = ["rt", "macros"] }

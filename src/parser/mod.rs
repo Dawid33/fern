@@ -66,8 +66,11 @@ impl ParseTree {
     pub fn print(&self) {
         let mut node_stack: Vec<&Node> = vec![&self.root];
         let mut child_count_stack: Vec<(i32, i32)> = vec![(0, (self.root.children.len() - 1) as i32)];
+        let mut b = String::new();
 
-        println!("{}", self.g.token_raw.get(&self.root.symbol).unwrap());
+        b.push_str(format!("{}", self.g.token_raw.get(&self.root.symbol).unwrap()).as_str());
+        info!("{}", b);
+        b.clear();
         while !node_stack.is_empty() {
             let current = node_stack.pop().unwrap();
             let (mut current_child, max_child) = child_count_stack.pop().unwrap();
@@ -76,28 +79,30 @@ impl ParseTree {
                 for i in 0..child_count_stack.len() {
                     let (current, max) = child_count_stack.get(i).unwrap();
                     if *current <= *max {
-                        print!("| ");
+                        b.push_str("| ");
                     } else {
-                        print!("  ");
+                        b.push_str("  ");
                     }
                 }
                 if current_child != max_child {
-                    println!(
+                    b.push_str(format!(
                         "├─{}",
                         self.g
                             .token_raw
                             .get(&current.children.get(current_child as usize).unwrap().symbol)
                             .unwrap()
-                    )
+                    ).as_str());
                 } else {
-                    println!(
+                    b.push_str(format!(
                         "└─{}",
                         self.g
                             .token_raw
                             .get(&current.children.get(current_child as usize).unwrap().symbol)
                             .unwrap()
-                    )
+                    ).as_str());
                 }
+                info!("{}", b);
+                b.clear();
                 if !current
                     .children
                     .get(current_child as usize)
