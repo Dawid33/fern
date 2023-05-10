@@ -161,7 +161,7 @@ impl LexerInterface<LuaLexerState> for LuaLexer {
         }
     }
     fn consume(&mut self, c: &u8) -> Result<(), LexerError> {
-        trace!("Letter: {}", *c as char);
+        trace!("Letter: {:?}", *c as char);
         loop {
             let mut should_reconsume = false;
 

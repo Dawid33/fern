@@ -79,8 +79,8 @@ impl OpGrammar {
 
         let delim = g.gen_id();
 
-        g.token_raw.insert(delim, String::from("DELIM"));
-        g.token_reverse.insert(String::from("DELIM"), (delim, NonTerminal));
+        g.token_raw.insert(delim, String::from("_DELIM"));
+        g.token_reverse.insert(String::from("_DELIM"), (delim, NonTerminal));
 
         // Validate that the grammar is in OPG form
         let repeated_rules = g.get_repeated_rhs();
@@ -327,6 +327,13 @@ impl OpGrammar {
                 }
             }
         }
+
+        op_table.insert(delim, template.clone().into_iter().map(|(t, a)| -> (Token, Associativity) {return (t, Associativity::Right);}).collect());
+        for x in op_table.values_mut() {
+            x.insert(delim, Associativity::Right);
+        }
+        op_table.get_mut(&delim).unwrap().insert(delim, Associativity::Equal);
+        g.terminals.push(delim);
 
         print_op_table(&g.token_raw, &g.token_reverse, &g.terminals, &op_table);
 

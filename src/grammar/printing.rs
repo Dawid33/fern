@@ -32,7 +32,7 @@ pub fn print_op_table(
     for row in &terminals {
         builder.push_str(format!("{:<l$}", token_raw.get(row).unwrap(), l = largest).as_str());
     }
-    debug!("{}", builder);
+    debug!("[OP TABLE] {}", builder);
     builder.clear();
 
     for row in &terminals {
@@ -41,7 +41,7 @@ pub fn print_op_table(
         for col in &terminals {
             builder.push_str(format!("{:<l$}", format!("{:?}", curr_row.get(col).unwrap()), l = largest).as_str());
         }
-        debug!("{}", builder);
+        debug!("[OP TABLE] {}", builder);
         builder.clear();
     }
 }

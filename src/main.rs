@@ -77,7 +77,7 @@ fn lua() -> Result<(), Box<dyn Error>> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    Logger::try_with_str("info")?.start_with_specfile("log.toml")?;
+    Logger::try_with_str("trace, core::grammar = info")?.start_with_specfile("log.toml")?;
     lua()?;
     Ok(())
 }
