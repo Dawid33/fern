@@ -205,11 +205,7 @@ impl ParallelParser {
             }
             let y = y.unwrap();
 
-            let precedence = if *token == self.g.delim {
-                Associativity::Right
-            } else {
-                self.g.get_precedence(y.token, *token)
-            };
+            let precedence = self.g.get_precedence(y.token, *token);
 
             if precedence == Associativity::None {
                 panic!(
