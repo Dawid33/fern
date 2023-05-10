@@ -6,27 +6,8 @@ use log::info;
 use std::error::Error;
 use std::fs::File;
 
-fn get_grammar() -> OpGrammar {
-    let grammar = match File::open(".lua-grammar") {
-        Ok(f) => {
-            info!("Using cached grammar from file : .lua-grammar");
-            let grammar = ciborium::de::from_reader::<'_, OpGrammar, _>(f).unwrap();
-            grammar
-        }
-        Err(_) => {
-            info!("Generating grammar from scratch...");
-            let grammar = OpGrammar::from("data/grammar/lua.g");
-            // let f = File::create(".lua-grammar").unwrap();
-            // info!("Grammar saved to .lua-grammar");
-            // ciborium::ser::into_writer(&grammar, f).unwrap();
-            grammar
-        }
-    };
-    grammar
-}
-
 fn test_lua(input: &str, expected: Vec<&str>) {
-    let g = get_grammar();
+    let g = OpGrammar::from("data/grammar/lua-fnf.g");
     let result = lex_lua(input, &g).unwrap();
     let mut size = 0;
     for list in result {

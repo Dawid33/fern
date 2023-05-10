@@ -13,15 +13,11 @@ use core::lexer::*;
 use core::parser::{ParallelParser, ParseTree};
 use log::{debug, info};
 use memmap::MmapOptions;
+use flexi_logger::Logger;
 
 #[test]
 fn full_test() -> Result<(), Box<dyn Error>> {
-    let config: simplelog::Config = simplelog::ConfigBuilder::new()
-        .set_time_level(simplelog::LevelFilter::Off)
-        .set_target_level(simplelog::LevelFilter::Off)
-        .set_thread_level(simplelog::LevelFilter::Off)
-        .build();
-    let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Info, config);
+    Logger::try_with_str("trace, core::grammar = info")?;
     let mut now = Instant::now();
     let grammar = OpGrammar::from("data/grammar/json.g");
     info!("Total Time to generate grammar : {:?}", now.elapsed());
@@ -69,12 +65,7 @@ fn full_test() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn full_test_parallel() -> Result<(), Box<dyn Error>> {
-    let config: simplelog::Config = simplelog::ConfigBuilder::new()
-        .set_time_level(simplelog::LevelFilter::Off)
-        .set_target_level(simplelog::LevelFilter::Off)
-        .set_thread_level(simplelog::LevelFilter::Off)
-        .build();
-    let _ = simplelog::SimpleLogger::init(simplelog::LevelFilter::Trace, config);
+    Logger::try_with_str("trace, core::grammar = info")?;
 
     let now = Instant::now();
     let grammar = OpGrammar::from("data/grammar/json.g");
