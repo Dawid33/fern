@@ -124,14 +124,24 @@ stat :  varList XEQ exprList
 	| functionCall
 	| LBRACE block RBRACE
 	| LBRACE RBRACE
+	| WHILE expr LBRACE block RBRACE
+	| WHILE expr LBRACE END
 	| IF exprThen RBRACE
 	| IF exprThen ELSE block RBRACE
 	| IF exprThen ELSE RBRACE
 	| IF exprThenElseIfB RBRACE
 	| IF exprThenElseIfB ELSE block RBRACE
 	| IF exprThenElseIfB ELSE RBRACE
+	| FUNCTION funcName LBRACK parList RBRACK block RBRACE
+	| FUNCTION funcName LBRACK RBRACK block RBRACE
 	| FOR nameList IN exprList LBRACE block RBRACE
 	| FOR nameList IN exprList LBRACE RBRACE
+	| LET nameList
+	| LET nameList XEQ exprList
+	| LET FUNCTION name LBRACK parList RBRACK block RBRACE
+	| LET FUNCTION name LBRACK RBRACK block RBRACE
+	| LET FUNCTION name LBRACK parList RBRACK RBRACE
+	| LET FUNCTION name LBRACK RBRACK RBRACE
 	| LET nameList
 	| LET nameList XEQ exprList
 	;
@@ -212,6 +222,7 @@ baseExp : NIL
 	| TRUE
 	| NUMBER
 	| STRING
+	| functionDef
 	| prefixExp
 	;
 
@@ -220,16 +231,16 @@ prefixExp : var
 	| LPAREN expr RPAREN
 	;
 
-functionCall : prefixExp LPAREN exprList RPAREN
-	| prefixExp LPAREN RPAREN
-	| prefixExp LBRACE fieldList RBRACE
-	| prefixExp LBRACE RBRACE
-	| prefixExp STRING
-	| prefixExp COLON name LPAREN exprList RPAREN
-	| prefixExp COLON name LPAREN RPAREN
-	| prefixExp COLON name LBRACE fieldList RBRACE
-	| prefixExp COLON name LBRACE RBRACE
-	| prefixExp COLON name STRING
+functionCall : prefixExp LBRACK exprList RBRACK
+	| prefixExp LBRACK RBRACK
+	| prefixExp LBRACK fieldList RBRACK
+	| prefixExp LBRACK RBRACK
+	;
+
+functionDef : FUNCTION LBRACK parList RBRACK block END
+	| FUNCTION LBRACK RBRACK block END
+	| FUNCTION LBRACK parList RBRACK END
+	| FUNCTION LBRACK RBRACK END
 	;
 
 fieldList : fieldListBody
@@ -252,4 +263,12 @@ var : NAME
 
 varList : var
 	| varList COMMA var
+	;
+
+funcName : nameDotList
+	| nameDotList COLON name
+	;
+
+nameDotList : NAME
+	| nameDotList DOT NAME
 	;

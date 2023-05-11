@@ -5,6 +5,7 @@ use crate::lexer::LexerInterface;
 use log::trace;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use crate::lexer::lua::LuaLexer;
 
 pub struct FernTokens {
     pub endfile: Token,
@@ -96,8 +97,8 @@ impl FernTokens {
             then: tokens_reverse.get("THEN").unwrap().0,
             elseif: tokens_reverse.get("ELSEIF").unwrap().0,
             else_t: tokens_reverse.get("ELSE").unwrap().0,
-            for_t: tokens_reverse.get("ELSE").unwrap().0,
-            in_t: tokens_reverse.get("ELSE").unwrap().0,
+            for_t: tokens_reverse.get("FOR").unwrap().0,
+            in_t: tokens_reverse.get("IN").unwrap().0,
             fn_t: tokens_reverse.get("FUNCTION").unwrap().0,
             let_t: tokens_reverse.get("LET").unwrap().0,
             nil: tokens_reverse.get("NIL").unwrap().0,
@@ -160,15 +161,11 @@ impl LexerInterface<FernLexerState> for FernLexer {
             grammar,
         }
     }
+
     fn consume(&mut self, c: &u8) -> Result<(), LexerError> {
+        let c = *c as char;
         loop {
             let mut should_reconsume = false;
-
-            let c = *c as char;
-            let mut push = |t: Token| {
-                trace!("{}", self.grammar.token_raw.get(&t).unwrap());
-                self.tokens.push(t);
-            };
 
             match self.state {
                 FernLexerState::Start => match c {
@@ -176,20 +173,23 @@ impl LexerInterface<FernLexerState> for FernLexer {
                         self.state = FernLexerState::InName;
                         self.buf.push(c);
                     }
-                    '{' => push(self.tok.lbrace),
-                    '}' => push(self.tok.rbrace),
-                    '(' => push(self.tok.lparenfunc),
-                    ')' => push(self.tok.rparenfunc),
-                    ':' => push(self.tok.colon),
-                    ',' => push(self.tok.comma),
-                    ';' => push(self.tok.semi),
-                    '+' => push(self.tok.plus),
-                    '-' => push(self.tok.minus),
-                    '*' => push(self.tok.asterisk),
-                    '/' => push(self.tok.divide),
-                    '>' => push(self.tok.gt),
-                    '<' => push(self.tok.lt),
-                    '=' => push(self.tok.xeq),
+                    '{' => self.push(self.tok.lbrace),
+                    '}' => self.push(self.tok.rbrace),
+                    '[' => self.push(self.tok.lbrack),
+                    ']' => self.push(self.tok.rbrack),
+                    '(' => self.push(self.tok.lparenfunc),
+                    ')' => self.push(self.tok.rparenfunc),
+                    '.' => self.push(self.tok.dot),
+                    ':' => self.push(self.tok.colon),
+                    ',' => self.push(self.tok.comma),
+                    ';' => self.push(self.tok.semi),
+                    '+' => self.push(self.tok.plus),
+                    '-' => self.push(self.tok.minus),
+                    '*' => self.push(self.tok.asterisk),
+                    '/' => self.push(self.tok.divide),
+                    '>' => self.push(self.tok.gt),
+                    '<' => self.push(self.tok.lt),
+                    '=' => self.push(self.tok.xeq),
                     '\"' => {
                         self.state = FernLexerState::InString;
                     }
@@ -197,7 +197,8 @@ impl LexerInterface<FernLexerState> for FernLexer {
                         self.state = FernLexerState::InNumber;
                         self.buf.push(c);
                     }
-                    '\n' | ' ' | '\t' => {}
+                    '\n' => {},
+                    ' ' | '\t' => {}
                     _ => {
                         return Err(LexerError::from(format!("Unrecognized char consumed by lexer '{}'", c)));
                     }
@@ -206,7 +207,7 @@ impl LexerInterface<FernLexerState> for FernLexer {
                     '\"' => {
                         self.state = FernLexerState::Start;
                         self.buf.clear();
-                        push(self.tok.string);
+                        self.push(self.tok.string);
                     }
                     '\n' => {
                         return Err(LexerError::from("Cannot have newlines in strings".to_string()));
@@ -217,7 +218,7 @@ impl LexerInterface<FernLexerState> for FernLexer {
                     '0'..='9' => self.buf.push(c),
                     _ => {
                         self.state = FernLexerState::Start;
-                        push(self.tok.number);
+                        self.push(self.tok.number);
                         self.data.insert(self.tokens.len(), self.buf.clone());
                         self.buf.clear();
                         should_reconsume = true;
@@ -227,7 +228,7 @@ impl LexerInterface<FernLexerState> for FernLexer {
                     'a'..='z' | 'A'..='Z' | '_' => {
                         self.buf.push(c);
                     }
-                    '\n' | ' ' | '\t' | ';' | ',' | '(' => {
+                    _ => {
                         self.state = FernLexerState::Start;
                         let token = match self.buf.as_str() {
                             "and" => self.tok.and,
@@ -242,8 +243,8 @@ impl LexerInterface<FernLexerState> for FernLexer {
                             "or" => self.tok.or,
                             "repeat" => self.tok.repeat,
                             "until" => self.tok.until,
-                            "in" => self.tok.until,
-                            "for" => self.tok.until,
+                            "in" => self.tok.in_t,
+                            "for" => self.tok.for_t,
                             "return" => self.tok.return_t,
                             "then" => self.tok.then,
                             "true" => self.tok.true_t,
@@ -254,13 +255,8 @@ impl LexerInterface<FernLexerState> for FernLexer {
                             _ => self.tok.name,
                         };
                         self.buf.clear();
-                        push(token);
-                        if c == ';' || c == ',' || c == '(' {
-                            should_reconsume = true
-                        };
-                    }
-                    _ => {
-                        return Err(LexerError::from("Cannot have newlines in strings".to_string()));
+                        self.push(token);
+                        should_reconsume = true
                     }
                 },
             }
@@ -273,5 +269,47 @@ impl LexerInterface<FernLexerState> for FernLexer {
     }
     fn take(self) -> (FernLexerState, Vec<Token>) {
         (self.state, self.tokens)
+    }
+}
+
+impl FernLexer {
+    fn push(&mut self, t: Token) {
+        self.tokens.push(t);
+        if self.tokens.len() >= 2 {
+            if let Some(second_last) = self.tokens.get(self.tokens.len() - 2) {
+                if let Some(last) = self.tokens.last() {
+                    if self.should_insert_semi(second_last, last) {
+                        self.tokens.insert(self.tokens.len() - 1, self.tok.semi);
+                        trace!("{}", self.grammar.token_raw.get(&self.tok.semi).unwrap());
+                    }
+                }
+            }
+        }
+        trace!("{}", self.grammar.token_raw.get(&t).unwrap());
+    }
+
+    fn should_insert_semi(&self, first: &Token, second: &Token) -> bool {
+        let first = *first;
+        if first  == self.tok.rbrace ||
+            first  == self.tok.rparen ||
+            first  == self.tok.rbrack ||
+            first  == self.tok.true_t ||
+            first  == self.tok.false_t ||
+            first  == self.tok.nil ||
+            first  == self.tok.number ||
+            first  == self.tok.string ||
+            first  == self.tok.name {
+            if *second == self.tok.lparen ||
+                *second == self.tok.name ||
+                *second == self.tok.break_t ||
+                *second == self.tok.if_t ||
+                *second == self.tok.while_t ||
+                *second == self.tok.let_t ||
+                *second == self.tok.for_t ||
+                *second == self.tok.fn_t {
+                return true;
+            }
+        }
+        return false;
     }
 }
