@@ -241,10 +241,10 @@ impl RawGrammar {
         self.non_terminals.clear();
         let new_rules = new_dict_rules;
         let new_non_terminal_set = v;
+        let mut cnt = 0;
 
         for n in new_non_terminal_set {
             let mut n = Vec::from_iter(n.into_iter());
-            n.sort();
             if n.len() == 1 {
                 self.non_terminals.push(*n.get(0).unwrap());
             } else {
@@ -253,9 +253,11 @@ impl RawGrammar {
                     self.non_terminals.push(*t);
                 } else {
                     let new_rhs_token = self.gen_id();
+                    // self.token_raw.insert(new_rhs_token, format!("nterm{}", cnt));
                     self.token_raw.insert(new_rhs_token, joined.clone());
                     self.token_reverse.insert(joined, (new_rhs_token, NonTerminal));
                     self.non_terminals.push(new_rhs_token);
+                    // cnt += 1;
                 }
             }
         }
@@ -267,7 +269,6 @@ impl RawGrammar {
             if lhs.len() == 1 {
                 current_rule.left = *lhs.get(0).unwrap();
             } else {
-                lhs.sort();
                 let joined = super::OpGrammar::list_to_string(&lhs, &self.token_raw);
                 if let Some((t, _)) = self.token_reverse.get(joined.as_str()) {
                     current_rule.left = *t;

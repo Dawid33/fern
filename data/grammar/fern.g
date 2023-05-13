@@ -101,15 +101,9 @@
 
 
 chunk : block
-	| ENDFILE
 	;
 
 block : statList
-	| retStat
-	| statList RETURN SEMI
-	| statList RETURN exprList SEMI
-	| statList RETURN
-	| statList RETURN exprList
 	;
 
 statList : stat
@@ -119,46 +113,8 @@ statList : stat
 	| statList SEMI
 	;
 
-
-stat :  varList XEQ exprList
-	| functionCall
-	| LBRACE block RBRACE
-	| LBRACE RBRACE
-	| WHILE expr LBRACE block RBRACE
-	| WHILE expr LBRACE END
-	| IF exprThen RBRACE
-	| IF exprThen ELSE block RBRACE
-	| IF exprThen ELSE RBRACE
-	| IF exprThenElseIfB RBRACE
-	| IF exprThenElseIfB ELSE block RBRACE
-	| IF exprThenElseIfB ELSE RBRACE
-	| FUNCTION funcName LBRACK parList RBRACK block RBRACE
-	| FUNCTION funcName LBRACK RBRACK block RBRACE
-	| FOR nameList IN exprList LBRACE block RBRACE
-	| FOR nameList IN exprList LBRACE RBRACE
-	| LET nameList
+stat :  LET nameList
 	| LET nameList XEQ exprList
-	| LET FUNCTION name LBRACK parList RBRACK block RBRACE
-	| LET FUNCTION name LBRACK RBRACK block RBRACE
-	| LET FUNCTION name LBRACK parList RBRACK RBRACE
-	| LET FUNCTION name LBRACK RBRACK RBRACE
-	| LET nameList
-	| LET nameList XEQ exprList
-	;
-
-elseIfBlock : block ELSEIF expr LBRACE block
-	| block ELSEIF expr LBRACE elseIfBlock
-	| ELSEIF expr LBRACE block
-	| block ELSEIF expr LBRACE
-	| ELSEIF expr LBRACE
-	| ELSEIF expr LBRACE elseIfBlock
-	;
-
-exprThenElseIfB : expr LBRACE elseIfBlock
- 	;
-
-exprThen : expr LBRACE block
-	| expr LBRACE
 	;
 
 name : NAME
@@ -172,103 +128,9 @@ exprList	: expr
 	| exprList COMMA expr
 	;
 
-expr : logicalOrExp
-	;
-
-logicalOrExp : logicalAndExp
-	| logicalOrExp OR logicalAndExp
-	;
-
-logicalAndExp : relationalExp
-	| logicalAndExp AND relationalExp
-	;
-
-relationalExp : concatExp
-	| relationalExp LT concatExp
-	| relationalExp GT concatExp
-	| relationalExp LTEQ concatExp
-	| relationalExp GTEQ concatExp
-	| relationalExp NEQ concatExp
-	| relationalExp EQ2 concatExp
-	;
-
-concatExp : additiveExp
-	| additiveExp DOT2 concatExp
-	;
-
-additiveExp : multiplicativeExp
-	| additiveExp PLUS multiplicativeExp
-	| additiveExp MINUS multiplicativeExp
-	;
-
-multiplicativeExp : unaryExp
-	| multiplicativeExp ASTERISK unaryExp
-	| multiplicativeExp DIVIDE unaryExp
-	| multiplicativeExp PERCENT unaryExp
-	;
-
-unaryExp : caretExp
-	| NOT unaryExp
-	| SHARP unaryExp
-	| UMINUS unaryExp
-	;
-
-caretExp : baseExp
-	| baseExp CARET caretExp
-	;
-
-baseExp : NIL
+expr : NIL
 	| FALSE
 	| TRUE
 	| NUMBER
 	| STRING
-	| functionDef
-	| prefixExp
-	;
-
-prefixExp : var
-	| functionCall
-	| LPAREN expr RPAREN
-	;
-
-functionCall : prefixExp LBRACK exprList RBRACK
-	| prefixExp LBRACK RBRACK
-	| prefixExp LBRACK fieldList RBRACK
-	| prefixExp LBRACK RBRACK
-	;
-
-functionDef : FUNCTION LBRACK parList RBRACK block END
-	| FUNCTION LBRACK RBRACK block END
-	| FUNCTION LBRACK parList RBRACK END
-	| FUNCTION LBRACK RBRACK END
-	;
-
-fieldList : fieldListBody
-	| fieldListBody COMMA
-	| fieldListBody SEMIFIELD
-	;
-
-fieldListBody : field
-	| fieldListBody COMMA field
-	| fieldListBody SEMIFIELD field
-	;
-
-field : name EQ expr
-	| expr
-	;
-
-var : NAME
-	| prefixExp DOT NAME
-	;
-
-varList : var
-	| varList COMMA var
-	;
-
-funcName : nameDotList
-	| nameDotList COLON name
-	;
-
-nameDotList : NAME
-	| nameDotList DOT NAME
 	;

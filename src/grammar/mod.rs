@@ -163,7 +163,6 @@ impl OpGrammar {
                         }
                     }
 
-                    // Possible error, check later
                     for i in (0..r.right.len()).rev() {
                         if g.terminals.contains(&r.right[i]) {
                             if !last_ops.contains_key(&r.left) {
@@ -364,7 +363,7 @@ impl OpGrammar {
         for t in list {
             sorted.push(token_raw.get(t).unwrap().as_str());
         }
-        sorted.sort();
+        // sorted.sort();
         let mut b = String::new();
         let mut iter = sorted.iter();
         if let Some(t) = iter.next() {
