@@ -5,6 +5,7 @@ use log::{info, trace, warn};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::error::Error;
 use crate::grammar::error::GrammarError;
+use crate::grammar::printing::print_dict;
 
 impl RawGrammar {
     pub fn delete_repeated_rhs(&mut self) -> Result<(), GrammarError> {
@@ -120,6 +121,7 @@ impl RawGrammar {
             }
         }
 
+        print_dict("dict_rules.txt", &dict_rules, &self.token_raw);
         // Initialize the new nonterminal set V
         let temp = dict_rules.clone().into_values();
         let mut v: BTreeSet<BTreeSet<Token>> = BTreeSet::new();
@@ -228,7 +230,7 @@ impl RawGrammar {
         for non_term in &v {
             if non_term.contains(&self.axiom) {
                 let temp = Vec::from([non_term.clone().into_iter().collect()]);
-                //If the rule has exactly the old axiom as rhs, replace it with the new axiom
+                // If the rule has exactly the old axiom as rhs, replace it with the new axiom
                 if non_term.len() == 1 && new_dict_rules.contains_key(&temp) {
                     let entry = new_dict_rules.get_mut(&temp).unwrap().clone();
                     new_dict_rules.insert(Vec::from([Vec::from([new_axiom])]), entry);
@@ -241,10 +243,10 @@ impl RawGrammar {
         self.non_terminals.clear();
         let new_rules = new_dict_rules;
         let new_non_terminal_set = v;
-        let mut cnt = 0;
+        // let mut cnt = 0;
 
         for n in new_non_terminal_set {
-            let mut n = Vec::from_iter(n.into_iter());
+            let n = Vec::from_iter(n.into_iter());
             if n.len() == 1 {
                 self.non_terminals.push(*n.get(0).unwrap());
             } else {
@@ -263,7 +265,7 @@ impl RawGrammar {
         }
 
         for (rhs, lhs) in new_rules {
-            let mut lhs = Vec::from_iter(lhs.into_iter());
+            let lhs = Vec::from_iter(lhs.into_iter());
             let mut current_rule = Rule::new();
 
             if lhs.len() == 1 {

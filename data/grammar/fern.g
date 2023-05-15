@@ -35,6 +35,9 @@
 %nonterminal fieldList
 %nonterminal fieldListBody
 %nonterminal field
+%nonterminal A
+%nonterminal B
+%nonterminal C
 
 %axiom chunk
 
@@ -99,38 +102,14 @@
 
 %%
 
+chunk : expr
+    | expr
+    | A
+    | A
+    ;
 
-chunk : block
-	;
+A : COMMA
+    ;
 
-block : statList
-	;
-
-statList : stat
-	| SEMI
-	| stat SEMI
-	| statList SEMI stat
-	| statList SEMI
-	;
-
-stat :  LET nameList
-	| LET nameList XEQ exprList
-	;
-
-name : NAME
-	;
-
-nameList : NAME
-	| nameList COMMA name
-	;
-
-exprList	: expr
-	| exprList COMMA expr
-	;
-
-expr : NIL
-	| FALSE
-	| TRUE
-	| NUMBER
-	| STRING
-	;
+expr : DOT NOT
+    ;
