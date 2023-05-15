@@ -102,14 +102,47 @@
 
 %%
 
-chunk : expr
-    | expr
-    | A
-    | A
-    ;
+chunk : statList
+	;
 
-A : COMMA
-    ;
+statList : stat
+	| SEMI
+	| stat SEMI
+	| statList SEMI stat
+	| statList SEMI
+	;
 
-expr : DOT NOT
-    ;
+stat : LET nameList
+	| LET nameList XEQ exprList
+	;
+
+name : NAME
+	;
+
+nameList : NAME
+	| nameList COMMA name
+	;
+
+exprList : expr
+	| exprList COMMA expr
+	;
+
+expr : unaryExp
+	;
+
+unaryExp : caretExp
+	| NOT unaryExp
+	| SHARP unaryExp
+	| UMINUS unaryExp
+	;
+
+caretExp : baseExp
+	| baseExp CARET caretExp
+	;
+
+baseExp : NIL
+	| FALSE
+	| TRUE
+	| NUMBER
+	| STRING
+	;

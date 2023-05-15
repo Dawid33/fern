@@ -1,4 +1,1 @@
-if x then
-    if y then
-    end
-end
+local x = 0;

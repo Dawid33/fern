@@ -21,20 +21,10 @@ use flexi_logger::Logger;
 
 fn lua() -> Result<(), Box<dyn Error>> {
     let mut now = Instant::now();
-    let grammar = match File::open("data/grammar/lua-fnf.g") {
-        Ok(f) => {
-            drop(f);
-            let grammar = OpGrammar::from("data/grammar/lua-fnf.g");
-            grammar
-        }
-        Err(_) => {
-            let mut raw = RawGrammar::from("data/grammar/lua.g")?;
-            raw.delete_repeated_rhs()?;
-            let grammar = OpGrammar::new(raw)?;
-            grammar.to_file("data/grammar/lua-fnf.g");
-            grammar
-        }
-    };
+    let mut raw = RawGrammar::from("data/grammar/lua.g")?;
+    raw.delete_repeated_rhs()?;
+    let grammar = OpGrammar::new(raw)?;
+    grammar.to_file("data/grammar/lua-fnf.g");
 
     info!("Total Time to get grammar : {:?}", now.elapsed());
     now = Instant::now();

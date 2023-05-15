@@ -184,7 +184,7 @@ impl LexerInterface<FernLexerState> for FernLexer {
                     ',' => self.push(self.tok.comma),
                     ';' => self.push(self.tok.semi),
                     '+' => self.push(self.tok.plus),
-                    '-' => self.push(self.tok.minus),
+                    '-' => self.push(self.tok.uminus),
                     '*' => self.push(self.tok.asterisk),
                     '/' => self.push(self.tok.divide),
                     '>' => self.push(self.tok.gt),

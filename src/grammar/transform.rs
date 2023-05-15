@@ -4,6 +4,8 @@ use crate::grammar::{OpGrammar, Rule, Token};
 use log::{info, trace, warn};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::error::Error;
+use std::fs::File;
+use std::io::Write;
 use crate::grammar::error::GrammarError;
 use crate::grammar::printing::print_dict;
 
@@ -61,34 +63,17 @@ impl RawGrammar {
                 // Update the copy set of rule.left
                 let old = copy.get_mut(&r.left).unwrap().clone(); // Unused
                 copy.get_mut(&r.left).unwrap().insert(r.right.get(0).unwrap().clone());
-                trace!(
-                "Update: {:?} -> {:?}",
-                super::OpGrammar::token_list_to_string(&old.into_iter().collect(), &self.token_raw),
-                super::OpGrammar::token_list_to_string(
-                    &copy.get(&r.left).unwrap().clone().into_iter().collect(),
-                    &self.token_raw
-                )
-            );
+                trace!( "Update: {:?} -> {:?}", super::OpGrammar::token_list_to_string(&old.into_iter().collect(), &self.token_raw), super::OpGrammar::token_list_to_string( &copy.get(&r.left).unwrap().clone().into_iter().collect(), &self.token_raw ) );
                 if dict_rules.contains_key(&r.right) {
-                    trace!(
-                    "Removing : {:?}",
-                    super::OpGrammar::token_list_to_string(&r.right, &self.token_raw)
-                );
+                    trace!( "Removing : {:?}", super::OpGrammar::token_list_to_string(&r.right, &self.token_raw) );
                     dict_rules.remove(&r.right).unwrap();
                 }
             } else {
                 if rhs_dict.contains_key(&r.left) {
-                    trace!(
-                    "Pushing: {:?}",
-                    super::OpGrammar::token_list_to_string(&r.right, &self.token_raw)
-                );
+                    trace!( "Pushing: {:?}", super::OpGrammar::token_list_to_string(&r.right, &self.token_raw) );
                     rhs_dict.get_mut(&r.left).unwrap().push(r.right.clone());
                 } else {
-                    trace!(
-                    "Inserting : {:?} -> {:?}",
-                    self.token_raw.get(&r.left).unwrap(),
-                    super::OpGrammar::token_list_to_string(&r.right, &self.token_raw)
-                );
+                    trace!( "Inserting : {:?} -> {:?}", self.token_raw.get(&r.left).unwrap(), super::OpGrammar::token_list_to_string(&r.right, &self.token_raw) );
                     rhs_dict.insert(r.left, Vec::from([r.right.clone()]));
                 }
             }
@@ -109,6 +94,30 @@ impl RawGrammar {
                 }
             }
         }
+
+        let mut f = File::create("copy.txt").unwrap();
+        for (key, val) in &copy {
+            let mut builder = String::new();
+            builder.push_str(format!("{} = [", self.token_raw.get(&key).unwrap()).as_str());
+
+            let mut sorted = Vec::new();
+            for x in val.iter() {
+                sorted.push(self.token_raw.get(x).unwrap());
+            }
+            sorted.sort();
+
+            let mut val_iter = sorted.iter();
+            if val_iter.len() > 0 {
+                builder.push_str(format!("\'{}\'", val_iter.next().unwrap()).as_str());
+            }
+            while let Some(t) = val_iter.next() {
+                builder.push_str(", ");
+                builder.push_str(format!("\'{}\'", t).as_str());
+            }
+            builder.push_str("]\n");
+            f.write(builder.as_bytes());
+        }
+
         for n in &self.non_terminals {
             for copy_rhs in copy.get(n).unwrap() {
                 let empty = Vec::new();
@@ -243,7 +252,6 @@ impl RawGrammar {
         self.non_terminals.clear();
         let new_rules = new_dict_rules;
         let new_non_terminal_set = v;
-        // let mut cnt = 0;
 
         for n in new_non_terminal_set {
             let n = Vec::from_iter(n.into_iter());
@@ -255,11 +263,12 @@ impl RawGrammar {
                     self.non_terminals.push(*t);
                 } else {
                     let new_rhs_token = self.gen_id();
-                    // self.token_raw.insert(new_rhs_token, format!("nterm{}", cnt));
                     self.token_raw.insert(new_rhs_token, joined.clone());
                     self.token_reverse.insert(joined, (new_rhs_token, NonTerminal));
                     self.non_terminals.push(new_rhs_token);
-                    // cnt += 1;
+                    if n.len() > 1 {
+                        self.transform_expansion.insert(new_rhs_token, n);
+                    }
                 }
             }
         }

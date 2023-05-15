@@ -3,6 +3,7 @@ pub mod json;
 use crate::grammar::{Associativity, OpGrammar, Rule, Token};
 use log::{debug, info, warn};
 use std::any::Any;
+use std::arch::x86_64::_mm_prefetch;
 use std::collections::{HashMap, LinkedList, VecDeque};
 use std::error::Error;
 use std::io::ErrorKind::AlreadyExists;
@@ -163,7 +164,7 @@ impl ParallelParser {
         return self.highest_id;
     }
 
-    fn consume_token(&mut self, token: &Token) -> Result<(), Box<dyn Error>> {
+    fn consume_token(&mut self, mut token: &Token) -> Result<(), Box<dyn Error>> {
         if self.stack.is_empty() {
             let t = TokenGrammarTuple::new(*token, Associativity::Left, self);
             self.stack.push(t);
@@ -174,21 +175,15 @@ impl ParallelParser {
             self.iteration += 1;
             self.should_reconsume = false;
 
-            if self.stack.len() == 1 {
-                if self.stack.get(0).unwrap().token == self.g.axiom {
-                    let mut output = String::new();
-                    for (id, _) in &self.open_nodes {
-                        for t in &self.stack {
-                            if t.id == *id {
-                                output.push_str(format!("{:?} ", t.token).as_str());
-                                break;
-                            }
-                        }
-                    }
-                    debug!("{} FINAL Open nodes: {}", self.iteration, output);
-                    self.print_stack();
-                    return Ok(());
-                }
+            let mut output = String::new();
+            for (key, node) in &self.open_nodes {
+                output.push_str(format!("({:?} {:?}) ", key, self.g.token_raw.get(&node.symbol).unwrap()).as_str());
+            }
+            debug!("{} Open nodes: {}", self.iteration, output);
+            self.print_stack();
+
+            if self.iteration == 15 {
+                let x = 0;
             }
 
             let mut y: Option<TokenGrammarTuple> = None;
@@ -198,14 +193,22 @@ impl ParallelParser {
                 }
             }
 
-            if let None = y {
-                let t = TokenGrammarTuple::new(*token, Associativity::Left, self);
-                self.stack.push(t);
-                return Ok(());
-            }
-            let y = y.unwrap();
+            let y = if self.g.delim != *token {
+                if let None = y {
+                    let t = TokenGrammarTuple::new(*token, Associativity::Left, self);
+                    self.stack.push(t);
+                    return Ok(());
+                }
+                y.unwrap()
+            } else {
+                TokenGrammarTuple::new(self.g.delim, Associativity::Left, self)
+            };
 
-            let precedence = self.g.get_precedence(y.token, *token);
+            let precedence = if *token == self.g.delim {
+               Associativity::Right
+            } else {
+                self.g.get_precedence(y.token, *token)
+            };
 
             if precedence == Associativity::None {
                 panic!(
@@ -215,18 +218,12 @@ impl ParallelParser {
                 )
             }
 
-            let mut output = String::new();
-            for (key, node) in &self.open_nodes {
-                output.push_str(format!("({:?} {:?}) ", key, self.g.token_raw.get(&node.symbol).unwrap()).as_str());
-            }
-            debug!("{} Open nodes: {}", self.iteration, output);
             debug!(
                 "{} Applying {:?} {:?}",
                 self.iteration,
                 self.g.token_raw.get(token).unwrap(),
                 precedence
             );
-            self.print_stack();
 
             if precedence == Associativity::Left {
                 let t = TokenGrammarTuple::new(*token, Associativity::Left, self);
@@ -257,7 +254,7 @@ impl ParallelParser {
                     }
                 }
 
-                if i < 0 {
+                if i < 0 && *token != self.g.delim {
                     let t = TokenGrammarTuple::new(*token, Associativity::Right, self);
                     self.stack.push(t);
                     debug!("{}, Append", self.iteration);
@@ -401,6 +398,18 @@ impl ParallelParser {
     }
 
     pub fn collect_parse_tree(self) -> Result<ParseTree, Box<dyn Error>> {
+        let mut output = String::new();
+        for (id, _) in &self.open_nodes {
+            for t in &self.stack {
+                if t.id == *id {
+                    output.push_str(format!("{:?} ", t.token).as_str());
+                    break;
+                }
+            }
+        }
+        debug!("{} FINAL Open nodes: {}", self.iteration, output);
+        self.print_stack();
+
         if self.open_nodes.len() == 1 {
             let mut nodes: Vec<Node> = self.open_nodes.into_iter().map(|(_, v)| v).collect();
             return Ok(ParseTree::new(nodes.remove(0), self.g));

@@ -61,6 +61,7 @@ pub struct RawGrammar {
     pub token_raw: HashMap<Token, String>,
     pub token_reverse: HashMap<String, (Token, TokenTypes)>,
     pub axiom: Token,
+    pub transform_expansion: HashMap<Token, Vec<Token>>,
     id_counter: IdCounter,
 }
 
@@ -267,6 +268,7 @@ impl RawGrammar {
             token_reverse,
             axiom,
             id_counter,
+            transform_expansion: HashMap::new()
         })
     }
     pub fn gen_id(&mut self) -> Token {
