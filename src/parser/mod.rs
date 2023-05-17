@@ -3,7 +3,6 @@ pub mod json;
 use crate::grammar::{Associativity, OpGrammar, Rule, Token};
 use log::{debug, error, info, warn};
 use std::any::Any;
-use std::arch::x86_64::_mm_prefetch;
 use std::collections::{HashMap, LinkedList, VecDeque};
 use std::error::Error;
 use std::hint::unreachable_unchecked;
@@ -397,9 +396,9 @@ impl ParallelParser {
 
             let mut parent = Node::new(rule.left, None);
 
-            if let Some (mut ast_rule) = ast_rule {
+            if let Some(mut ast_rule) = ast_rule {
                 let mut depth = 1;
-                let mut nodes :  Vec<(Vec<_>, Node)> = Vec::new();
+                let mut nodes: Vec<(Vec<_>, Node)> = Vec::new();
                 let mut current: Option<&mut Node> = Some(&mut parent);
                 for (i, f) in children.into_iter().enumerate() {
                     let n = ast_rule.nesting_rules.get(i).unwrap();
@@ -536,7 +535,7 @@ impl ParallelParser {
             n.data = other.data;
             n.children = other.children;
         } else {
-            for  next in &mut n.children{
+            for next in &mut n.children {
                 Self::flatten(next, g);
             }
         }
