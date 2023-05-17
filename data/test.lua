@@ -1,1 +1,1 @@
-local x = 0;
+local x = 0 + 1;

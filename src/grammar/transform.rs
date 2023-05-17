@@ -1,7 +1,7 @@
 use crate::grammar::reader::TokenTypes::NonTerminal;
 use crate::grammar::reader::{RawGrammar, TokenTypes};
 use crate::grammar::{OpGrammar, Rule, Token};
-use log::{info, trace, warn};
+use log::{debug, info, trace, warn};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::error::Error;
 use std::fs::File;
@@ -43,11 +43,26 @@ impl RawGrammar {
         }
 
         for (rhs, left) in &dict_rules {
-            info!(
+            trace!(
             "dict_rules : {} -> {:?}",
             self.token_raw.get(left.iter().next().unwrap()).unwrap(),
             super::OpGrammar::token_list_to_string(rhs, &self.token_raw)
         );
+        }
+
+        debug!("Direct ambiguities :");
+        for (rhs, lhs)in &dict_rules {
+            if lhs.len() > 1 {
+                let mut b = String::new();
+                for t in rhs {
+                    b.push_str(format!("({} ", self.token_raw.get(&t).unwrap()).as_str());
+                }
+                b.push_str(") might be one of (");
+                for t in lhs {
+                    b.push_str(format!("{} ", self.token_raw.get(&t).unwrap()).as_str());
+                }
+                debug!("{})", b);
+            }
         }
 
         // Delete copy rules
@@ -266,9 +281,6 @@ impl RawGrammar {
                     self.token_raw.insert(new_rhs_token, joined.clone());
                     self.token_reverse.insert(joined, (new_rhs_token, NonTerminal));
                     self.non_terminals.push(new_rhs_token);
-                    if n.len() > 1 {
-                        self.transform_expansion.insert(new_rhs_token, n);
-                    }
                 }
             }
         }

@@ -61,7 +61,7 @@ pub struct RawGrammar {
     pub token_raw: HashMap<Token, String>,
     pub token_reverse: HashMap<String, (Token, TokenTypes)>,
     pub axiom: Token,
-    pub transform_expansion: HashMap<Token, Vec<Token>>,
+    pub ast_rules: Vec<Rule>,
     id_counter: IdCounter,
 }
 
@@ -78,6 +78,7 @@ impl RawGrammar {
         let mut rule_parser_state = RuleParserState::InData;
         let mut previous: char = 0 as char;
         let mut buf = String::new();
+        let mut nesting_buf = String::new();
         let mut awaiting: Option<TokenTypes> = None;
         let mut token_reverse: HashMap<String, (Token, TokenTypes)> = HashMap::new();
         let mut axiom: Option<Token> = None;
@@ -157,6 +158,27 @@ impl RawGrammar {
                             let (id, _) = token_reverse.get(&*buf).unwrap();
                             rule.as_mut().unwrap().right.push(*id);
                             rule_parser_state = RuleParserState::InRuleRight;
+                            let mut b = String::new();
+                            let mut nesting : Vec<i16> = Vec::new();
+                            if !nesting_buf.is_empty() {
+                                for c in nesting_buf.chars() {
+                                    if c == '.' {
+                                        if !b.is_empty() {
+                                            nesting.push(b.parse().unwrap());
+                                        }
+                                        b.clear();
+                                    } else {
+                                        b.push(c);
+                                    }
+                                }
+                                if !b.is_empty() {
+                                    nesting.push(b.parse().unwrap());
+                                }
+                            } else {
+                                nesting.push(-1);
+                            }
+                            nesting_buf.clear();
+                            rule.as_mut().unwrap().nesting_rules.push(nesting);
                         }
                         RuleParserState::InRuleRight | RuleParserState::AwaitingRuleRight | RuleParserState::InData => {
                             ()
@@ -169,6 +191,8 @@ impl RawGrammar {
                         RuleParserState::InRuleLeft | RuleParserState::AwaitingRuleRight => {
                             rule_parser_state = RuleParserState::InRuleRight;
                             rule.as_mut().unwrap().right.clear();
+                            rule.as_mut().unwrap().nesting_rules.clear();
+                            nesting_buf.clear();
                         }
                         RuleParserState::InRuleRight => {
                             return Err(GrammarError::from("Illegal char : in right rule".to_string()))
@@ -181,7 +205,7 @@ impl RawGrammar {
                         RuleParserState::InData | RuleParserState::AwaitingRuleRight => (),
                         RuleParserState::InRuleRight => {
                             rule_parser_state = RuleParserState::AwaitingRuleRight;
-                            if let Some(r) = rule.clone() {
+                            if let Some(mut r) = rule.clone() {
                                 rules.push(r.clone());
                             } else {
                                 return Err(GrammarError::from(
@@ -193,6 +217,27 @@ impl RawGrammar {
                             rule_parser_state = RuleParserState::AwaitingRuleRight;
                             let (id, _) = token_reverse.get(&*buf).unwrap();
                             rule.as_mut().unwrap().right.push(*id);
+                            let mut b = String::new();
+                            let mut nesting : Vec<i16> = Vec::new();
+                            if !nesting_buf.is_empty() {
+                                for c in nesting_buf.chars() {
+                                    if c == '.' {
+                                        if !b.is_empty() {
+                                            nesting.push(b.parse().unwrap());
+                                        }
+                                        b.clear();
+                                    } else {
+                                        b.push(c);
+                                    }
+                                }
+                                if !b.is_empty() {
+                                    nesting.push(b.parse().unwrap());
+                                }
+                            } else {
+                                nesting.push(-1);
+                            }
+                            nesting_buf.clear();
+                            rule.as_mut().unwrap().nesting_rules.push(nesting);
                             rules.push(rule.as_mut().unwrap().clone());
                         }
                         RuleParserState::InRuleLeft => {
@@ -203,7 +248,7 @@ impl RawGrammar {
                         rule_parser_state = RuleParserState::InData;
                         rule = None;
                     }
-                    'A'..='Z' | 'a'..='z' | '0'..='9' | '_' => match rule_parser_state {
+                    'A'..='Z' | 'a'..='z' | '0'..='9' | '_' | '.' => match rule_parser_state {
                         RuleParserState::InData => {
                             rule_parser_state = RuleParserState::InRuleLeft;
                             buf.clear();
@@ -215,7 +260,15 @@ impl RawGrammar {
                             buf.push(c);
                         }
                         RuleParserState::InRuleLeft => buf.push(c),
-                        RuleParserState::InRuleIdentifierRight => buf.push(c),
+                        RuleParserState::InRuleIdentifierRight => {
+                            match c {
+                                'A'..='Z' | 'a'..='z' => buf.push(c) ,
+                                '0'..='9' | '_' | '.' =>  {
+                                    nesting_buf.push(c);
+                                }
+                                _ => {panic!("Shouldn't happen")}
+                            }
+                        },
                         RuleParserState::AwaitingRuleRight => {
                             return Err(GrammarError::from(
                                 "Expected :, | or ;, found start of identifier.".to_string(),
@@ -241,11 +294,27 @@ impl RawGrammar {
         }
         let axiom: Token = axiom.expect("Need to specify and axiom.");
 
+        let mut ast_rules = Vec::new();
         for r in &rules {
+            'outer: for x in &r.nesting_rules {
+                for y in x {
+                    if *y != -1 {
+                        ast_rules.push(r.clone());
+                        break 'outer;
+                    }
+                }
+            }
+        }
+
+        for r in &rules {
+            let mut output = Vec::new();
+            for (i, t) in r.right.iter().enumerate() {
+                output.push(format!("({}, {:?}), ", token_raw.get(t).unwrap().clone(), r.nesting_rules.get(i).unwrap()));
+            }
             trace!(
                 "Rule : {} -> {:?}",
                 &token_raw.get(&r.left).unwrap(),
-                OpGrammar::token_list_to_string(&r.right, &token_raw)
+                output,
             );
         }
 
@@ -259,6 +328,7 @@ impl RawGrammar {
             }
         }
 
+
         Ok(RawGrammar {
             rules,
             terminals,
@@ -268,7 +338,7 @@ impl RawGrammar {
             token_reverse,
             axiom,
             id_counter,
-            transform_expansion: HashMap::new()
+            ast_rules,
         })
     }
     pub fn gen_id(&mut self) -> Token {

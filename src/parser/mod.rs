@@ -1,11 +1,12 @@
 pub mod json;
 
 use crate::grammar::{Associativity, OpGrammar, Rule, Token};
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 use std::any::Any;
 use std::arch::x86_64::_mm_prefetch;
 use std::collections::{HashMap, LinkedList, VecDeque};
 use std::error::Error;
+use std::hint::unreachable_unchecked;
 use std::io::ErrorKind::AlreadyExists;
 use std::io::Read;
 use std::ops::Add;
@@ -27,6 +28,7 @@ impl ParseTree {
     }
 }
 
+#[derive(Clone)]
 pub struct Node {
     symbol: Token,
     data: Option<String>,
@@ -41,8 +43,8 @@ impl Node {
             children: Vec::new(),
         }
     }
-    pub fn append_child(&mut self, other: Node) {
-        self.children.push(other);
+    pub fn prepend_child(&mut self, other: Node) {
+        self.children.insert(0, other);
     }
 }
 
@@ -205,7 +207,7 @@ impl ParallelParser {
             };
 
             let precedence = if *token == self.g.delim {
-               Associativity::Right
+                Associativity::Right
             } else {
                 self.g.get_precedence(y.token, *token)
             };
@@ -259,20 +261,18 @@ impl ParallelParser {
                     self.stack.push(t);
                     debug!("{}, Append", self.iteration);
                     return Ok(());
-                } else {
-                    if i - 1 >= 0 {
-                        let xi_minus_one = self.stack.get((i - 1) as usize).unwrap();
+                } else if i - 1 >= 0 {
+                    let xi_minus_one = self.stack.get((i - 1) as usize).unwrap();
 
-                        if self.g.terminals.contains(&xi_minus_one.token) {
-                            self.process_terminal(i);
-                        } else if self.g.non_terminals.contains(&xi_minus_one.token) {
-                            self.process_non_terminal(i);
-                        } else {
-                            panic!("Should be able to reduce but cannot.");
-                        }
-                    } else {
+                    if self.g.terminals.contains(&xi_minus_one.token) {
                         self.process_terminal(i);
+                    } else if self.g.non_terminals.contains(&xi_minus_one.token) {
+                        self.process_non_terminal(i);
+                    } else {
+                        panic!("Should be able to reduce but cannot. Probably a parser bug.");
                     }
+                } else {
+                    self.process_terminal(0);
                 }
             }
             if !self.should_reconsume {
@@ -320,6 +320,7 @@ impl ParallelParser {
                         rewrites.insert(r.right[j as usize], t);
                     } else {
                         rule_applies = false;
+                        rule_applies = false;
                     }
                 } else if curr != *r.right.get(j as usize).unwrap() {
                     rule_applies = false;
@@ -360,25 +361,174 @@ impl ParallelParser {
                 }
             }
 
-            let mut parent = Node::new(rule.left, None);
+            // Take stuff off stack that will become new parents children.
+            let mut children = Vec::new();
+            // flatten any non-terminal children that have only one node.
             for _ in 0..rule.right.len() {
                 let current = self.stack.remove((i + offset) as usize);
                 if self.open_nodes.contains_key(&current.id) {
-                    let sub_tree = self.open_nodes.remove(&current.id).unwrap();
-                    parent.append_child(sub_tree);
+                    let mut sub_tree = self.open_nodes.remove(&current.id).unwrap();
+                    Self::flatten(&mut sub_tree, &self.g);
+                    children.push(sub_tree);
                 } else {
                     let leaf = Node::new(current.token, None);
-                    parent.append_child(leaf);
+                    children.push(leaf);
                 }
             }
+
+            let mut ast_rule: Option<Rule> = None;
+            for r in &self.g.ast_rules {
+                let mut found_rule = true;
+                for (i, t) in r.right.iter().enumerate() {
+                    if r.right.len() != rule.right.len() {
+                        found_rule = false;
+                    } else if self.g.terminals.contains(t) {
+                        if let Some(current) = rule.right.get(i) {
+                            if *current != *t {
+                                found_rule = false;
+                                continue;
+                            }
+                        }
+                    } else if let Some(current) = rule.right.get(i) {
+                        if !self.g.non_terminals.contains(current) {
+                            found_rule = false;
+                            continue;
+                        }
+                    }
+                }
+                if found_rule {
+                    ast_rule = Some(r.clone());
+                    break;
+                }
+            }
+
+            let mut parent = Node::new(rule.left, None);
+
+            if let Some (mut ast_rule) = ast_rule {
+                let mut depth = 0;
+                let mut nodes :  Vec<(&Vec<_>, Node)> = Vec::new();
+                let mut current: Option<&mut Node> = Some(&mut parent);
+                for (i, f) in children.into_iter().enumerate() {
+                    let n = ast_rule.nesting_rules.get(i).unwrap();
+                    nodes.push((ast_rule.nesting_rules.get(i).unwrap(), f));
+                }
+
+                loop {
+                    let mut current_depth_nodes = Vec::new();
+                    let mut left = Vec::new();
+                    for x in nodes.into_iter() {
+                        if x.0.len() == depth + 1 {
+                            current_depth_nodes.push(x);
+                        } else {
+                            left.push(x);
+                        }
+                    }
+                    nodes = left;
+
+                    if current_depth_nodes.len() == 0 {
+                        break;
+                    }
+
+                    for mut node in current_depth_nodes {
+                        let mut current = &mut current.as_mut().unwrap().children;
+                        let slice = &node.0[0..node.0.len() - 1];
+                        for i in slice {
+                            current = &mut current.get_mut(*i as usize).unwrap().children;
+                        }
+
+                        if current.len() < *node.0.last().unwrap() as usize {
+                            if self.g.non_terminals.contains(&node.1.symbol) {
+                                for x in node.1.children {
+                                    current.push(x);
+                                }
+                            } else {
+                                current.push(node.1);
+                            }
+                        } else {
+                            if self.g.non_terminals.contains(&node.1.symbol) {
+                                for x in node.1.children {
+                                    current.insert(*node.0.last().unwrap() as usize, x);
+                                }
+                            } else {
+                                current.insert(*node.0.last().unwrap() as usize, node.1);
+                            }
+                        }
+                    }
+                    depth += 1;
+                }
+                // parent.prepend_child(current.unwrap())
+            } else {
+                // Re-structure to have only one child.
+                /*children.reverse();
+                let mut output= Vec::new();
+                let mut iter = children.into_iter().peekable();
+                while let Some(stack_child) = iter.next() {
+                    if self.open_nodes.contains_key(&stack_child.id) {
+                        if let None = iter.peek() {
+                            if output.len() == 0 {
+                                output.push(self.open_nodes.remove(&stack_child.id).unwrap().children.remove(0));
+                            } else  {
+                                output.last_mut().unwrap().prepend_child(self.open_nodes.remove(&stack_child.id).unwrap().children.remove(0));
+                            }
+                        } else {
+                            if output.len() == 0 {
+                                let term = iter.next().unwrap();
+                                let mut leaf = Node::new(term.token, None);
+                                leaf.prepend_child(self.open_nodes.remove(&stack_child.id).unwrap().children.remove(0));
+                                output.push(leaf);
+                            } else {
+                                output.last_mut().unwrap().prepend_child(self.open_nodes.remove(&stack_child.id).unwrap().children.remove(0));
+                            }
+                        }
+                    } else {
+                        let mut leaf = Node::new(stack_child.token, None);
+                        if let Some(_) = iter.peek() {
+                            let non_term = iter.next().unwrap();
+                            if self.open_nodes.contains_key(&non_term.id) {
+                                leaf.prepend_child(self.open_nodes.remove(&non_term.id).unwrap().children.remove(0));
+                                output.push(leaf);
+                            } else {
+                                let non_term = Node::new(non_term.token, None);
+                                output.push(leaf);
+                                output.push(non_term);
+                            }
+                        } else {
+                            output.push(leaf);
+                        }
+                    }
+                }*/
+
+                let mut iter = children.into_iter();
+                while let Some(x) = iter.next() {
+                    parent.prepend_child(x);
+                }
+            }
+
+            let tree = ParseTree::new(parent.clone(), self.g.clone());
+            tree.print();
 
             let left = TokenGrammarTuple::new(rule.left, Associativity::Undefined, self);
             self.open_nodes.insert(left.id, parent);
             self.stack.insert((i + offset) as usize, left);
             debug!("{} Reduce", self.iteration);
             self.should_reconsume = true;
+        } else if self.stack.len() > 0 && self.g.axiom == self.stack.get(0).unwrap().token {
+            debug!("{} Reached axiom and finished parsing.", self.iteration);
         } else {
-            warn!("{} SHOULD PROBABLY REDUCE BUT DIDN'T", self.iteration);
+            warn!("{} Should probably reduce but didn't. Could be a bug / error.", self.iteration);
+        }
+    }
+
+    fn flatten(mut n: &mut Node, g: &OpGrammar) {
+        if n.children.len() == 1 && g.non_terminals.contains(&n.symbol) {
+            let other = n.children.remove(0);
+            n.symbol = other.symbol;
+            n.data = other.data;
+            n.children = other.children;
+        } else {
+            for  next in &mut n.children{
+                Self::flatten(next, g);
+            }
         }
     }
 
@@ -412,7 +562,9 @@ impl ParallelParser {
 
         if self.open_nodes.len() == 1 {
             let mut nodes: Vec<Node> = self.open_nodes.into_iter().map(|(_, v)| v).collect();
-            return Ok(ParseTree::new(nodes.remove(0), self.g));
+            let mut root = nodes.remove(0);
+            Self::flatten(&mut root, &self.g);
+            return Ok(ParseTree::new(root, self.g));
         } else {
             panic!("Cannot create parse tree.");
         }

@@ -25,6 +25,7 @@ pub type Token = u16;
 pub struct Rule {
     pub left: Token,
     pub right: Vec<Token>,
+    pub nesting_rules: Vec<Vec<i16>>,
 }
 
 impl Rule {
@@ -32,12 +33,14 @@ impl Rule {
         Self {
             left: 0,
             right: Vec::new(),
+            nesting_rules: Vec::new()
         }
     }
     pub fn from(left: Token) -> Self {
         Self {
             left,
             right: Vec::new(),
+            nesting_rules: Vec::new(),
         }
     }
 }
@@ -63,6 +66,7 @@ pub struct OpGrammar {
     pub token_types: HashMap<Token, TokenTypes>,
     pub token_raw: HashMap<Token, String>,
     pub token_reverse: HashMap<String, (Token, TokenTypes)>,
+    pub ast_rules: Vec<Rule>,
     op_table: HashMap<Token, HashMap<Token, Associativity>>,
 }
 
@@ -346,6 +350,7 @@ impl OpGrammar {
             delim,
             inverse_rewrite_rules,
             op_table,
+            ast_rules: g.ast_rules,
             token_reverse: g.token_reverse,
         })
     }
