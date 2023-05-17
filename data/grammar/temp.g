@@ -113,25 +113,35 @@ block : statList
 	;
 
 statList : stat
-	| SEMI
-	| stat SEMI
-	| statList SEMI stat
-	| statList SEMI
+	| SEMI.0
+	| stat.0.0 SEMI.0
+	| statList.0.0 SEMI.0 stat.0.1
+	| statList.0.0 SEMI.0
 	;
 
 
 stat :  varList XEQ exprList
 	| functionCall
-	| LBRACE block RBRACE
-	| LBRACE RBRACE
-	| IF exprThen RBRACE
-	| IF exprThen ELSE block RBRACE
-	| IF exprThen ELSE RBRACE
-	| IF exprThenElseIfB RBRACE
-	| IF exprThenElseIfB ELSE block RBRACE
-	| IF exprThenElseIfB ELSE RBRACE
-	| LET nameList
-	| LET nameList XEQ exprList
+	| LBRACE.0 block.1 RBRACE.2
+	| LBRACE.0 RBRACE.1
+	| WHILE expr LBRACE block RBRACE
+	| WHILE expr LBRACE END
+	| IF.0 exprThen.0.0 RBRACE.0.1
+	| IF.0 exprThen.0.0 ELSE.0.1 block.0.1.0 RBRACE.0.2
+	| IF.0 exprThen.0.0 ELSE.0.1 RBRACE.0.2
+	| IF.0 exprThenElseIfB.0.0 RBRACE.0.1
+	| IF.0 exprThenElseIfB.0.0 ELSE.0.1 block.0.1.0 RBRACE.0.2
+	| IF.0 exprThenElseIfB.0.0 ELSE.0.1 RBRACE.0.2
+	| FUNCTION funcName LBRACK parList RBRACK block RBRACE
+	| FUNCTION funcName LBRACK RBRACK block RBRACE
+	| FOR nameList IN exprList LBRACE block RBRACE
+	| FOR nameList IN exprList LBRACE RBRACE
+	| LET FUNCTION name LBRACK parList RBRACK block RBRACE
+	| LET FUNCTION name LBRACK RBRACK block RBRACE
+	| LET FUNCTION name LBRACK parList RBRACK RBRACE
+	| LET FUNCTION name LBRACK RBRACK RBRACE
+	| LET.0 nameList.0.0
+	| LET.0 nameList.0.0.0 XEQ.0.0 exprList.0.0.1
 	;
 
 elseIfBlock : block ELSEIF expr LBRACE block
@@ -145,15 +155,15 @@ elseIfBlock : block ELSEIF expr LBRACE block
 exprThenElseIfB : expr LBRACE elseIfBlock
  	;
 
-exprThen : expr LBRACE block
-	| expr LBRACE
+exprThen : expr.0 LBRACE.1 block.2
+	| expr.0 LBRACE.1
 	;
 
 name : NAME
 	;
 
 nameList : NAME
-	| nameList COMMA name
+	| nameList.0.0 COMMA.0 name.0.1
 	;
 
 exprList	: expr
@@ -172,7 +182,7 @@ logicalAndExp : relationalExp
 	;
 
 relationalExp : concatExp
-	| relationalExp LT concatExp
+	| relationalExp.0.1 LT.0 concatExp.0.0
 	| relationalExp GT concatExp
 	| relationalExp LTEQ concatExp
 	| relationalExp GTEQ concatExp
@@ -185,13 +195,13 @@ concatExp : additiveExp
 	;
 
 additiveExp : multiplicativeExp
-	| additiveExp PLUS multiplicativeExp
+	| additiveExp.0.0 PLUS.0 multiplicativeExp.0.1
 	| additiveExp MINUS multiplicativeExp
 	;
 
 multiplicativeExp : unaryExp
-	| multiplicativeExp ASTERISK unaryExp
-	| multiplicativeExp DIVIDE unaryExp
+	| multiplicativeExp.0.0 ASTERISK.0 unaryExp.0.1
+	| multiplicativeExp.0.0 DIVIDE.0 unaryExp.0.1
 	| multiplicativeExp PERCENT unaryExp
 	;
 
@@ -210,6 +220,7 @@ baseExp : NIL
 	| TRUE
 	| NUMBER
 	| STRING
+	| functionDef
 	| prefixExp
 	;
 
@@ -222,6 +233,12 @@ functionCall : prefixExp LBRACK exprList RBRACK
 	| prefixExp LBRACK RBRACK
 	| prefixExp LBRACK fieldList RBRACK
 	| prefixExp LBRACK RBRACK
+	;
+
+functionDef : FUNCTION LBRACK parList RBRACK block END
+	| FUNCTION LBRACK RBRACK block END
+	| FUNCTION LBRACK parList RBRACK END
+	| FUNCTION LBRACK RBRACK END
 	;
 
 fieldList : fieldListBody
@@ -246,26 +263,6 @@ varList : var
 	| varList COMMA var
 	;
 
----------------
-
-eCe : expr COMMA expr
-	;
-
-eCeCe  : eCe COMMA expr
-	;
-
-dot3 : DOT3
-	;
-
-retStat : RETURN SEMI
-	| RETURN exprList SEMI
-	| RETURN
-	| RETURN exprList
-	;
-
-label : COLON2 NAME COLON2
-	;
-
 funcName : nameDotList
 	| nameDotList COLON name
 	;
@@ -273,36 +270,3 @@ funcName : nameDotList
 nameDotList : NAME
 	| nameDotList DOT NAME
 	;
-
-varList : var
-	| varList COMMA var
-	;
-
-var : NAME
-	| prefixExp LBRACK expr RBRACK
-	| prefixExp DOT NAME
-	;
-
-nameList : NAME
-	| nameList COMMA name
-	;
-
-exprList	: expr
-	| exprList COMMA expr
-	;
-
-functionDef : FUNCTION LPARENFUNC parList RPARENFUNC block END
-	| FUNCTION LPARENFUNC RPARENFUNC block END
-	| FUNCTION LPARENFUNC parList RPARENFUNC END
-	| FUNCTION LPARENFUNC RPARENFUNC END
-	;
-
-parList : nameList
-	| nameList COMMA dot3
-	| DOT3
-	;
-
-tableConstructor : LBRACE fieldList RBRACE
-	| LBRACE RBRACE
-	;
-

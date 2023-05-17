@@ -1,5 +1,5 @@
 %nonterminal chunk
-%nonterminal block
+%nonterminal chunk
 %nonterminal statList
 %nonterminal stat
 %nonterminal elseIfBlock
@@ -99,12 +99,7 @@
 
 %%
 
-
-chunk : block
-	| ENDFILE
-	;
-
-block : statList
+chunk : statList
 	| retStat
 	| statList RETURN SEMI
 	| statList RETURN exprList SEMI
@@ -120,42 +115,25 @@ statList : stat
 	;
 
 
-stat :  varList XEQ exprList
+stat :  varList.0.0 XEQ.0 exprList0.1
 	| functionCall
-	| LBRACE block RBRACE
-	| LBRACE RBRACE
-	| WHILE expr LBRACE block RBRACE
-	| WHILE expr LBRACE END
-	| IF.0 exprThen.0.0 RBRACE.0.02
-	| IF.0 exprThen.0.0 ELSE.0.1 block.0.1.0 RBRACE.0.2
-	| IF.0 exprThen.0.0 ELSE.0.1 RBRACE.0.2
-	| IF.0 exprThenElseIfB.0.0 RBRACE.0.1
-	| IF.0 exprThenElseIfB.0.0 ELSE.0.1 block.0.1.0 RBRACE.0.2
-	| IF.0 exprThenElseIfB.0.0 ELSE.0.1 RBRACE.0.2
-	| FUNCTION funcName LBRACK parList RBRACK block RBRACE
-	| FUNCTION funcName LBRACK RBRACK block RBRACE
-	| FOR nameList IN exprList LBRACE block RBRACE
+	| LBRACE.0 chunk.1 RBRACE.2
+	| LBRACE.0 RBRACE.1
+	| WHILE.0 expr.0.0 LBRACE.0.1 chunk.0.2 RBRACE.0.3
+	| WHILE expr LBRACE RBRACE
+	| IF.0 exprThen.0.0 RBRACE.0.1
+	| IF.0 exprThen.0.0 RBRACE.0.1 ELSE.0.2 LBRACE.0.2.0 chunk.0.2.0.1 RBRACE.0.2.1
+	| IF.0 exprThen.0.0 RBRACE.0.1 ELSE.0.2 LBRACE.0.2.0 RBRACE.0.2.1
+	| ELSEIF.0 exprThen.0.0 RBRACE.0.1
+	| ELSEIF.0 exprThen.0.0 RBRACE.0.1 ELSE.0.2 LBRACE.0.2.0 chunk.0.2.0.1 RBRACE.0.2.1
+	| ELSEIF.0 exprThen.0.0 RBRACE.0.1 ELSE.0.2 LBRACE.0.2.0 RBRACE.0.2.1
+	| FOR nameList IN exprList LBRACE chunk RBRACE
 	| FOR nameList IN exprList LBRACE RBRACE
-	| LET FUNCTION name LBRACK parList RBRACK block RBRACE
-	| LET FUNCTION name LBRACK RBRACK block RBRACE
-	| LET FUNCTION name LBRACK parList RBRACK RBRACE
-	| LET FUNCTION name LBRACK RBRACK RBRACE
 	| LET.0 nameList.0.0
 	| LET.0 nameList.0.0.0 XEQ.0.0 exprList.0.0.1
 	;
 
-elseIfBlock : block ELSEIF expr LBRACE block
-	| block ELSEIF expr LBRACE elseIfBlock
-	| ELSEIF expr LBRACE block
-	| block ELSEIF expr LBRACE
-	| ELSEIF expr LBRACE
-	| ELSEIF expr LBRACE elseIfBlock
-	;
-
-exprThenElseIfB : expr LBRACE elseIfBlock
- 	;
-
-exprThen : expr.0.0 LBRACE.0 block.0.1
+exprThen : expr.0 LBRACE.1 chunk.2
 	| expr.0 LBRACE.1
 	;
 
@@ -235,8 +213,8 @@ functionCall : prefixExp LBRACK exprList RBRACK
 	| prefixExp LBRACK RBRACK
 	;
 
-functionDef : FUNCTION LBRACK parList RBRACK block END
-	| FUNCTION LBRACK RBRACK block END
+functionDef : FUNCTION LBRACK parList RBRACK chunk END
+	| FUNCTION LBRACK RBRACK chunk END
 	| FUNCTION LBRACK parList RBRACK END
 	| FUNCTION LBRACK RBRACK END
 	;

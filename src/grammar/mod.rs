@@ -128,25 +128,13 @@ impl OpGrammar {
         }
 
         debug!("INVERSE REWRITE RULES");
-        let mut largest = 0;
-        inverse_rewrite_rules.keys().for_each(|x| {
-            let s_len = g.token_raw.get(x).unwrap().len();
-            if s_len > largest {
-                largest = s_len
-            }
-        });
         for row in inverse_rewrite_rules.keys() {
-            let row_full_raw: Vec<&String> = inverse_rewrite_rules
-                .get(row)
-                .unwrap()
-                .iter()
-                .map(|row_item| g.token_raw.get(row_item).unwrap())
-                .collect();
+            let mut row_full_raw = String::new();
+            row_full_raw.push_str(Self::list_to_string(inverse_rewrite_rules.get(row).unwrap(), &g.token_raw).as_str());
             debug!(
-                "{:s_len$} : {:?}",
+                "{:?} -> {:?}",
                 g.token_raw.get(row).unwrap(),
                 row_full_raw,
-                s_len = largest
             );
         }
 

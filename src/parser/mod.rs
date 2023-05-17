@@ -310,16 +310,9 @@ impl ParallelParser {
                 };
 
                 if self.g.non_terminals.contains(&curr) {
-                    let mut token: Option<Token> = None;
-                    for t in self.g.inverse_rewrite_rules.get(&curr).unwrap() {
-                        if *t == *r.right.get(j as usize).unwrap() {
-                            token = Some(*t);
-                        }
-                    }
-                    if let Some(t) = token {
-                        rewrites.insert(r.right[j as usize], t);
+                    if curr == *r.right.get(j as usize).unwrap() {
+                        rewrites.insert(r.right[j as usize], curr);
                     } else {
-                        rule_applies = false;
                         rule_applies = false;
                     }
                 } else if curr != *r.right.get(j as usize).unwrap() {
@@ -405,19 +398,19 @@ impl ParallelParser {
             let mut parent = Node::new(rule.left, None);
 
             if let Some (mut ast_rule) = ast_rule {
-                let mut depth = 0;
-                let mut nodes :  Vec<(&Vec<_>, Node)> = Vec::new();
+                let mut depth = 1;
+                let mut nodes :  Vec<(Vec<_>, Node)> = Vec::new();
                 let mut current: Option<&mut Node> = Some(&mut parent);
                 for (i, f) in children.into_iter().enumerate() {
                     let n = ast_rule.nesting_rules.get(i).unwrap();
-                    nodes.push((ast_rule.nesting_rules.get(i).unwrap(), f));
+                    nodes.push((ast_rule.nesting_rules.get(i).unwrap().clone(), f));
                 }
 
                 loop {
                     let mut current_depth_nodes = Vec::new();
                     let mut left = Vec::new();
                     for x in nodes.into_iter() {
-                        if x.0.len() == depth + 1 {
+                        if x.0.len() == depth {
                             current_depth_nodes.push(x);
                         } else {
                             left.push(x);
@@ -429,6 +422,7 @@ impl ParallelParser {
                         break;
                     }
 
+                    let mut offset = 0;
                     for mut node in current_depth_nodes {
                         let mut current = &mut current.as_mut().unwrap().children;
                         let slice = &node.0[0..node.0.len() - 1];
@@ -438,66 +432,82 @@ impl ParallelParser {
 
                         if current.len() < *node.0.last().unwrap() as usize {
                             if self.g.non_terminals.contains(&node.1.symbol) {
-                                for x in node.1.children {
-                                    current.push(x);
+                                if !node.1.children.is_empty() {
+                                    node.1.children.reverse();
+                                    offset -= 1;
+                                    for x in node.1.children {
+                                        offset += 1;
+                                        current.push(x);
+                                    }
+                                    for (nesting, _) in nodes.iter_mut() {
+                                        if nesting.len() >= depth {
+                                            if let Some(mut next_depth) = nesting.get_mut(depth - 1) {
+                                                let correct_index = *node.0.last().unwrap() as usize;
+                                                if *next_depth >= correct_index as i16 {
+                                                    *next_depth += offset;
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             } else {
                                 current.push(node.1);
                             }
                         } else {
                             if self.g.non_terminals.contains(&node.1.symbol) {
-                                for x in node.1.children {
-                                    current.insert(*node.0.last().unwrap() as usize, x);
+                                if !node.1.children.is_empty() {
+                                    node.1.children.reverse();
+                                    offset -= 1;
+                                    for x in node.1.children {
+                                        offset += 1;
+                                        current.insert(*node.0.last().unwrap() as usize, x);
+                                    }
+                                    for (nesting, _) in nodes.iter_mut() {
+                                        if nesting.len() >= depth {
+                                            if let Some(mut next_depth) = nesting.get_mut(depth - 1) {
+                                                let correct_index = *node.0.last().unwrap() as usize;
+                                                if *next_depth >= correct_index as i16 {
+                                                    *next_depth += offset;
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             } else {
-                                current.insert(*node.0.last().unwrap() as usize, node.1);
+                                current.insert((*node.0.last().unwrap() + offset) as usize, node.1);
                             }
                         }
                     }
+
                     depth += 1;
                 }
-                // parent.prepend_child(current.unwrap())
-            } else {
-                // Re-structure to have only one child.
-                /*children.reverse();
-                let mut output= Vec::new();
-                let mut iter = children.into_iter().peekable();
-                while let Some(stack_child) = iter.next() {
-                    if self.open_nodes.contains_key(&stack_child.id) {
-                        if let None = iter.peek() {
-                            if output.len() == 0 {
-                                output.push(self.open_nodes.remove(&stack_child.id).unwrap().children.remove(0));
-                            } else  {
-                                output.last_mut().unwrap().prepend_child(self.open_nodes.remove(&stack_child.id).unwrap().children.remove(0));
-                            }
-                        } else {
-                            if output.len() == 0 {
-                                let term = iter.next().unwrap();
-                                let mut leaf = Node::new(term.token, None);
-                                leaf.prepend_child(self.open_nodes.remove(&stack_child.id).unwrap().children.remove(0));
-                                output.push(leaf);
-                            } else {
-                                output.last_mut().unwrap().prepend_child(self.open_nodes.remove(&stack_child.id).unwrap().children.remove(0));
-                            }
-                        }
-                    } else {
-                        let mut leaf = Node::new(stack_child.token, None);
-                        if let Some(_) = iter.peek() {
-                            let non_term = iter.next().unwrap();
-                            if self.open_nodes.contains_key(&non_term.id) {
-                                leaf.prepend_child(self.open_nodes.remove(&non_term.id).unwrap().children.remove(0));
-                                output.push(leaf);
-                            } else {
-                                let non_term = Node::new(non_term.token, None);
-                                output.push(leaf);
-                                output.push(non_term);
-                            }
-                        } else {
-                            output.push(leaf);
-                        }
-                    }
-                }*/
 
+                // let mut current = current.unwrap();
+                // let current_depth = 0;
+                // let mut child_count_stack: Vec<(i32, i32)> = vec![(0, (current.children.len() - 1) as i32)];
+                // while !child_count_stack.is_empty() {
+                //     let max = child_count_stack.len()-1;
+                //     for indices in &mut child_count_stack[0..max] {
+                //         current = current.children.get_mut((indices.0) as usize).unwrap();
+                //         indices.0 += 1;
+                //     }
+                //     let (mut current_child, max_child) = child_count_stack.pop().unwrap();
+                //     debug!("CURRENT: {:?}", self.g.token_raw.get(&current.symbol));
+                //
+                //     while current.children.len() > 0 && current_child <= max_child {
+                //         if !current.children.get(current_child as usize).unwrap().children.is_empty() {
+                //             let child = current.children.get_mut(current_child as usize).unwrap();
+                //             child_count_stack.push((current_child, max_child));
+                //             child_count_stack.push((0, (child.children.len() - 1) as i32));
+                //             break;
+                //         }
+                //         debug!("LEAF PARENT: {:?}", self.g.token_raw.get(&current.symbol));
+                //         current_child += 1;
+                //     }
+                // }
+            } else {
+                // If there exists no rule for this then just chuck everything into parent.
+                children.reverse();
                 let mut iter = children.into_iter();
                 while let Some(x) = iter.next() {
                     parent.prepend_child(x);
@@ -563,7 +573,6 @@ impl ParallelParser {
         if self.open_nodes.len() == 1 {
             let mut nodes: Vec<Node> = self.open_nodes.into_iter().map(|(_, v)| v).collect();
             let mut root = nodes.remove(0);
-            Self::flatten(&mut root, &self.g);
             return Ok(ParseTree::new(root, self.g));
         } else {
             panic!("Cannot create parse tree.");

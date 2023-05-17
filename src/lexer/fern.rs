@@ -303,6 +303,7 @@ impl FernLexer {
                 *second == self.tok.name ||
                 *second == self.tok.break_t ||
                 *second == self.tok.if_t ||
+                *second == self.tok.elseif ||
                 *second == self.tok.while_t ||
                 *second == self.tok.let_t ||
                 *second == self.tok.for_t ||
