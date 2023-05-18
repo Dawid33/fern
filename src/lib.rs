@@ -18,12 +18,13 @@ pub mod slab;
 pub use grammar::*;
 pub use lexer::*;
 pub use parser::*;
+use crate::fern::{FernLexer, FernLexerState};
 
-pub fn lex_lua(input: &str, grammar: &OpGrammar) -> Result<LinkedList<Vec<Token>>, Box<dyn Error>> {
-    let tokens: LinkedList<Vec<Token>> = {
+pub fn lex_fern(input: &str, grammar: &OpGrammar) -> Result<(), Box<dyn Error>> {
+    let _: LinkedList<Vec<Token>> = {
         thread::scope(|s| {
-            let mut lexer: ParallelLexer<LuaLexerState, LuaLexer> =
-                ParallelLexer::new(&grammar, s, 1, &[LuaLexerState::Start], LuaLexerState::Start);
+            let mut lexer: ParallelLexer<FernLexerState, FernLexer> =
+                ParallelLexer::new(&grammar, s, 1, &[FernLexerState::Start], FernLexerState::Start);
             let batch = lexer.new_batch();
             lexer.add_to_batch(&batch, &input.as_bytes()[..], 0);
             let tokens = lexer.collect_batch(batch);
@@ -31,5 +32,5 @@ pub fn lex_lua(input: &str, grammar: &OpGrammar) -> Result<LinkedList<Vec<Token>
             tokens
         })
     };
-    Ok(tokens)
+    Ok(())
 }

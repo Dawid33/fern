@@ -110,29 +110,6 @@ impl RawGrammar {
             }
         }
 
-        let mut f = File::create("copy.txt").unwrap();
-        for (key, val) in &copy {
-            let mut builder = String::new();
-            builder.push_str(format!("{} = [", self.token_raw.get(&key).unwrap()).as_str());
-
-            let mut sorted = Vec::new();
-            for x in val.iter() {
-                sorted.push(self.token_raw.get(x).unwrap());
-            }
-            sorted.sort();
-
-            let mut val_iter = sorted.iter();
-            if val_iter.len() > 0 {
-                builder.push_str(format!("\'{}\'", val_iter.next().unwrap()).as_str());
-            }
-            while let Some(t) = val_iter.next() {
-                builder.push_str(", ");
-                builder.push_str(format!("\'{}\'", t).as_str());
-            }
-            builder.push_str("]\n");
-            f.write(builder.as_bytes()).unwrap();
-        }
-
         for n in &self.non_terminals {
             for copy_rhs in copy.get(n).unwrap() {
                 let empty = Vec::new();
@@ -145,7 +122,6 @@ impl RawGrammar {
             }
         }
 
-        print_dict("dict_rules.txt", &dict_rules, &self.token_raw);
         // Initialize the new nonterminal set V
         let temp = dict_rules.clone().into_values();
         let mut v: BTreeSet<BTreeSet<Token>> = BTreeSet::new();

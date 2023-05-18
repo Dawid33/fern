@@ -36,9 +36,7 @@ name = "lexer"
 harness = false
 
 [profile.test]
-debuginfo-level = 1
 debug = true
 
 [profile.dev]
-debuginfo-level = 1
 debug = true

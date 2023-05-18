@@ -8,19 +8,20 @@ use std::error::Error;
 use std::fs::File;
 use std::thread;
 use std::time::Instant;
+use core::grammar::Token;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use memmap::MmapOptions;
 
 fn fair_sequential_lexing(path: &str) -> Result<(), Box<dyn Error>> {
     let grammar = OpGrammar::from("data/grammar/json.g");
-    let mut tokens: LinkedList<Vec<u8>> = LinkedList::new();
+    let mut tokens: LinkedList<Vec<Token>> = LinkedList::new();
     {
         let file = File::open(path)?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         thread::scope(|s| {
             let mut lexer: ParallelLexer<JsonLexerState, JsonLexer> = ParallelLexer::new(
-                grammar.clone(),
+                &grammar,
                 s,
                 1,
                 &[JsonLexerState::Start, JsonLexerState::InString],
@@ -39,11 +40,11 @@ fn bench_parallel_lexing(path: &str, threads: usize) {
     let grammar = OpGrammar::from("data/grammar/json.g");
     let file = File::open(path).unwrap();
     let mut memmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file).unwrap() };
-    let chunks = core::lexer::split_mmap_into_chunks(&mut memmap, 6000).unwrap();
+    let chunks = split_mmap_into_chunks(&mut memmap, 6000).unwrap();
 
     let _ = thread::scope(|s| {
         let mut lexer: ParallelLexer<JsonLexerState, JsonLexer> = ParallelLexer::new(
-            grammar.clone(),
+            &grammar,
             s,
             threads,
             &[JsonLexerState::Start, JsonLexerState::InString],
@@ -61,27 +62,27 @@ fn bench_parallel_lexing(path: &str, threads: usize) {
 
 #[rustfmt::skip]
 fn criterion_benchmark(c: &mut Criterion) {
-    // c.bench_function("lexer_1_thread_1MB", |b| b.iter(|| bench_parallel_lexing("data/json/1MB.json", 1)));
-    // c.bench_function("lexer_2_thread_1MB", |b| b.iter(|| bench_parallel_lexing("data/json/1MB.json", 2)));
-    // c.bench_function("lexer_4_thread_1MB", |b| b.iter(|| bench_parallel_lexing("data/json/1MB.json", 4)));
-    // c.bench_function("lexer_8_thread_1MB", |b| b.iter(|| bench_parallel_lexing("data/json/1MB.json", 8)));
-    // c.bench_function("lexer_16_thread_1MB", |b| b.iter(|| bench_parallel_lexing("data/json/1MB.json", 16)));
-    //
-    // c.bench_function("lexer_1_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 1)));
-    // c.bench_function("lexer_2_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 2)));
-    // c.bench_function("lexer_4_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 4)));
-    // c.bench_function("lexer_8_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 8)));
-    // c.bench_function("lexer_16_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 16)));
-    //
-    // c.bench_function("lexer_1_thread_100MB", |b| b.iter(|| bench_parallel_lexing("data/json/100MB.json", 1)));
-    // c.bench_function("lexer_2_thread_100MB", |b| b.iter(|| bench_parallel_lexing("data/json/100MB.json", 2)));
-    // c.bench_function("lexer_4_thread_100MB", |b| b.iter(|| bench_parallel_lexing("data/json/100MB.json", 4)));
-    // c.bench_function("lexer_8_thread_100MB", |b| b.iter(|| bench_parallel_lexing("data/json/100MB.json", 8)));
-    // c.bench_function("lexer_16_thread_100MB", |b| { b.iter(|| bench_parallel_lexing("data/json/100MB.json", 16)) });
-    //
-    // c.bench_function("fair_sequential_lexing", |b| b.iter(|| fair_sequential_lexing("data/json/1MB.json")));
-    // c.bench_function("fair_sequential_lexing", |b| b.iter(|| fair_sequential_lexing("data/json/10MB.json")));
-    // c.bench_function("fair_sequential_lexing", |b| b.iter(|| fair_sequential_lexing("data/json/100MB.json")));
+    c.bench_function("lexer_1_thread_1MB", |b| b.iter(|| bench_parallel_lexing("data/json/1MB.json", 1)));
+    c.bench_function("lexer_2_thread_1MB", |b| b.iter(|| bench_parallel_lexing("data/json/1MB.json", 2)));
+    c.bench_function("lexer_4_thread_1MB", |b| b.iter(|| bench_parallel_lexing("data/json/1MB.json", 4)));
+    c.bench_function("lexer_8_thread_1MB", |b| b.iter(|| bench_parallel_lexing("data/json/1MB.json", 8)));
+    c.bench_function("lexer_16_thread_1MB", |b| b.iter(|| bench_parallel_lexing("data/json/1MB.json", 16)));
+
+    c.bench_function("lexer_1_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 1)));
+    c.bench_function("lexer_2_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 2)));
+    c.bench_function("lexer_4_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 4)));
+    c.bench_function("lexer_8_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 8)));
+    c.bench_function("lexer_16_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 16)));
+
+    c.bench_function("lexer_1_thread_100MB", |b| b.iter(|| bench_parallel_lexing("data/json/100MB.json", 1)));
+    c.bench_function("lexer_2_thread_100MB", |b| b.iter(|| bench_parallel_lexing("data/json/100MB.json", 2)));
+    c.bench_function("lexer_4_thread_100MB", |b| b.iter(|| bench_parallel_lexing("data/json/100MB.json", 4)));
+    c.bench_function("lexer_8_thread_100MB", |b| b.iter(|| bench_parallel_lexing("data/json/100MB.json", 8)));
+    c.bench_function("lexer_16_thread_100MB", |b| { b.iter(|| bench_parallel_lexing("data/json/100MB.json", 16)) });
+
+    c.bench_function("fair_sequential_lexing", |b| b.iter(|| fair_sequential_lexing("data/json/1MB.json")));
+    c.bench_function("fair_sequential_lexing", |b| b.iter(|| fair_sequential_lexing("data/json/10MB.json")));
+    c.bench_function("fair_sequential_lexing", |b| b.iter(|| fair_sequential_lexing("data/json/100MB.json")));
 }
 
 criterion_group!(benches, criterion_benchmark);
