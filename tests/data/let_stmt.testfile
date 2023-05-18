@@ -1,0 +1,7 @@
+`lexer
+
+LET NAME XEQ NUMBER SEMI
+
+`end
+
+let x = 0;

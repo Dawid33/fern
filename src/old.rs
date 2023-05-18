@@ -191,3 +191,241 @@
 //     }
 // };
 
+// extern crate core;
+//
+// use core::grammar::OpGrammar;
+// use core::lex_lua;
+// use log::info;
+// use std::error::Error;
+// use std::fs::File;
+//
+// fn test_lua(input: &str, expected: Vec<&str>) {
+//     let g = OpGrammar::from("data/grammar/lua-fnf.g");
+//     let result = lex_lua(input, &g).unwrap();
+//     let mut size = 0;
+//     for list in result {
+//         size += list.len();
+//         for (i, t) in list.iter().enumerate() {
+//             assert_eq!(
+//                 *t,
+//                 g.token_reverse.get(*expected.get(i).unwrap()).unwrap().0,
+//                 "Recieved {}, expected {}.",
+//                 g.token_raw.get(t).unwrap(),
+//                 expected.get(i).unwrap()
+//             );
+//         }
+//     }
+//     assert_eq!(
+//         size,
+//         expected.len(),
+//         "Number of recieved tokens ({}) doesn't equal number of expected tokens ({}).",
+//         size,
+//         expected.len()
+//     );
+// }
+
+// #[test]
+// fn test_simple_stmt() {
+//     test_lua("local x = 0;", vec!["LOCAL", "NAME", "XEQ", "NUMBER", "SEMI"]);
+// }
+
+// #[test]
+// fn test_for() {
+//     test_lua(
+//         "for c = 0, 323 do R[c] = {} end",
+//         vec![
+//             "FOR", "NAME", "XEQ", "NUMBER", "COMMA", "NUMBER", "DO", "NAME", "LBRACK", "NAME", "RBRACK", "XEQ",
+//             "LBRACE", "RBRACE", "END",
+//         ],
+//     );
+// }
+
+// #[test]
+// fn full_test() -> Result<(), Box<dyn Error>> {
+//     Logger::try_with_str("trace, core::grammar = info")?;
+//     let mut now = Instant::now();
+//     let grammar = OpGrammar::from("data/grammar/json.g");
+//     info!("Total Time to generate grammar : {:?}", now.elapsed());
+//     now = Instant::now();
+//
+//     let mut tokens: LinkedList<Vec<Token>> = LinkedList::new();
+//     {
+//         let file = File::open("data/test.json")?;
+//         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
+//         info!("Total time to load file: {:?}", now.elapsed());
+//         now = Instant::now();
+//         thread::scope(|s| {
+//             let mut lexer: ParallelLexer<JsonLexerState, JsonLexer> = ParallelLexer::new(
+//                 grammar.clone(),
+//                 s,
+//                 1,
+//                 &[JsonLexerState::Start, JsonLexerState::InString],
+//                 JsonLexerState::Start,
+//             );
+//             let batch = lexer.new_batch();
+//             lexer.add_to_batch(&batch, &mmap[..], 0);
+//             tokens = lexer.collect_batch(batch);
+//             lexer.kill();
+//         });
+//     }
+//     info!("Total Lexing Time: {:?}", now.elapsed());
+//
+//     let tree: ParseTree = {
+//         now = Instant::now();
+//         let mut parser = ParallelParser::new(grammar.clone(), 1);
+//         parser.parse(tokens);
+//         parser.parse(LinkedList::from([vec![grammar.delim]]));
+//         parser.collect_parse_tree().unwrap()
+//     };
+//
+//     debug!("Total Parsing Time: {:?}", now.elapsed());
+//
+//     tree.print();
+//
+//     now = Instant::now();
+//
+//     debug!("Total Time For ParseTree -> AST Conversion: {:?}", now.elapsed());
+//     Ok(())
+// }
+
+// #[test]
+// fn full_test_parallel() -> Result<(), Box<dyn Error>> {
+//     Logger::try_with_str("trace, core::grammar = info")?;
+//
+//     let now = Instant::now();
+//     let grammar = OpGrammar::from("data/grammar/json.g");
+//     info!("Total Time to generate grammar : {:?}", now.elapsed());
+//     let now = Instant::now();
+//
+//     let file = File::open("data/json/10KB.json").unwrap();
+//     let mut memmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file).unwrap() };
+//     info!("Total time to load file: {:?}", now.elapsed());
+//     let mut now = Instant::now();
+//
+//     let chunks = core::lexer::split_mmap_into_chunks(&mut memmap, 6000).unwrap();
+//
+//     let tokens = thread::scope(|s| {
+//         let mut lexer: ParallelLexer<JsonLexerState, JsonLexer> = ParallelLexer::new(
+//             grammar.clone(),
+//             s,
+//             1,
+//             &[JsonLexerState::Start, JsonLexerState::InString],
+//             JsonLexerState::Start,
+//         );
+//         let batch = lexer.new_batch();
+//         for task in chunks.iter().enumerate() {
+//             lexer.add_to_batch(&batch, task.1, task.0);
+//         }
+//         let output = lexer.collect_batch(batch);
+//         lexer.kill();
+//         output
+//     });
+//
+//     info!("Total Lexing Time: {:?}", now.elapsed());
+//
+//     // let _: ParseTree = {
+//     //     now = Instant::now();
+//     //     let mut parser = ParallelParser::new(grammar.clone(), 1);
+//     //     parser.parse(tokens);
+//     //     parser.parse(LinkedList::from([vec![grammar.delim]]));
+//     //     parser.collect_parse_tree().unwrap()
+//     // };
+//     //
+//     // info!("Total Parsing Time: {:?}", now.elapsed());
+//     Ok(())
+// }
+
+// #[test]
+// fn full_test() -> Result<(), Box<dyn Error>> {
+//     Logger::try_with_str("trace, core::grammar = info")?;
+//     let mut now = Instant::now();
+//     let grammar = OpGrammar::from("data/grammar/json.g");
+//     info!("Total Time to generate grammar : {:?}", now.elapsed());
+//     now = Instant::now();
+//
+//     let mut tokens: LinkedList<Vec<Token>> = LinkedList::new();
+//     {
+//         let file = File::open("data/test.json")?;
+//         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
+//         info!("Total time to load file: {:?}", now.elapsed());
+//         now = Instant::now();
+//         thread::scope(|s| {
+//             let mut lexer: ParallelLexer<JsonLexerState, JsonLexer> = ParallelLexer::new(
+//                 grammar.clone(),
+//                 s,
+//                 1,
+//                 &[JsonLexerState::Start, JsonLexerState::InString],
+//                 JsonLexerState::Start,
+//             );
+//             let batch = lexer.new_batch();
+//             lexer.add_to_batch(&batch, &mmap[..], 0);
+//             tokens = lexer.collect_batch(batch);
+//             lexer.kill();
+//         });
+//     }
+//     info!("Total Lexing Time: {:?}", now.elapsed());
+//
+//     let tree: ParseTree = {
+//         now = Instant::now();
+//         let mut parser = ParallelParser::new(grammar.clone(), 1);
+//         parser.parse(tokens);
+//         parser.parse(LinkedList::from([vec![grammar.delim]]));
+//         parser.collect_parse_tree().unwrap()
+//     };
+//
+//     debug!("Total Parsing Time: {:?}", now.elapsed());
+//
+//     tree.print();
+//
+//     now = Instant::now();
+//
+//     debug!("Total Time For ParseTree -> AST Conversion: {:?}", now.elapsed());
+//     Ok(())
+// }
+
+// #[test]
+// fn full_test_parallel() -> Result<(), Box<dyn Error>> {
+//     Logger::try_with_str("trace, core::grammar = info")?;
+//
+//     let now = Instant::now();
+//     let grammar = OpGrammar::from("data/grammar/json.g");
+//     info!("Total Time to generate grammar : {:?}", now.elapsed());
+//     let now = Instant::now();
+//
+//     let file = File::open("data/json/10KB.json").unwrap();
+//     let mut memmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file).unwrap() };
+//     info!("Total time to load file: {:?}", now.elapsed());
+//     let mut now = Instant::now();
+//
+//     let chunks = core::lexer::split_mmap_into_chunks(&mut memmap, 6000).unwrap();
+//
+//     let tokens = thread::scope(|s| {
+//         let mut lexer: ParallelLexer<JsonLexerState, JsonLexer> = ParallelLexer::new(
+//             grammar.clone(),
+//             s,
+//             1,
+//             &[JsonLexerState::Start, JsonLexerState::InString],
+//             JsonLexerState::Start,
+//         );
+//         let batch = lexer.new_batch();
+//         for task in chunks.iter().enumerate() {
+//             lexer.add_to_batch(&batch, task.1, task.0);
+//         }
+//         let output = lexer.collect_batch(batch);
+//         lexer.kill();
+//         output
+//     });
+//
+//     info!("Total Lexing Time: {:?}", now.elapsed());
+//
+//     // let _: ParseTree = {
+//     //     now = Instant::now();
+//     //     let mut parser = ParallelParser::new(grammar.clone(), 1);
+//     //     parser.parse(tokens);
+//     //     parser.parse(LinkedList::from([vec![grammar.delim]]));
+//     //     parser.collect_parse_tree().unwrap()
+//     // };
+//     //
+//     // info!("Total Parsing Time: {:?}", now.elapsed());
+//     Ok(())
+// }

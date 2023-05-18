@@ -15,6 +15,10 @@ pub mod parser;
 pub mod server;
 pub mod slab;
 
+pub use grammar::*;
+pub use lexer::*;
+pub use parser::*;
+
 pub fn lex_lua(input: &str, grammar: &OpGrammar) -> Result<LinkedList<Vec<Token>>, Box<dyn Error>> {
     let tokens: LinkedList<Vec<Token>> = {
         thread::scope(|s| {

@@ -100,11 +100,6 @@
 %%
 
 chunk : statList
-	| retStat
-	| statList RETURN SEMI
-	| statList RETURN exprList SEMI
-	| statList RETURN
-	| statList RETURN exprList
 	;
 
 statList : stat
@@ -114,9 +109,9 @@ statList : stat
 	| statList.0.0 SEMI.0
 	;
 
-
 stat :  varList.0.0 XEQ.0 exprList0.1
 	| functionCall
+	| retStat
 	| LBRACE.0 chunk.1 RBRACE.2
 	| LBRACE.0 RBRACE.1
 	| WHILE.0 expr.0.0 LBRACE.0.1 chunk.0.2 RBRACE.0.3
@@ -127,10 +122,20 @@ stat :  varList.0.0 XEQ.0 exprList0.1
 	| ELSEIF.0 exprThen.0.0 RBRACE.0.1
 	| ELSEIF.0 exprThen.0.0 RBRACE.0.1 ELSE.0.2 LBRACE.0.2.0 chunk.0.2.0.1 RBRACE.0.2.1
 	| ELSEIF.0 exprThen.0.0 RBRACE.0.1 ELSE.0.2 LBRACE.0.2.0 RBRACE.0.2.1
-	| FOR nameList IN exprList LBRACE chunk RBRACE
-	| FOR nameList IN exprList LBRACE RBRACE
+	| FUNCTION.0 funcName.0.0 LBRACK.0.1 nameList.0.2 RBRACK.0.3 LBRACE.0.4 chunk.0.5 RBRACE.0.6
+	| FUNCTION.0 funcName.0.0 LBRACK.0.1 RBRACK.0.2 LBRACE.0.3 chunk.0.4 RBRACE.0.5
+	| FUNCTION.0 funcName.0.0 LBRACK.0.1 nameList.0.2 RBRACK.0.3 LBRACE.0.5 RBRACE.0.5
+	| FUNCTION.0 funcName.0.0 LBRACK.0.1 RBRACK.0.2 LBRACE.0.3 RBRACE.0.4
+	| FOR.0 nameList.0.0 IN.0.1 exprList.0.2 LBRACE.0.3 chunk.0.4 RBRACE.0.5
+	| FOR.0 nameList.0.0 IN.0.1 exprList.0.2 LBRACE.0.3 RBRACE.0.4
 	| LET.0 nameList.0.0
 	| LET.0 nameList.0.0.0 XEQ.0.0 exprList.0.0.1
+	;
+
+retStat : RETURN.0 SEMI.0.0
+	| RETURN.0 exprList.0.0 SEMI.0.1
+	| RETURN.0
+	| RETURN.0 exprList.0.0
 	;
 
 exprThen : expr.0 LBRACE.1 chunk.2
@@ -145,27 +150,27 @@ nameList : NAME
 	;
 
 exprList	: expr
-	| exprList COMMA expr
+	| exprList.0.0 COMMA.0 expr.0.1
 	;
 
 expr : logicalOrExp
 	;
 
 logicalOrExp : logicalAndExp
-	| logicalOrExp OR logicalAndExp
+	| logicalOrExp.0.1 OR.0.0 logicalAndExp.0.0
 	;
 
 logicalAndExp : relationalExp
-	| logicalAndExp AND relationalExp
+	| logicalAndExp.0.1 AND.0 relationalExp.0.0
 	;
 
 relationalExp : concatExp
 	| relationalExp.0.1 LT.0 concatExp.0.0
-	| relationalExp GT concatExp
-	| relationalExp LTEQ concatExp
-	| relationalExp GTEQ concatExp
-	| relationalExp NEQ concatExp
-	| relationalExp EQ2 concatExp
+	| relationalExp.0.1 GT.0 concatExp.0.0
+	| relationalExp.0.1 LTEQ.0 concatExp.0.0
+	| relationalExp.0.1 GTEQ.0 concatExp.0.0
+	| relationalExp.0.1 NEQ.0 concatExp.0.0
+	| relationalExp.0.1 EQ2.0 concatExp.0.0
 	;
 
 concatExp : additiveExp
@@ -174,23 +179,23 @@ concatExp : additiveExp
 
 additiveExp : multiplicativeExp
 	| additiveExp.0.0 PLUS.0 multiplicativeExp.0.1
-	| additiveExp MINUS multiplicativeExp
+	| additiveExp.0.0 MINUS.0 multiplicativeExp.0.1
 	;
 
 multiplicativeExp : unaryExp
 	| multiplicativeExp.0.0 ASTERISK.0 unaryExp.0.1
 	| multiplicativeExp.0.0 DIVIDE.0 unaryExp.0.1
-	| multiplicativeExp PERCENT unaryExp
+	| multiplicativeExp.0.0 PERCENT.0 unaryExp.0.1
 	;
 
 unaryExp : caretExp
-	| NOT unaryExp
-	| SHARP unaryExp
-	| UMINUS unaryExp
+	| NOT.0 unaryExp.0.0
+	| SHARP.0 unaryExp.0.0
+	| UMINUS.0 unaryExp.0.0
 	;
 
 caretExp : baseExp
-	| baseExp CARET caretExp
+	| baseExp.0.0 CARET.0 caretExp.0.1
 	;
 
 baseExp : NIL
@@ -204,19 +209,7 @@ baseExp : NIL
 
 prefixExp : var
 	| functionCall
-	| LPAREN expr RPAREN
-	;
-
-functionCall : prefixExp LBRACK exprList RBRACK
-	| prefixExp LBRACK RBRACK
-	| prefixExp LBRACK fieldList RBRACK
-	| prefixExp LBRACK RBRACK
-	;
-
-functionDef : FUNCTION LBRACK parList RBRACK chunk END
-	| FUNCTION LBRACK RBRACK chunk END
-	| FUNCTION LBRACK parList RBRACK END
-	| FUNCTION LBRACK RBRACK END
+	| LPAREN.0 expr.1 RPAREN.2
 	;
 
 fieldList : fieldListBody

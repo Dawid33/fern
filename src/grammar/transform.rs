@@ -130,7 +130,7 @@ impl RawGrammar {
                 builder.push_str(format!("\'{}\'", t).as_str());
             }
             builder.push_str("]\n");
-            f.write(builder.as_bytes());
+            f.write(builder.as_bytes()).unwrap();
         }
 
         for n in &self.non_terminals {

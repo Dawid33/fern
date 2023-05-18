@@ -165,7 +165,7 @@ impl ParallelParser {
         return self.highest_id;
     }
 
-    fn consume_token(&mut self, mut token: &Token) -> Result<(), Box<dyn Error>> {
+    fn consume_token(&mut self, token: &Token) -> Result<(), Box<dyn Error>> {
         if self.stack.is_empty() {
             let t = TokenGrammarTuple::new(*token, Associativity::Left, self);
             self.stack.push(t);
@@ -182,10 +182,6 @@ impl ParallelParser {
             }
             debug!("{} Open nodes: {}", self.iteration, output);
             self.print_stack();
-
-            if self.iteration == 15 {
-                let x = 0;
-            }
 
             let mut y: Option<TokenGrammarTuple> = None;
             for element in &self.stack {
@@ -396,12 +392,12 @@ impl ParallelParser {
 
             let mut parent = Node::new(rule.left, None);
 
-            if let Some(mut ast_rule) = ast_rule {
+            if let Some(ast_rule) = ast_rule {
                 let mut depth = 1;
                 let mut nodes: Vec<(Vec<_>, Node)> = Vec::new();
                 let mut current: Option<&mut Node> = Some(&mut parent);
                 for (i, f) in children.into_iter().enumerate() {
-                    let n = ast_rule.nesting_rules.get(i).unwrap();
+                    // let _ = ast_rule.nesting_rules.get(i).unwrap();
                     nodes.push((ast_rule.nesting_rules.get(i).unwrap().clone(), f));
                 }
 
@@ -440,7 +436,7 @@ impl ParallelParser {
                                     }
                                     for (nesting, _) in nodes.iter_mut() {
                                         if nesting.len() >= depth {
-                                            if let Some(mut next_depth) = nesting.get_mut(depth - 1) {
+                                            if let Some(next_depth) = nesting.get_mut(depth - 1) {
                                                 let correct_index = *node.0.last().unwrap() as usize;
                                                 if *next_depth >= correct_index as i16 {
                                                     *next_depth += offset;
@@ -463,7 +459,7 @@ impl ParallelParser {
                                     }
                                     for (nesting, _) in nodes.iter_mut() {
                                         if nesting.len() >= depth {
-                                            if let Some(mut next_depth) = nesting.get_mut(depth - 1) {
+                                            if let Some(next_depth) = nesting.get_mut(depth - 1) {
                                                 let correct_index = *node.0.last().unwrap() as usize;
                                                 if *next_depth >= correct_index as i16 {
                                                     *next_depth += offset;
@@ -480,30 +476,6 @@ impl ParallelParser {
 
                     depth += 1;
                 }
-
-                // let mut current = current.unwrap();
-                // let current_depth = 0;
-                // let mut child_count_stack: Vec<(i32, i32)> = vec![(0, (current.children.len() - 1) as i32)];
-                // while !child_count_stack.is_empty() {
-                //     let max = child_count_stack.len()-1;
-                //     for indices in &mut child_count_stack[0..max] {
-                //         current = current.children.get_mut((indices.0) as usize).unwrap();
-                //         indices.0 += 1;
-                //     }
-                //     let (mut current_child, max_child) = child_count_stack.pop().unwrap();
-                //     debug!("CURRENT: {:?}", self.g.token_raw.get(&current.symbol));
-                //
-                //     while current.children.len() > 0 && current_child <= max_child {
-                //         if !current.children.get(current_child as usize).unwrap().children.is_empty() {
-                //             let child = current.children.get_mut(current_child as usize).unwrap();
-                //             child_count_stack.push((current_child, max_child));
-                //             child_count_stack.push((0, (child.children.len() - 1) as i32));
-                //             break;
-                //         }
-                //         debug!("LEAF PARENT: {:?}", self.g.token_raw.get(&current.symbol));
-                //         current_child += 1;
-                //     }
-                // }
             } else {
                 // If there exists no rule for this then just chuck everything into parent.
                 children.reverse();
@@ -512,9 +484,6 @@ impl ParallelParser {
                     parent.prepend_child(x);
                 }
             }
-
-            let tree = ParseTree::new(parent.clone(), self.g.clone());
-            tree.print();
 
             let left = TokenGrammarTuple::new(rule.left, Associativity::Undefined, self);
             self.open_nodes.insert(left.id, parent);
@@ -571,7 +540,7 @@ impl ParallelParser {
 
         if self.open_nodes.len() == 1 {
             let mut nodes: Vec<Node> = self.open_nodes.into_iter().map(|(_, v)| v).collect();
-            let mut root = nodes.remove(0);
+            let root = nodes.remove(0);
             return Ok(ParseTree::new(root, self.g));
         } else {
             panic!("Cannot create parse tree.");

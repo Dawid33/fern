@@ -82,6 +82,6 @@ pub fn print_dict(name: &str, dict_rules: &HashMap<Vec<Token>, BTreeSet<Token>>,
             }
         }
         builder.push_str("]\n");
-        f.write(builder.as_bytes());
+        f.write(builder.as_bytes()).unwrap();
     }
 }

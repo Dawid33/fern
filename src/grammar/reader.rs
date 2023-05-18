@@ -205,7 +205,7 @@ impl RawGrammar {
                         RuleParserState::InData | RuleParserState::AwaitingRuleRight => (),
                         RuleParserState::InRuleRight => {
                             rule_parser_state = RuleParserState::AwaitingRuleRight;
-                            if let Some(mut r) = rule.clone() {
+                            if let Some(r) = rule.clone() {
                                 rules.push(r.clone());
                             } else {
                                 return Err(GrammarError::from(
