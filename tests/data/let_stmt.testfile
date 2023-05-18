@@ -1,6 +1,6 @@
 `lexer
 
-LET NAME XEQ NUMBER SEMI
+LET NAME EQ NUMBER SEMI
 
 `end
 
