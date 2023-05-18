@@ -66,7 +66,7 @@ where
     Lexer: LexerInterface<T>,
 {
     pub fn new(
-        grammar: OpGrammar,
+        grammar: &OpGrammar,
         scope: &'a Scope<'a, '_>,
         threads: usize,
         possible_start_states: &[T],
@@ -289,7 +289,7 @@ pub fn lex(input: &str, grammar: &OpGrammar, threads: usize) -> Result<LinkedLis
     {
         thread::scope(|s| {
             let mut lexer: ParallelLexer<JsonLexerState, JsonLexer> = ParallelLexer::new(
-                grammar.clone(),
+                &grammar,
                 s,
                 threads,
                 &[JsonLexerState::Start, JsonLexerState::InString],

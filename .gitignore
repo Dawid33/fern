@@ -4,3 +4,4 @@ scripts
 *.txt
 .cached-grammar
 log.toml
+perf.data

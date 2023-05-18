@@ -34,7 +34,7 @@ fn lua() -> Result<(), Box<dyn Error>> {
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         thread::scope(|s| {
             let mut lexer: ParallelLexer<LuaLexerState, LuaLexer> =
-                ParallelLexer::new(grammar.clone(), s, 1, &[LuaLexerState::Start], LuaLexerState::Start);
+                ParallelLexer::new(&grammar, s, 1, &[LuaLexerState::Start], LuaLexerState::Start);
             let batch = lexer.new_batch();
             lexer.add_to_batch(&batch, &mmap[..], 0);
             let tokens = lexer.collect_batch(batch);
@@ -91,7 +91,7 @@ fn rust() -> Result<(), Box<dyn Error>> {
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         thread::scope(|s| {
             let mut lexer: ParallelLexer<FernLexerState, FernLexer> =
-                ParallelLexer::new(grammar.clone(), s, 1, &[FernLexerState::Start], FernLexerState::Start);
+                ParallelLexer::new(&grammar, s, 1, &[FernLexerState::Start], FernLexerState::Start);
             let batch = lexer.new_batch();
             lexer.add_to_batch(&batch, &mmap[..], 0);
             let tokens = lexer.collect_batch(batch);

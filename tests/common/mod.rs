@@ -1,6 +1,9 @@
 #![allow(dead_code)]
 extern crate core;
 
+pub mod lexing;
+pub use lexing::test_lex;
+
 use std::error::Error;
 use std::sync::{Mutex, Once};
 use memmap::Mmap;

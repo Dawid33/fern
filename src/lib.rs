@@ -23,7 +23,7 @@ pub fn lex_lua(input: &str, grammar: &OpGrammar) -> Result<LinkedList<Vec<Token>
     let tokens: LinkedList<Vec<Token>> = {
         thread::scope(|s| {
             let mut lexer: ParallelLexer<LuaLexerState, LuaLexer> =
-                ParallelLexer::new(grammar.clone(), s, 1, &[LuaLexerState::Start], LuaLexerState::Start);
+                ParallelLexer::new(&grammar, s, 1, &[LuaLexerState::Start], LuaLexerState::Start);
             let batch = lexer.new_batch();
             lexer.add_to_batch(&batch, &input.as_bytes()[..], 0);
             let tokens = lexer.collect_batch(batch);
