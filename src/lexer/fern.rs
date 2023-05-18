@@ -22,7 +22,6 @@ pub struct FernTokens {
     pub rbrace: Token,
     pub lparen: Token,
     pub rparen: Token,
-    pub eq: Token,
     pub break_t: Token,
     pub goto: Token,
     pub do_t: Token,
@@ -63,7 +62,7 @@ pub struct FernTokens {
     pub lparenfunc: Token,
     pub rparenfunc: Token,
     pub semifield: Token,
-    pub xeq: Token,
+    pub eq: Token,
     pub let_t: Token,
     pub fn_t: Token,
 }
@@ -128,7 +127,6 @@ impl FernTokens {
             lparenfunc: tokens_reverse.get("LPARENFUNC").unwrap().0,
             rparenfunc: tokens_reverse.get("RPARENFUNC").unwrap().0,
             semifield: tokens_reverse.get("SEMIFIELD").unwrap().0,
-            xeq: tokens_reverse.get("XEQ").unwrap().0,
         }
     }
 }
@@ -189,7 +187,7 @@ impl LexerInterface<FernLexerState> for FernLexer {
                     '/' => self.push(self.tok.divide),
                     '>' => self.push(self.tok.gt),
                     '<' => self.push(self.tok.lt),
-                    '=' => self.push(self.tok.xeq),
+                    '=' => self.push(self.tok.eq),
                     '\"' => {
                         self.state = FernLexerState::InString;
                     }

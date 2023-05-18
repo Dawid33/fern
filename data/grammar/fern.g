@@ -95,7 +95,7 @@
 %terminal LPARENFUNC
 %terminal RPARENFUNC
 %terminal SEMIFIELD
-%terminal XEQ
+%terminal EQ
 
 %%
 
@@ -109,7 +109,8 @@ statList : stat
 	| statList.0.0 SEMI.0
 	;
 
-stat :  varList.0.0 XEQ.0 exprList0.1
+
+stat :  varList.0.0 EQ.0 exprList0.1
 	| functionCall
 	| retStat
 	| LBRACE.0 chunk.1 RBRACE.2
@@ -129,7 +130,7 @@ stat :  varList.0.0 XEQ.0 exprList0.1
 	| FOR.0 nameList.0.0 IN.0.1 exprList.0.2 LBRACE.0.3 chunk.0.4 RBRACE.0.5
 	| FOR.0 nameList.0.0 IN.0.1 exprList.0.2 LBRACE.0.3 RBRACE.0.4
 	| LET.0 nameList.0.0
-	| LET.0 nameList.0.0.0 XEQ.0.0 exprList.0.0.1
+	| LET.0 nameList.0.0.0 EQ.0.0 exprList.0.0.1
 	;
 
 retStat : RETURN.0 SEMI.0.0
