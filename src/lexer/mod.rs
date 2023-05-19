@@ -264,8 +264,10 @@ where
             self.handles = left_overs;
             if !self.handles.is_empty() {
                 for i in 0..self.handles.len() {
-                    if self.handles.get_mut(i).unwrap().0.is_finished() {
-                        self.handles.remove(i);
+                    if let Some(t) = self.handles.get_mut(i) {
+                        if t.0.is_finished()  {
+                            self.handles.remove(i);
+                        }
                     }
                 }
             }
