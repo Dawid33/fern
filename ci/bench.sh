@@ -1,14 +1,15 @@
 #!/bin/bash
 
 OUTPUT_DIR=$(git rev-parse HEAD);
-mkdir $OUTPUT_DIR;
-echo -e "{\n\t\"files\": [" > $OUTPUT_DIR/manifest.json
+mkdir "$OUTPUT_DIR";
+echo -e "{\n\t\"files\": [" > "$OUTPUT_DIR/manifest.json"
 
 declare -a files=()
-while read -r benchmark; do
-  FILE=$(echo $benchmark | jq -r '.id').json
+while read -r BENCHMARK; do
+  FILE=$(echo "$BENCHMARK" | jq -r '.id').json
   files+=("$FILE")
-  echo $benchmark > $OUTPUT_DIR/$FILE
+  touch "$OUTPUT_DIR"/$FILE
+  echo "$BENCHMARK" > "$OUTPUT_DIR/$FILE"
 done < <(cargo criterion --message-format=json | jq -c 'if .reason == "benchmark-complete" then . else empty end')
 
 
@@ -29,3 +30,10 @@ done
 echo -e "\t]\n}" >> $OUTPUT_DIR/manifest.json
 
 printf "%s " "${DP[@]}"
+
+if [ ! -f "manifest.json" ]; then
+  echo -e "{\n\t\"commits\": []\n}" > manifest.json
+fi
+
+jq ".commits += [\"$OUTPUT_DIR\"]" manifest.json > temp.json
+mv temp.json manifest.json
