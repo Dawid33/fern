@@ -27,13 +27,8 @@ do
   fi
 done
 
-echo -e "\t]\n}" >> $OUTPUT_DIR/manifest.json
+echo -e "\t]," >> $OUTPUT_DIR/manifest.json
+
+echo -e "\t\"time\": \"$(git show -s --format=%ci)\"\n}" >> $OUTPUT_DIR/manifest.json
 
 printf "%s " "${DP[@]}"
-
-if [ ! -f "manifest.json" ]; then
-  echo -e "{\n\t\"commits\": []\n}" > manifest.json
-fi
-
-jq ".commits += [\"$OUTPUT_DIR\"]" manifest.json > temp.json
-mv temp.json manifest.json
