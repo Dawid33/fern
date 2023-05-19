@@ -73,7 +73,6 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("json_fair_sequential_lexing", |b| b.iter(|| fair_sequential_lexing("data/json/1MB.json")));
     c.bench_function("json_fair_sequential_lexing", |b| b.iter(|| fair_sequential_lexing("data/json/10MB.json")));
     c.bench_function("json_fair_sequential_lexing", |b| b.iter(|| fair_sequential_lexing("data/json/50MB.json")));
->>>>>>> df5c102 (final json lexing benchmark@):benches/json_lexer.rs
 }
 
 criterion_group!(benches, criterion_benchmark);
