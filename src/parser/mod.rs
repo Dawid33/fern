@@ -305,8 +305,14 @@ impl ParallelParser {
                 };
 
                 if self.g.non_terminals.contains(&curr) {
-                    if curr == *r.right.get(j as usize).unwrap() {
-                        rewrites.insert(r.right[j as usize], curr);
+                    let mut token: Option<Token> = None;
+                    for t in self.g.inverse_rewrite_rules.get(&curr).unwrap() {
+                        if *t == *r.right.get(j as usize).unwrap() {
+                            token = Some(*t);
+                        }
+                    }
+                    if let Some(t) = token {
+                        rewrites.insert(r.right[j as usize], t);
                     } else {
                         rule_applies = false;
                     }

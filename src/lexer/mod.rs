@@ -89,7 +89,7 @@ where
                 let mut should_run = true;
                 while should_run {
                     let task: Option<WorkUnit<'a, T>> = worker.pop().or_else(|| {
-                        iter::repeat_with(|| global.steal_batch_and_pop(&worker))
+                        iter::repeat_with(|| global.steal_batch_with_limit_and_pop(&worker, 5))
                             .find(|s| !s.is_retry())
                             .and_then(|s| s.success())
                     });
