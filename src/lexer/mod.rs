@@ -1,5 +1,7 @@
 use crossbeam_deque::{Injector, Worker};
 use crossbeam_skiplist::SkipMap;
+use crossbeam::sync::Parker;
+use crossbeam::sync::Unparker;
 use log::trace;
 use memmap::{Mmap, MmapOptions};
 use std::collections::{HashMap, LinkedList};
@@ -23,6 +25,7 @@ pub mod json;
 pub mod lua;
 
 use crate::grammar::{OpGrammar, Token};
+use crossbeam_queue::SegQueue;
 use crate::lexer::error::LexerError;
 use crate::lexer::json::{JsonLexer, JsonLexerState, JsonTokens};
 use crate::lexer::lua::{LuaLexer, LuaLexerState};
@@ -41,9 +44,9 @@ pub struct LexerPartialOutput<T> {
 pub struct WorkUnit<'a, T>(usize, &'a [u8], Arc<SkipMap<usize, RwLock<LexerOutput<T>>>>);
 
 pub struct ParallelLexer<'a, T, U> {
-    handles: Vec<ScopedJoinHandle<'a, ()>>,
+    handles: Vec<(ScopedJoinHandle<'a, ()>, Unparker)>,
     connection: crossbeam_channel::Sender<bool>,
-    queue: Arc<Injector<WorkUnit<'a, T>>>,
+    new_queue: Arc<SegQueue<WorkUnit<'a, T>>>,
     outputs: HashMap<String, Batch<T>>,
     initial_state: T,
     _phantom_data: PhantomData<U>,
@@ -72,27 +75,23 @@ where
         possible_start_states: &[T],
         initial_state: T,
     ) -> Self {
-        let queue: Arc<Injector<WorkUnit<T>>> = Arc::new(Injector::new());
+        let new_queue: Arc<SegQueue<WorkUnit<T>>> = Arc::new(SegQueue::new());
         let (send, recv) = crossbeam_channel::bounded(threads);
         let outputs: HashMap<String, Batch<T>> = HashMap::new();
 
         let mut handles = vec![];
         for _ in 0..threads {
             let reciever = recv.clone();
-            let global = queue.clone();
+            let new_queue= new_queue.clone();
             let grammar = grammar.clone();
             let start_states: Vec<T> = Vec::from(possible_start_states);
+            let parker = Parker::new();
+            let unparker = parker.unparker().clone();
 
-            handles.push(scope.spawn(move || {
-                let worker: Worker<WorkUnit<T>> = Worker::new_fifo();
-
+            handles.push((scope.spawn(move || {
                 let mut should_run = true;
                 while should_run {
-                    let task: Option<WorkUnit<'a, T>> = worker.pop().or_else(|| {
-                        iter::repeat_with(|| global.steal_batch_with_limit_and_pop(&worker, 5))
-                            .find(|s| !s.is_retry())
-                            .and_then(|s| s.success())
-                    });
+                    let task = new_queue.pop();
                     if let Some(task) = task {
                         let mut lexers: Vec<(Lexer, T, bool)> = Vec::new();
                         for state in &start_states {
@@ -137,15 +136,15 @@ where
                     } else if let Ok(_) = reciever.try_recv() {
                         should_run = false;
                     } else {
-                        continue;
+                        parker.park();
                     }
                 }
-            }));
+            }), unparker));
         }
         return Self {
             connection: send,
             handles,
-            queue: queue.clone(),
+            new_queue: new_queue.clone(),
             outputs,
             initial_state,
             _phantom_data: PhantomData::default(),
@@ -187,7 +186,10 @@ where
     pub fn add_to_batch(&mut self, id: &String, input: &'a [u8], order: usize) {
         let mut batch = self.outputs.get_mut(id).unwrap();
         batch.size += 1;
-        self.queue.push(WorkUnit(order, input, (*batch).output.clone()));
+        self.new_queue.push(WorkUnit(order, input, (*batch).output.clone()));
+        for (_, unparker) in &mut self.handles {
+            unparker.unpark();
+        }
     }
 
     fn print_lexer_state_list(list: &Vec<Token>) {
@@ -218,7 +220,6 @@ where
         let first = first.unwrap();
         let mut first = first.value().write().unwrap().lists.take().unwrap();
         let start_state_output = first.remove(&self.initial_state).unwrap();
-        ParallelLexer::<T, Lexer>::print_lexer_state_list(&start_state_output.list);
         result.push_back(start_state_output.list);
 
         let mut previous_finish_state = self.initial_state;
@@ -230,7 +231,6 @@ where
                 if previous_finish_state == start_state {
                     trace!("yes");
 
-                    ParallelLexer::<T, Lexer>::print_lexer_state_list(&partial_output.list);
                     found_match = true;
                     previous_finish_state = partial_output.finish_state;
                     result.push_back(partial_output.list);
@@ -246,12 +246,13 @@ where
         return result;
     }
 
-    pub fn kill(self) {
-        for _ in 0..self.handles.len() {
+    pub fn kill(mut self) {
+        for (_, unparker) in &mut self.handles {
             self.connection.send(true).unwrap();
+            unparker.unpark();
         }
-        for x in self.handles {
-            let _ = x.join();
+        for (handle, _) in self.handles {
+            let _ = handle.join();
         }
     }
 }

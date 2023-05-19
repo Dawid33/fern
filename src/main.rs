@@ -1,6 +1,7 @@
 #![cfg_attr(debug_assertions, allow(dead_code, unused_imports))]
 extern crate core;
 
+use crossbeam_queue::SegQueue;
 use log::{info, LevelFilter};
 use std::collections::LinkedList;
 use std::error::Error;
@@ -24,9 +25,9 @@ fn json() -> Result<(), Box<dyn Error>> {
     let grammar = OpGrammar::from("data/grammar/json.g");
     info!("Total Time to get grammar : {:?}", now.elapsed());
     now = Instant::now();
-    let file = File::open("data/json/10MB.json").unwrap();
+    let file = File::open("data/json/100MB.json").unwrap();
     let mut memmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file).unwrap() };
-    let chunks = split_mmap_into_chunks(&mut memmap, 100000).unwrap();
+    let chunks = split_mmap_into_chunks(&mut memmap, 6000).unwrap();
     info!("Total time to load and split up file: {:?}", now.elapsed());
     now = Instant::now();
 
@@ -34,7 +35,7 @@ fn json() -> Result<(), Box<dyn Error>> {
         let mut lexer: ParallelLexer<JsonLexerState, JsonLexer> = ParallelLexer::new(
             &grammar,
             s,
-            1,
+            16,
             &[JsonLexerState::Start, JsonLexerState::InString],
             JsonLexerState::Start,
         );
@@ -47,7 +48,7 @@ fn json() -> Result<(), Box<dyn Error>> {
         tokens
     });
     info!("Total Time to lex: {:?}", now.elapsed());
-    now = Instant::now();
+    // now = Instant::now();
     // let mut now = Instant::now();
     // let grammar = OpGrammar::from("data/grammar/json.g");
     // info!("Total Time to get grammar : {:?}", now.elapsed());
