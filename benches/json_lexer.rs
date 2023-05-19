@@ -62,27 +62,18 @@ fn bench_parallel_lexing(path: &str, threads: usize) {
 
 #[rustfmt::skip]
 fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("lexer_1_thread_1MB", |b| b.iter(|| bench_parallel_lexing("data/json/1MB.json", 1)));
-    c.bench_function("lexer_2_thread_1MB", |b| b.iter(|| bench_parallel_lexing("data/json/1MB.json", 2)));
-    c.bench_function("lexer_4_thread_1MB", |b| b.iter(|| bench_parallel_lexing("data/json/1MB.json", 4)));
-    c.bench_function("lexer_8_thread_1MB", |b| b.iter(|| bench_parallel_lexing("data/json/1MB.json", 8)));
-    c.bench_function("lexer_16_thread_1MB", |b| b.iter(|| bench_parallel_lexing("data/json/1MB.json", 16)));
+    c.bench_function("json_lexer_1_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 1)));
+    c.bench_function("json_lexer_2_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 2)));
+    c.bench_function("json_lexer_4_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 4)));
+    c.bench_function("json_lexer_8_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 8)));
+    c.bench_function("json_lexer_16_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 16)));
 
-    c.bench_function("lexer_1_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 1)));
-    c.bench_function("lexer_2_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 2)));
-    c.bench_function("lexer_4_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 4)));
-    c.bench_function("lexer_8_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 8)));
-    c.bench_function("lexer_16_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 16)));
-
-    c.bench_function("lexer_1_thread_50MB", |b| b.iter(|| bench_parallel_lexing("data/json/50MB.json",1)));
-    c.bench_function("lexer_2_thread_50MB", |b| b.iter(|| bench_parallel_lexing("data/json/50MB.json", 2)));
-    c.bench_function("lexer_4_thread_50MB", |b| b.iter(|| bench_parallel_lexing("data/json/50MB.json", 4)));
-    c.bench_function("lexer_8_thread_50MB", |b| b.iter(|| bench_parallel_lexing("data/json/50MB.json", 8)));
-    c.bench_function("lexer_16_thread_50MB", |b| { b.iter(|| bench_parallel_lexing("data/json/50MB.json", 16)) });
-
-    c.bench_function("fair_sequential_lexing_1MB", |b| b.iter(|| fair_sequential_lexing("data/json/1MB.json")));
-    c.bench_function("fair_sequential_lexing_10MB", |b| b.iter(|| fair_sequential_lexing("data/json/10MB.json")));
-    c.bench_function("fair_sequential_lexing_50MB", |b| b.iter(|| fair_sequential_lexing("data/json/50MB.json")));
+    c.bench_function("json_fair_sequential_lexing", |b| b.iter(|| fair_sequential_lexing("data/json/10KB.json")));
+    c.bench_function("json_fair_sequential_lexing", |b| b.iter(|| fair_sequential_lexing("data/json/100KB.json")));
+    c.bench_function("json_fair_sequential_lexing", |b| b.iter(|| fair_sequential_lexing("data/json/1MB.json")));
+    c.bench_function("json_fair_sequential_lexing", |b| b.iter(|| fair_sequential_lexing("data/json/10MB.json")));
+    c.bench_function("json_fair_sequential_lexing", |b| b.iter(|| fair_sequential_lexing("data/json/50MB.json")));
+>>>>>>> df5c102 (final json lexing benchmark@):benches/json_lexer.rs
 }
 
 criterion_group!(benches, criterion_benchmark);

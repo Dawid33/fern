@@ -12,7 +12,6 @@ while read -r BENCHMARK; do
   echo "$BENCHMARK" > "$OUTPUT_DIR/$FILE"
 done < <(cargo criterion --message-format=json | jq -c 'if .reason == "benchmark-complete" then . else empty end')
 
-
 # get length of an array
 filecount=${#files[@]}
 

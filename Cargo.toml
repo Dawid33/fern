@@ -34,7 +34,7 @@ linked_hash_set = "0.1.4"
 criterion = { version = "0.4", features = ["html_reports"] }
 
 [[bench]]
-name = "lexer"
+name = "json_lexer"
 harness = false
 
 [profile.test]
