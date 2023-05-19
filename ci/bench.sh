@@ -29,6 +29,6 @@ done
 
 echo -e "\t]," >> $OUTPUT_DIR/manifest.json
 
-echo -e "\t\"time\": \"$(git show -s --format=%ci)\"\n}" >> $OUTPUT_DIR/manifest.json
+echo -e "\t\"time\": \"$(git show -s --format=%cI)\"\n}" >> $OUTPUT_DIR/manifest.json
 
 printf "%s " "${DP[@]}"
