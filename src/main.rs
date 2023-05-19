@@ -25,7 +25,7 @@ fn json() -> Result<(), Box<dyn Error>> {
     let grammar = OpGrammar::from("data/grammar/json.g");
     info!("Total Time to get grammar : {:?}", now.elapsed());
     now = Instant::now();
-    let file = File::open("data/json/100MB.json").unwrap();
+    let file = File::open("data/json/1MB.json").unwrap();
     let mut memmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file).unwrap() };
     let chunks = split_mmap_into_chunks(&mut memmap, 6000).unwrap();
     info!("Total time to load and split up file: {:?}", now.elapsed());

@@ -251,8 +251,25 @@ where
             self.connection.send(true).unwrap();
             unparker.unpark();
         }
-        for (handle, _) in self.handles {
-            let _ = handle.join();
+        while !self.handles.is_empty() {
+            let mut left_overs = Vec::new();
+            for (handle, u) in self.handles {
+                if handle.is_finished() {
+                    handle.join();
+                } else {
+                    u.unpark();
+                    left_overs.push((handle, u));
+                }
+            }
+            self.handles = left_overs;
+            if !self.handles.is_empty() {
+                for i in 0..self.handles.len() {
+                    if self.handles.get_mut(i).unwrap().0.is_finished() {
+                        self.handles.remove(i);
+                    }
+                }
+            }
+            thread::sleep(Duration::new(0, 1000))
         }
     }
 }
@@ -308,7 +325,7 @@ pub fn lex(input: &str, grammar: &OpGrammar, threads: usize) -> Result<LinkedLis
 #[test]
 pub fn test_lexer() -> Result<(), Box<dyn Error>> {
     let grammar = OpGrammar::from("data/grammar/json.g");
-    let t = json::JsonTokens::new(&grammar.token_reverse);
+    let t = JsonTokens::new(&grammar.token_reverse);
 
     let test = |input: &str, expected: Vec<Token>| -> Result<(), Box<dyn Error>> {
         let mut ll = lex(input, &grammar, 1)?;
