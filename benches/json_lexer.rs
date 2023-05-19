@@ -68,11 +68,11 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("json_lexer_8_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 8)));
     c.bench_function("json_lexer_16_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 16)));
 
-    c.bench_function("json_fair_sequential_lexing", |b| b.iter(|| fair_sequential_lexing("data/json/10KB.json")));
-    c.bench_function("json_fair_sequential_lexing", |b| b.iter(|| fair_sequential_lexing("data/json/100KB.json")));
-    c.bench_function("json_fair_sequential_lexing", |b| b.iter(|| fair_sequential_lexing("data/json/1MB.json")));
-    c.bench_function("json_fair_sequential_lexing", |b| b.iter(|| fair_sequential_lexing("data/json/10MB.json")));
-    c.bench_function("json_fair_sequential_lexing", |b| b.iter(|| fair_sequential_lexing("data/json/50MB.json")));
+    c.bench_function("json_fair_sequential_lexing_10KB", |b| b.iter(|| fair_sequential_lexing("data/json/10KB.json")));
+    c.bench_function("json_fair_sequential_lexing_100KB", |b| b.iter(|| fair_sequential_lexing("data/json/100KB.json")));
+    c.bench_function("json_fair_sequential_lexing_1MB", |b| b.iter(|| fair_sequential_lexing("data/json/1MB.json")));
+    c.bench_function("json_fair_sequential_lexing_10MB", |b| b.iter(|| fair_sequential_lexing("data/json/10MB.json")));
+    c.bench_function("json_fair_sequential_lexing_50MB", |b| b.iter(|| fair_sequential_lexing("data/json/50MB.json")));
 }
 
 criterion_group!(benches, criterion_benchmark);
