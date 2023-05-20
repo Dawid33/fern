@@ -27,46 +27,47 @@ pub mod lua;
 use crate::grammar::{OpGrammar, Token};
 use crossbeam_queue::SegQueue;
 use crate::lexer::error::LexerError;
-use crate::lexer::json::{JsonLexer, JsonLexerState, JsonTokens};
+use crate::lexer::json::{JsonData, JsonLexer, JsonLexerState, JsonTokens};
 use crate::lexer::lua::{LuaLexer, LuaLexerState};
 
-pub struct LexerOutput<T> {
-    lists: Option<HashMap<T, LexerPartialOutput<T>>>,
+pub struct LexerOutput<T, Data> {
+    lists: Option<HashMap<T, LexerPartialOutput<T, Data>>>,
 }
 
 #[allow(unused)]
-pub struct LexerPartialOutput<T> {
-    list: Vec<Token>,
+pub struct LexerPartialOutput<T, Data> {
+    list: Vec<(Token, Data)>,
     finish_state: T,
     success: bool,
 }
 
-pub struct WorkUnit<'a, T>(usize, &'a [u8], Arc<SkipMap<usize, RwLock<LexerOutput<T>>>>);
+pub struct WorkUnit<'a, T, Data>(usize, &'a [u8], Arc<SkipMap<usize, RwLock<LexerOutput<T, Data>>>>);
 
-pub struct ParallelLexer<'a, T, U> {
+pub struct ParallelLexer<'a, T, U, Data> {
     handles: Vec<(ScopedJoinHandle<'a, ()>, Unparker)>,
     connection: crossbeam_channel::Sender<bool>,
-    new_queue: Arc<SegQueue<WorkUnit<'a, T>>>,
-    outputs: HashMap<String, Batch<T>>,
+    new_queue: Arc<SegQueue<WorkUnit<'a, T, Data>>>,
+    outputs: HashMap<String, Batch<T, Data>>,
     initial_state: T,
     _phantom_data: PhantomData<U>,
 }
 
-pub struct Batch<T> {
-    output: Arc<SkipMap<usize, RwLock<LexerOutput<T>>>>,
+pub struct Batch<T, Data> {
+    output: Arc<SkipMap<usize, RwLock<LexerOutput<T, Data>>>>,
     size: usize,
 }
 
-pub trait LexerInterface<T> {
+pub trait LexerInterface<T, Data> {
     fn new(grammar: OpGrammar, start_state: T) -> Self;
     fn consume(&mut self, c: &u8) -> Result<(), LexerError>;
-    fn take(self) -> (T, Vec<Token>);
+    fn take(self) -> (T, Vec<(Token, Data)>);
 }
 
-impl<'a, T, Lexer> ParallelLexer<'a, T, Lexer>
+impl<'a, T, Lexer, Data> ParallelLexer<'a, T, Lexer, Data>
 where
     T: Copy + Send + Sync + 'static + Eq + PartialEq + Hash + Debug,
-    Lexer: LexerInterface<T>,
+    Data: Send + Sync + 'static + Eq + PartialEq + Hash + Debug,
+    Lexer: LexerInterface<T, Data>,
 {
     pub fn new(
         grammar: &OpGrammar,
@@ -75,9 +76,9 @@ where
         possible_start_states: &[T],
         initial_state: T,
     ) -> Self {
-        let new_queue: Arc<SegQueue<WorkUnit<T>>> = Arc::new(SegQueue::new());
+        let new_queue: Arc<SegQueue<WorkUnit<T, Data>>> = Arc::new(SegQueue::new());
         let (send, recv) = crossbeam_channel::bounded(threads);
-        let outputs: HashMap<String, Batch<T>> = HashMap::new();
+        let outputs: HashMap<String, Batch<T, Data>> = HashMap::new();
 
         let mut handles = vec![];
         for _ in 0..threads {
@@ -120,7 +121,7 @@ where
                             }
                         }
 
-                        let mut map: HashMap<T, LexerPartialOutput<T>> = HashMap::new();
+                        let mut map: HashMap<T, LexerPartialOutput<T, Data>> = HashMap::new();
                         for (lexer, start_state, is_successful) in lexers {
                             let (finish_state, tokens) = lexer.take();
                             map.insert(
@@ -200,14 +201,14 @@ where
         trace!("{}", builder);
     }
 
-    pub fn collect_batch(&mut self, id: String) -> LinkedList<Vec<Token>> {
-        let batch: Batch<T> = self.outputs.remove(id.as_str()).unwrap();
+    pub fn collect_batch(&mut self, id: String) -> LinkedList<Vec<(Token, Data)>> {
+        let batch: Batch<T, Data> = self.outputs.remove(id.as_str()).unwrap();
 
         // Spin until threads have finished lexing.
         while batch.size != batch.output.len() {}
 
         // Append first item in list to output
-        let mut result: LinkedList<Vec<Token>> = LinkedList::new();
+        let mut result: LinkedList<Vec<(Token, Data)>> = LinkedList::new();
 
         // For some unknown (probably data-race) reason, if there is only one thread,
         // it will intermittently fail to pop the top of the skiplist even though its
@@ -255,7 +256,7 @@ where
             let mut left_overs = Vec::new();
             for (handle, u) in self.handles {
                 if handle.is_finished() {
-                    handle.join();
+                    handle.join().unwrap();
                 } else {
                     u.unpark();
                     left_overs.push((handle, u));
@@ -304,11 +305,11 @@ pub fn split_mmap_into_chunks<'a>(mmap: &'a mut Mmap, step: usize) -> Result<Vec
     return Ok(units);
 }
 
-pub fn lex(input: &str, grammar: &OpGrammar, threads: usize) -> Result<LinkedList<Vec<Token>>, Box<dyn Error>> {
-    let mut tokens: LinkedList<Vec<Token>> = LinkedList::new();
+pub fn lex(input: &str, grammar: &OpGrammar, threads: usize) -> Result<LinkedList<Vec<(Token, JsonData)>>, Box<dyn Error>> {
+    let mut tokens: LinkedList<Vec<(Token, JsonData)>> = LinkedList::new();
     {
         thread::scope(|s| {
-            let mut lexer: ParallelLexer<JsonLexerState, JsonLexer> = ParallelLexer::new(
+            let mut lexer: ParallelLexer<JsonLexerState, JsonLexer, JsonData> = ParallelLexer::new(
                 &grammar,
                 s,
                 threads,

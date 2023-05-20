@@ -1,12 +1,17 @@
-fn a[x, y] {
+
+fn test[a,b,c,d] {
     let x = 0;
-    if y {
-        while x < 30 + 20 {
-            if x > 4 {
-
-            } else {
-
-            }
+    if x > y {
+        while y {
+            test = 200;
+            let x = 30;
         }
     }
+}
+
+fn max[a, b] {
+    for x in y {
+        let x = 0;
+    }
+    return a + b;
 }

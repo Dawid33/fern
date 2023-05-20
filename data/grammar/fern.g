@@ -105,7 +105,7 @@ chunk : statList
 statList : stat
 	| SEMI.0
 	| stat.0.0 SEMI.0
-	| statList.0.0 SEMI.0 stat.0.1
+	| statList.0.1 SEMI.0 stat.0.0
 	| statList.0.0 SEMI.0
 	;
 
@@ -116,7 +116,7 @@ stat :  varList.0.0 EQ.0 exprList0.1
 	| LBRACE.0 chunk.1 RBRACE.2
 	| LBRACE.0 RBRACE.1
 	| WHILE.0 expr.0.0 LBRACE.0.1 chunk.0.2 RBRACE.0.3
-	| WHILE expr LBRACE RBRACE
+	| WHILE.0 expr.0.0 LBRACE.0.1 RBRACE.0.2
 	| IF.0 exprThen.0.0 RBRACE.0.1
 	| IF.0 exprThen.0.0 RBRACE.0.1 ELSE.0.2 LBRACE.0.2.0 chunk.0.2.0.1 RBRACE.0.2.1
 	| IF.0 exprThen.0.0 RBRACE.0.1 ELSE.0.2 LBRACE.0.2.0 RBRACE.0.2.1
@@ -139,8 +139,8 @@ retStat : RETURN.0 SEMI.0.0
 	| RETURN.0 exprList.0.0
 	;
 
-exprThen : expr.0 LBRACE.1 chunk.2
-	| expr.0 LBRACE.1
+exprThen : expr LBRACE chunk
+	| expr LBRACE
 	;
 
 name : NAME

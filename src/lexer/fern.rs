@@ -5,6 +5,7 @@ use crate::lexer::LexerInterface;
 use log::trace;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use crate::lexer::fern::FernData::NoData;
 use crate::lexer::lua::LuaLexer;
 
 pub struct FernTokens {
@@ -139,8 +140,21 @@ pub enum FernLexerState {
     InNumber,
 }
 
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
+pub enum FernData {
+    Number(i64),
+    String(String),
+    NoData
+}
+
+impl Default for FernData {
+    fn default() -> Self {
+        NoData
+    }
+}
+
 pub struct FernLexer {
-    pub tokens: Vec<Token>,
+    pub tokens: Vec<(Token, FernData)>,
     pub data: HashMap<usize, String>,
     pub state: FernLexerState,
     buf: String,
@@ -148,7 +162,7 @@ pub struct FernLexer {
     tok: FernTokens,
 }
 
-impl LexerInterface<FernLexerState> for FernLexer {
+impl LexerInterface<FernLexerState, FernData> for FernLexer {
     fn new(grammar: OpGrammar, start_state: FernLexerState) -> Self {
         FernLexer {
             tokens: Vec::new(),
@@ -171,23 +185,23 @@ impl LexerInterface<FernLexerState> for FernLexer {
                         self.state = FernLexerState::InName;
                         self.buf.push(c);
                     }
-                    '{' => self.push(self.tok.lbrace),
-                    '}' => self.push(self.tok.rbrace),
-                    '[' => self.push(self.tok.lbrack),
-                    ']' => self.push(self.tok.rbrack),
-                    '(' => self.push(self.tok.lparen),
-                    ')' => self.push(self.tok.rparen),
-                    '.' => self.push(self.tok.dot),
-                    ':' => self.push(self.tok.colon),
-                    ',' => self.push(self.tok.comma),
-                    ';' => self.push(self.tok.semi),
-                    '+' => self.push(self.tok.plus),
-                    '-' => self.push(self.tok.uminus),
-                    '*' => self.push(self.tok.asterisk),
-                    '/' => self.push(self.tok.divide),
-                    '>' => self.push(self.tok.gt),
-                    '<' => self.push(self.tok.lt),
-                    '=' => self.push(self.tok.eq),
+                    '{' => self.push(self.tok.lbrace, NoData),
+                    '}' => self.push(self.tok.rbrace, NoData),
+                    '[' => self.push(self.tok.lbrack, NoData),
+                    ']' => self.push(self.tok.rbrack, NoData),
+                    '(' => self.push(self.tok.lparen, NoData),
+                    ')' => self.push(self.tok.rparen, NoData),
+                    '.' => self.push(self.tok.dot, NoData),
+                    ':' => self.push(self.tok.colon, NoData),
+                    ',' => self.push(self.tok.comma, NoData),
+                    ';' => self.push(self.tok.semi, NoData),
+                    '+' => self.push(self.tok.plus, NoData),
+                    '-' => self.push(self.tok.uminus, NoData),
+                    '*' => self.push(self.tok.asterisk, NoData),
+                    '/' => self.push(self.tok.divide, NoData),
+                    '>' => self.push(self.tok.gt, NoData),
+                    '<' => self.push(self.tok.lt, NoData),
+                    '=' => self.push(self.tok.eq, NoData),
                     '\"' => {
                         self.state = FernLexerState::InString;
                     }
@@ -204,8 +218,8 @@ impl LexerInterface<FernLexerState> for FernLexer {
                 FernLexerState::InString => match c {
                     '\"' => {
                         self.state = FernLexerState::Start;
+                        self.push(self.tok.string, FernData::String(self.buf.clone()));
                         self.buf.clear();
-                        self.push(self.tok.string);
                     }
                     '\n' => {
                         return Err(LexerError::from("Cannot have newlines in strings".to_string()));
@@ -216,8 +230,7 @@ impl LexerInterface<FernLexerState> for FernLexer {
                     '0'..='9' => self.buf.push(c),
                     _ => {
                         self.state = FernLexerState::Start;
-                        self.push(self.tok.number);
-                        self.data.insert(self.tokens.len(), self.buf.clone());
+                        self.push(self.tok.number, FernData::Number(self.buf.parse().unwrap()));
                         self.buf.clear();
                         should_reconsume = true;
                     }
@@ -252,8 +265,12 @@ impl LexerInterface<FernLexerState> for FernLexer {
                             "end" => self.tok.end,
                             _ => self.tok.name,
                         };
+                        if token == self.tok.name {
+                            self.push(token, FernData::String(self.buf.clone()));
+                        } else {
+                            self.push(token, NoData);
+                        }
                         self.buf.clear();
-                        self.push(token);
                         should_reconsume = true
                     }
                 },
@@ -265,19 +282,19 @@ impl LexerInterface<FernLexerState> for FernLexer {
         }
         return Ok(());
     }
-    fn take(self) -> (FernLexerState, Vec<Token>) {
+    fn take(self) -> (FernLexerState, Vec<(Token, FernData)>) {
         (self.state, self.tokens)
     }
 }
 
 impl FernLexer {
-    fn push(&mut self, t: Token) {
-        self.tokens.push(t);
+    fn push(&mut self, t: Token, d: FernData) {
+        self.tokens.push((t,d));
         if self.tokens.len() >= 2 {
             if let Some(second_last) = self.tokens.get(self.tokens.len() - 2) {
                 if let Some(last) = self.tokens.last() {
-                    if self.should_insert_semi(second_last, last) {
-                        self.tokens.insert(self.tokens.len() - 1, self.tok.semi);
+                    if self.should_insert_semi(&second_last.0, &last.0) {
+                        self.tokens.insert(self.tokens.len() - 1, (self.tok.semi, NoData));
                         trace!("{}", self.grammar.token_raw.get(&self.tok.semi).unwrap());
                     }
                 }
@@ -304,6 +321,7 @@ impl FernLexer {
                 *second == self.tok.elseif ||
                 *second == self.tok.while_t ||
                 *second == self.tok.let_t ||
+                *second == self.tok.return_t ||
                 *second == self.tok.for_t ||
                 *second == self.tok.fn_t {
                 return true;
