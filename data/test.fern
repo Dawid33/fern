@@ -1,17 +1,21 @@
 
-fn test[a,b,c,d] {
-    let x = 0;
-    if x > y {
-        while y {
-            test = 200;
-            let x = 30;
-        }
+
+for x in y {
+    x = 0;
+}
+
+while x {
+    if w {
+        let w = 0;
+    } elseif x {
+        let x = 0;
+    } elseif y {
+        let y = 0
+    } else {
+        let z = 0;
     }
 }
 
-fn max[a, b] {
-    for x in y {
-        let x = 0;
-    }
-    return a + b;
+fn test[a, b] {
+    return a + b * 30 / 30;
 }

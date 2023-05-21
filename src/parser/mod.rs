@@ -37,7 +37,7 @@ impl ParseTree<FernData> for FernParseTree {
 
    fn print(&self) {
         let mut node_stack: Vec<&Node<FernData>> = vec![&self.root];
-        let mut child_count_stack: Vec<(i32, i32)> = vec![(0, (self.root.children.len() - 1) as i32)];
+        let mut child_count_stack: Vec<(i32, i32)> = vec![((self.root.children.len() - 1) as i32, 0)];
         let mut b = String::new();
 
         b.push_str(format!("{}", self.g.token_raw.get(&self.root.symbol).unwrap()).as_str());
@@ -45,18 +45,18 @@ impl ParseTree<FernData> for FernParseTree {
         b.clear();
         while !node_stack.is_empty() {
             let current = node_stack.pop().unwrap();
-            let (mut current_child, max_child) = child_count_stack.pop().unwrap();
+            let (mut current_child, min_child) = child_count_stack.pop().unwrap();
 
-            while current.children.len() > 0 && current_child <= max_child {
+            while current.children.len() > 0 && current_child >= min_child {
                 for i in 0..child_count_stack.len() {
-                    let (current, max) = child_count_stack.get(i).unwrap();
-                    if *current <= *max {
+                    let (current, min) = child_count_stack.get(i).unwrap();
+                    if *current >= *min {
                         b.push_str("| ");
                     } else {
                         b.push_str("  ");
                     }
                 }
-                if current_child != max_child {
+                if current_child != min_child {
                     b.push_str(format!(
                         "├─{}",
                         self.g
@@ -84,13 +84,13 @@ impl ParseTree<FernData> for FernParseTree {
                 {
                     node_stack.push(current);
                     let child = current.children.get(current_child as usize).unwrap();
-                    current_child += 1;
+                    current_child -= 1;
                     node_stack.push(child);
-                    child_count_stack.push((current_child, max_child));
-                    child_count_stack.push((0, (child.children.len() - 1) as i32));
+                    child_count_stack.push((current_child, min_child));
+                    child_count_stack.push(((child.children.len() - 1) as i32, 0));
                     break;
                 }
-                current_child += 1;
+                current_child -= 1;
             }
         }
     }

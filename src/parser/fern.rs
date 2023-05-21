@@ -8,9 +8,10 @@ use std::sync;
 use log::info;
 use crate::grammar::Token;
 use crate::lexer::fern::{FernData, FernTokens};
-use crate::parser::fern::Operator::{Add, GreaterThan, LessThan, Multiply};
+use crate::parser::fern::Operator::{Add, Divide, GreaterThan, LessThan, Multiply};
 use simple_error::SimpleError;
 use crate::FernParseTree;
+use crate::parser::fern::AstNode::{Else, ElseIf};
 
 #[derive(Clone)]
 pub enum Operator {
@@ -38,7 +39,9 @@ pub enum AstNode {
     Return(Option<Box<AstNode>>),
     Module(Vec<AstNode>),
     Function(Box<AstNode>, Box<AstNode>, Vec<AstNode>),
-    If(Box<AstNode>, Vec<AstNode>),
+    If(Box<AstNode>, Vec<AstNode>, Option<Box<AstNode>>),
+    ElseIf(Box<AstNode>, Vec<AstNode>, Option<Box<AstNode>>),
+    Else(Vec<AstNode>),
     For(Box<AstNode>, Box<AstNode>, Vec<AstNode>),
     While(Box<AstNode>, Vec<AstNode>),
 }
@@ -62,19 +65,15 @@ impl Debug for AstNode {
             AstNode::Unary(o, e) => write!(f, "{:?}", o),
             AstNode::Number(n) => write!(f, "{}", n),
             AstNode::String(s) => { write!(f, "\"{}\"", s) }
-            AstNode::Name(n) => {
-                if n.is_empty() {
-                    write!(f, "Empty Name")
-                } else {
-                    write!(f, "{}", n)
-                }
-            }
+            AstNode::Name(n) => write!(f, "{}", n),
             AstNode::NameList(_) => write!(f, "Name List"),
             AstNode::Assign(_, _) => write!(f, "="),
             AstNode::Let(_, _, _) => write!(f, "Let"),
             AstNode::Module(_) => write!(f, "Module"),
             AstNode::Function(name, _, _) => write!(f, "{:?}", name),
-            AstNode::If(_, _) => write!(f, "If"),
+            AstNode::If(_, _, _) => write!(f, "If"),
+            AstNode::ElseIf(_, _, _) => write!(f, "Else If"),
+            AstNode::Else(_) => write!(f, "Else"),
             AstNode::For(_, _, _) => write!(f, "For"),
             AstNode::While(_, _) => write!(f, "While"),
             AstNode::Return(_) => write!(f, "Return"),
@@ -82,7 +81,7 @@ impl Debug for AstNode {
     }
 }
 
-fn reduce<T>(node: Node<T>, stack: &mut Vec<Vec<AstNode>>, tok: &FernTokens) -> Option<AstNode> {
+fn reduce<T: Debug>(node: Node<T>, stack: &mut Vec<Vec<AstNode>>, tok: &FernTokens) -> Option<AstNode> {
     if let Some(mut last) = stack.pop() {
         let (reduced, last) = if tok.asterisk == node.symbol {
             let left = last.pop().unwrap();
@@ -92,6 +91,10 @@ fn reduce<T>(node: Node<T>, stack: &mut Vec<Vec<AstNode>>, tok: &FernTokens) -> 
             let left = last.pop().unwrap();
             let right = last.pop().unwrap();
             (Some(AstNode::Binary(Box::from(left), Add, Box::from(right))), Some(last))
+        } else if tok.divide == node.symbol {
+            let left = last.pop().unwrap();
+            let right = last.pop().unwrap();
+            (Some(AstNode::Binary(Box::from(left), Divide, Box::from(right))), Some(last))
         } else if tok.gt == node.symbol {
             let left = last.pop().unwrap();
             let right = last.pop().unwrap();
@@ -109,11 +112,7 @@ fn reduce<T>(node: Node<T>, stack: &mut Vec<Vec<AstNode>>, tok: &FernTokens) -> 
         } else if tok.eq == node.symbol {
             let left = last.pop().unwrap();
             let right = last.pop().unwrap();
-            match left {
-                AstNode::Name(s) => (Some(AstNode::Assign(Box::from(AstNode::Name(s)), Box::from(right))), Some(last)),
-                AstNode::NameList(s) => todo!("Figure out adding name list to expr"),
-                _ => panic!("Invalid left hand side in expression. If you see this then you've probably found a lexer / parser bug."),
-            }
+            (Some(AstNode::Assign(Box::from(left), Box::from(right))), Some(last))
         } else if tok.let_t == node.symbol {
             let eq = last.pop().unwrap();
             match eq {
@@ -124,7 +123,29 @@ fn reduce<T>(node: Node<T>, stack: &mut Vec<Vec<AstNode>>, tok: &FernTokens) -> 
             (Some(AstNode::NameList(last.clone())), Some(last))
         } else if tok.if_t == node.symbol {
             let expr = last.pop().unwrap();
-            (Some(AstNode::If(Box::from(expr), last.clone())), Some(last))
+            let else_node = if let Some(first_of_last) = last.first() {
+                match first_of_last {
+                    Else(_) | ElseIf(_,_,_) => Some(Box::from(last.remove(0))),
+                    _ => None
+                }
+            } else {
+                None
+            };
+            (Some(AstNode::If(Box::from(expr), last.clone(), else_node)), Some(last))
+        } else if tok.elseif == node.symbol {
+            let expr = last.pop().unwrap();
+            let else_node = if let Some(first_of_last) = last.first() {
+                if let Else(_) = first_of_last {
+                    Some(Box::from(last.remove(0)))
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            (Some(AstNode::ElseIf(Box::from(expr), last.clone(), else_node)), Some(last))
+        } else if tok.else_t == node.symbol {
+            (Some(AstNode::Else((last.clone()))), Some(last))
         } else if tok.while_t == node.symbol {
             let expr = last.pop().unwrap();
             (Some(AstNode::While(Box::from(expr), last.clone())), Some(last))
@@ -138,7 +159,9 @@ fn reduce<T>(node: Node<T>, stack: &mut Vec<Vec<AstNode>>, tok: &FernTokens) -> 
             (Some(AstNode::Function(Box::from(name), Box::from(params), last.clone())), Some(last))
         } else if tok.semi == node.symbol {
             return if let Some(parent) = stack.last_mut() {
-                parent.append(&mut last);
+                for x in last {
+                    parent.push(x);
+                }
                 None
             } else {
                 Some(AstNode::Module(last))
@@ -177,11 +200,9 @@ impl FernParseTree {
         let mut child_count_stack: Vec<(i32, i32)> = vec![((self.root.children.len() - 1) as i32, 0)];
         let mut node_stack: Vec<Node<FernData>> = vec![self.root];
 
-        let mut reduction = false;
         while !node_stack.is_empty() {
             let mut current = node_stack.pop().unwrap();
             let (mut current_child, min_child) = child_count_stack.pop().unwrap();
-            let mut going_deeper = false;
 
             if current.children.len() > 0 && current_child >= min_child {
                 while current.children.len() > 0 && current_child >= min_child {
@@ -199,17 +220,15 @@ impl FernParseTree {
                         stack.push(vec![]);
 
                         let child = current.children.remove(current_child as usize);
+                        current_child -= 1;
                         let len = (child.children.len() - 1) as i32;
                         node_stack.push(current);
-                        going_deeper = true;
-                        current_child -= 1;
                         node_stack.push(child);
                         child_count_stack.push((current_child, min_child));
                         child_count_stack.push((len, 0));
-                        reduction = false;
                         break;
                     } else {
-                        let child = current.children.remove(current_child as usize);
+                        let child = current.children.get(current_child as usize).unwrap().clone();
                         let wrong_data = || { panic!("I'm too tired to write this error message properly.") };
                         if let Some(last) = stack.last_mut() {
                             if let Some(data) = child.data {

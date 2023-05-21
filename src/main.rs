@@ -117,7 +117,6 @@ fn rust() -> Result<(), Box<dyn Error>> {
     now = Instant::now();
 
     let ast: AstNode = tree.build_ast().unwrap();
-
     use std::fs::File;
     let mut f = File::create("ast.dot").unwrap();
     render(ast, &mut f);
@@ -205,33 +204,50 @@ pub fn render<W: Write>(ast: AstNode, output: &mut W) {
                 }
             }
             AstNode::Function(_, param, stmts) => {
+                push_node(id, param);
                 for x in stmts {
                     push_node(id, Box::from(x));
                 }
-                push_node(id, Box::from(param));
             }
-            AstNode::If(expr, stmts) => {
+            AstNode::If(expr, stmts, else_or_elseif) => {
+                push_node(id, expr);
                 for x in stmts {
                     push_node(id, Box::from(x));
                 }
-                push_node(id, Box::from(expr));
+                if let Some(e) = else_or_elseif {
+                    push_node(id, e);
+                }
             }
             AstNode::For(var, expr, stmts) => {
+                push_node(id, var);
+                push_node(id, expr);
                 for x in stmts {
                     push_node(id, Box::from(x));
                 }
-                push_node(id, Box::from(expr));
-                push_node(id, Box::from(var));
             }
             AstNode::While(expr, stmts) => {
+                push_node(id, expr);
                 for x in stmts {
                     push_node(id, Box::from(x));
                 }
-                push_node(id, Box::from(expr));
             },
             AstNode::Return(expr) => {
                 if let Some(expr) = expr {
-                    push_node(id, Box::from(expr));
+                    push_node(id, expr);
+                }
+            }
+            AstNode::ElseIf(expr, stmts, else_or_elseif) => {
+                push_node(id, expr);
+                for x in stmts {
+                    push_node(id, Box::from(x));
+                }
+                if let Some(e) = else_or_elseif {
+                    push_node(id, e);
+                }
+            }
+            AstNode::Else(stmts) => {
+                for x in stmts {
+                    push_node(id, Box::from(x));
                 }
             }
         }

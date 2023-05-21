@@ -117,13 +117,9 @@ stat :  varList.0.0 EQ.0 exprList0.1
 	| LBRACE.0 RBRACE.1
 	| WHILE.0 expr.0.0 LBRACE.0.1 chunk.0.2 RBRACE.0.3
 	| WHILE.0 expr.0.0 LBRACE.0.1 RBRACE.0.2
-	| IF.0 exprThen.0.0 RBRACE.0.1
-	| IF.0 exprThen.0.0 RBRACE.0.1 ELSE.0.2 LBRACE.0.2.0 chunk.0.2.0.1 RBRACE.0.2.1
-	| IF.0 exprThen.0.0 RBRACE.0.1 ELSE.0.2 LBRACE.0.2.0 RBRACE.0.2.1
-	| ELSEIF.0 exprThen.0.0 RBRACE.0.1
-	| ELSEIF.0 exprThen.0.0 RBRACE.0.1 ELSE.0.2 LBRACE.0.2.0 chunk.0.2.0.1 RBRACE.0.2.1
-	| ELSEIF.0 exprThen.0.0 RBRACE.0.1 ELSE.0.2 LBRACE.0.2.0 RBRACE.0.2.1
 	| FUNCTION.0 funcName.0.0 LBRACK.0.1 nameList.0.2 RBRACK.0.3 LBRACE.0.4 chunk.0.5 RBRACE.0.6
+	| IF.0 exprThen.0.0 RBRACE.0.1
+	| IF.0 exprThen.0.0 RBRACE.0.1 elseIfBlock.0.2
 	| FUNCTION.0 funcName.0.0 LBRACK.0.1 RBRACK.0.2 LBRACE.0.3 chunk.0.4 RBRACE.0.5
 	| FUNCTION.0 funcName.0.0 LBRACK.0.1 nameList.0.2 RBRACK.0.3 LBRACE.0.5 RBRACE.0.5
 	| FUNCTION.0 funcName.0.0 LBRACK.0.1 RBRACK.0.2 LBRACE.0.3 RBRACE.0.4
@@ -139,8 +135,16 @@ retStat : RETURN.0 SEMI.0.0
 	| RETURN.0 exprList.0.0
 	;
 
-exprThen : expr LBRACE chunk
-	| expr LBRACE
+elseIfBlock : ELSEIF.0 expr.0.0 LBRACE.0.1 chunk.0.2 RBRACE.0.3
+	| ELSEIF.0 expr.0.0 LBRACE.0.1 RBRACE.0.2
+	| ELSEIF.0 expr.0.0 LBRACE.0.1 RBRACE.0.2 elseIfBlock.0.3
+	| ELSEIF.0 expr.0.0 LBRACE.0.1 chunk.0.2 RBRACE.0.3 elseIfBlock.0.4
+	| ELSE.0 LBRACE.0.0 RBRACE.0.1
+	| ELSE.0 LBRACE.0.0 chunk.0.1 RBRACE.0.2
+	;
+
+exprThen : expr.0 LBRACE.1 chunk.2
+	| expr.0 LBRACE.1
 	;
 
 name : NAME
@@ -228,7 +232,7 @@ field : name EQ expr
 	;
 
 var : NAME
-	| prefixExp DOT NAME
+	| prefixExp.0 DOT.0.0 NAME.0.1
 	;
 
 varList : var
@@ -240,5 +244,5 @@ funcName : nameDotList
 	;
 
 nameDotList : NAME
-	| nameDotList DOT NAME
+	| nameDotList.0 DOT.0.0 NAME.0.1
 	;

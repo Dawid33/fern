@@ -5,3 +5,4 @@ scripts
 .cached-grammar
 log.toml
 perf.data*
+*.dot
