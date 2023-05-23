@@ -1,11 +1,11 @@
 use crate::parser::{Node, ParseTree};
 use std::cmp::max;
+use crate::grammar::OpGrammar;
 use crate::lexer::json::JsonData;
 
 #[derive(Debug, Clone)]
 pub enum JsonValue {
     Null,
-    // Short(Short),
     String(String),
     Number(Number),
     Boolean(bool),
@@ -19,8 +19,14 @@ pub struct Number {}
 #[derive(Debug, Clone)]
 pub struct Object {}
 
-// impl Into<JsonValue> for dyn ParseTree<JsonData> {
-//     fn into(self) -> JsonValue {
-//         JsonValue::Null
-//     }
-// }
+pub struct JsonParseTree {
+
+}
+impl ParseTree<JsonData> for JsonParseTree {
+    fn new(root: Node<JsonData>, g: OpGrammar) -> Self {
+        Self {}
+    }
+
+    fn print(&self) {
+    }
+}

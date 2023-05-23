@@ -35,6 +35,8 @@
 %nonterminal fieldList
 %nonterminal fieldListBody
 %nonterminal field
+%nonterminal typeExpr
+%nonterminal ptrTypeStart
 
 %axiom chunk
 
@@ -96,6 +98,8 @@
 %terminal RPARENFUNC
 %terminal SEMIFIELD
 %terminal EQ
+%terminal QUESTIONMARK
+%terminal STRUCT
 
 %%
 
@@ -120,14 +124,28 @@ stat :  varList.0.0 EQ.0 exprList0.1
 	| FUNCTION.0 funcName.0.0 LBRACK.0.1 nameList.0.2 RBRACK.0.3 LBRACE.0.4 chunk.0.5 RBRACE.0.6
 	| IF.0 exprThen.0.0 RBRACE.0.1
 	| IF.0 exprThen.0.0 RBRACE.0.1 elseIfBlock.0.2
-	| FUNCTION.0 funcName.0.0 LBRACK.0.1 RBRACK.0.2 LBRACE.0.3 chunk.0.4 RBRACE.0.5
-	| FUNCTION.0 funcName.0.0 LBRACK.0.1 nameList.0.2 RBRACK.0.3 LBRACE.0.5 RBRACE.0.5
-	| FUNCTION.0 funcName.0.0 LBRACK.0.1 RBRACK.0.2 LBRACE.0.3 RBRACE.0.4
+	| STRUCT.0 name.0.0 LBRACE.0.2 RBRACE.0.2
+	| STRUCT.0 name.0.0 LBRACE.0.1 fieldList.0.2 RBRACE.0.3
+	| FUNCTION.0 funcName.0.0 LPARENFUNC.0.0.0 RPARENFUNC.0.0.1 LBRACE.0.1 chunk.0.2 RBRACE.0.3
+	| FUNCTION.0 funcName.0.0 LPARENFUNC.0.0.0 nameList.0.0.1 RPARENFUNC.0.0.2 LBRACE.0.1 chunk.0.2 RBRACE.0.3
+	| FUNCTION.0 funcName.0.0 LPARENFUNC.0.0.0 nameList.0.0.1 RPARENFUNC.0.0.2 LBRACE.0.1 RBRACE.0.2
+	| FUNCTION.0 funcName.0.0 LPARENFUNC.0.0.0 RPARENFUNC.0.0.1 LBRACE.0.1 RBRACE.0.2
 	| FOR.0 nameList.0.0 IN.0.1 exprList.0.2 LBRACE.0.3 chunk.0.4 RBRACE.0.5
 	| FOR.0 nameList.0.0 IN.0.1 exprList.0.2 LBRACE.0.3 RBRACE.0.4
-	| LET.0 nameList.0.0
+	| LET.0 nameList.0.0.0 COLON.0.0.1 typeExpr.0.0.1.0 EQ.0.0 exprList.0.0.2
+	| LET.0 nameList.0.0 COLON.0.1 typeExpr.0.1.0
 	| LET.0 nameList.0.0.0 EQ.0.0 exprList.0.0.1
+	| LET.0 nameList.0.0
 	;
+
+functionCall : prefixExp.0 LPAREN.0.0 exprList.0.1 RPAREN.0.2
+	| prefixExp.0 LPAREN.0.0 RPAREN.0.1
+	;
+
+typeExpr : name
+    | ASTERISK name
+    | QUESTIONMARK
+    ;
 
 retStat : RETURN.0 SEMI.0.0
 	| RETURN.0 exprList.0.0 SEMI.0.1
@@ -218,17 +236,14 @@ prefixExp : var
 	;
 
 fieldList : fieldListBody
-	| fieldListBody COMMA
-	| fieldListBody SEMIFIELD
+	| fieldListBody.0.0 COMMA.0
 	;
 
 fieldListBody : field
-	| fieldListBody COMMA field
-	| fieldListBody SEMIFIELD field
+	| fieldListBody.0.0 COMMA.0 field.0.1
 	;
 
-field : name EQ expr
-	| expr
+field : name.0.0 COLON.0 typeExpr.0.1
 	;
 
 var : NAME
@@ -245,4 +260,8 @@ funcName : nameDotList
 
 nameDotList : NAME
 	| nameDotList.0 DOT.0.0 NAME.0.1
+	;
+
+nameList : NAME
+	| nameList COMMA name
 	;

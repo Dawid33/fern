@@ -24,77 +24,6 @@ pub trait ParseTree<T> {
     fn print(&self);
 }
 
-pub struct FernParseTree {
-    pub g: OpGrammar,
-    root: Node<FernData>,
-}
-
-impl ParseTree<FernData> for FernParseTree {
-
-    fn new(root: Node<FernData>, g: OpGrammar) -> Self {
-        Self { g, root }
-    }
-
-   fn print(&self) {
-        let mut node_stack: Vec<&Node<FernData>> = vec![&self.root];
-        let mut child_count_stack: Vec<(i32, i32)> = vec![((self.root.children.len() - 1) as i32, 0)];
-        let mut b = String::new();
-
-        b.push_str(format!("{}", self.g.token_raw.get(&self.root.symbol).unwrap()).as_str());
-        info!("{}", b);
-        b.clear();
-        while !node_stack.is_empty() {
-            let current = node_stack.pop().unwrap();
-            let (mut current_child, min_child) = child_count_stack.pop().unwrap();
-
-            while current.children.len() > 0 && current_child >= min_child {
-                for i in 0..child_count_stack.len() {
-                    let (current, min) = child_count_stack.get(i).unwrap();
-                    if *current >= *min {
-                        b.push_str("| ");
-                    } else {
-                        b.push_str("  ");
-                    }
-                }
-                if current_child != min_child {
-                    b.push_str(format!(
-                        "├─{}",
-                        self.g
-                            .token_raw
-                            .get(&current.children.get(current_child as usize).unwrap().symbol)
-                            .unwrap()
-                    ).as_str());
-                } else {
-                    b.push_str(format!(
-                        "└─{}",
-                        self.g
-                            .token_raw
-                            .get(&current.children.get(current_child as usize).unwrap().symbol)
-                            .unwrap()
-                    ).as_str());
-                }
-                info!("{}", b);
-                b.clear();
-                if !current
-                    .children
-                    .get(current_child as usize)
-                    .unwrap()
-                    .children
-                    .is_empty()
-                {
-                    node_stack.push(current);
-                    let child = current.children.get(current_child as usize).unwrap();
-                    current_child -= 1;
-                    node_stack.push(child);
-                    child_count_stack.push((current_child, min_child));
-                    child_count_stack.push(((child.children.len() - 1) as i32, 0));
-                    break;
-                }
-                current_child -= 1;
-            }
-        }
-    }
-}
 
 #[derive(Clone)]
 pub struct Node<T> {
@@ -214,6 +143,12 @@ impl<T> ParallelParser<T>
             } else {
                 TokenGrammarTuple::new(self.g.delim, Associativity::Left, self.gen_id(), T::default())
             };
+
+            if let Some(t) = self.stack.get(0) {
+                if t.token == self.g.axiom && y.token == self.g.delim {
+                    return Ok(());
+                }
+            }
 
             let precedence = if token == self.g.delim {
                 Associativity::Right
@@ -376,7 +311,7 @@ impl<T> ParallelParser<T>
                 let current = self.stack.remove((i + offset) as usize);
                 if self.open_nodes.contains_key(&current.id) {
                     let mut sub_tree = self.open_nodes.remove(&current.id).unwrap();
-                    Self::flatten(&mut sub_tree, &self.g);
+                    // Self::flatten(&mut sub_tree, &self.g);
                     children.push(sub_tree);
                 } else {
                     let leaf = Node::new(current.token, Some(current.data));
@@ -384,126 +319,129 @@ impl<T> ParallelParser<T>
                 }
             }
 
-            let mut ast_rule: Option<Rule> = None;
-            for r in &self.g.ast_rules {
-                let mut found_rule = true;
-                for (i, t) in r.right.iter().enumerate() {
-                    if r.right.len() != rule.right.len() {
-                        found_rule = false;
-                    } else if self.g.terminals.contains(t) {
-                        if let Some(current) = rule.right.get(i) {
-                            if *current != *t {
-                                found_rule = false;
-                                continue;
-                            }
-                        }
-                    } else if let Some(current) = rule.right.get(i) {
-                        if !self.g.non_terminals.contains(current) {
-                            found_rule = false;
-                            continue;
-                        }
-                    }
-                }
-                if found_rule {
-                    ast_rule = Some(r.clone());
-                    break;
-                }
-            }
-
             let mut parent = Node::new(rule.left, None);
+            parent.children.append(&mut children);
 
-            if let Some(ast_rule) = ast_rule {
-                let mut depth = 1;
-                let mut nodes: Vec<(Vec<_>, Node<T>)> = Vec::new();
-                let mut current: Option<&mut Node<T>> = Some(&mut parent);
-                for (i, f) in children.into_iter().enumerate() {
-                    // let _ = ast_rule.nesting_rules.get(i).unwrap();
-                    nodes.push((ast_rule.nesting_rules.get(i).unwrap().clone(), f));
-                }
-
-                loop {
-                    let mut current_depth_nodes = Vec::new();
-                    let mut left = Vec::new();
-                    for x in nodes.into_iter() {
-                        if x.0.len() == depth {
-                            current_depth_nodes.push(x);
-                        } else {
-                            left.push(x);
-                        }
-                    }
-                    nodes = left;
-
-                    if current_depth_nodes.len() == 0 {
-                        break;
-                    }
-
-                    let mut offset = 0;
-                    for mut node in current_depth_nodes {
-                        let mut current = &mut current.as_mut().unwrap().children;
-                        let slice = &node.0[0..node.0.len() - 1];
-                        for i in slice {
-                            current = &mut current.get_mut(*i as usize).unwrap().children;
-                        }
-
-                        if current.len() < *node.0.last().unwrap() as usize {
-                            if self.g.non_terminals.contains(&node.1.symbol) {
-                                if !node.1.children.is_empty() {
-                                    node.1.children.reverse();
-                                    offset -= 1;
-                                    for x in node.1.children {
-                                        offset += 1;
-                                        current.push(x);
-                                    }
-                                    for (nesting, _) in nodes.iter_mut() {
-                                        if nesting.len() >= depth {
-                                            if let Some(next_depth) = nesting.get_mut(depth - 1) {
-                                                let correct_index = *node.0.last().unwrap() as usize;
-                                                if *next_depth >= correct_index as i16 {
-                                                    *next_depth += offset;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                current.push(node.1);
-                            }
-                        } else {
-                            if self.g.non_terminals.contains(&node.1.symbol) {
-                                if !node.1.children.is_empty() {
-                                    node.1.children.reverse();
-                                    offset -= 1;
-                                    for x in node.1.children {
-                                        offset += 1;
-                                        current.insert(*node.0.last().unwrap() as usize, x);
-                                    }
-                                    for (nesting, _) in nodes.iter_mut() {
-                                        if nesting.len() >= depth {
-                                            if let Some(next_depth) = nesting.get_mut(depth - 1) {
-                                                let correct_index = *node.0.last().unwrap() as usize;
-                                                if *next_depth >= correct_index as i16 {
-                                                    *next_depth += offset;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                current.insert((*node.0.last().unwrap() + offset) as usize, node.1);
-                            }
-                        }
-                    }
-
-                    depth += 1;
-                }
-            } else {
-                // If there exists no rule for this then just chuck everything into parent.
-                children.reverse();
-                let mut iter = children.into_iter();
-                while let Some(x) = iter.next() {
-                    parent.prepend_child(x);
-                }
-            }
+            // let mut ast_rule: Option<Rule> = None;
+            // for r in &self.g.ast_rules {
+            //     let mut found_rule = true;
+            //     for (i, t) in r.right.iter().enumerate() {
+            //         if r.right.len() != rule.right.len() {
+            //             found_rule = false;
+            //         } else if self.g.terminals.contains(t) {
+            //             if let Some(current) = rule.right.get(i) {
+            //                 if *current != *t {
+            //                     found_rule = false;
+            //                     continue;
+            //                 }
+            //             }
+            //         } else if let Some(current) = rule.right.get(i) {
+            //             if !self.g.non_terminals.contains(current) {
+            //                 found_rule = false;
+            //                 continue;
+            //             }
+            //         }
+            //     }
+            //     if found_rule {
+            //         ast_rule = Some(r.clone());
+            //         break;
+            //     }
+            // }
+            //
+            // let mut parent = Node::new(rule.left, None);
+            //
+            // if let Some(ast_rule) = ast_rule {
+            //     let mut depth = 1;
+            //     let mut nodes: Vec<(Vec<_>, Node<T>)> = Vec::new();
+            //     let mut current: Option<&mut Node<T>> = Some(&mut parent);
+            //     for (i, f) in children.into_iter().enumerate() {
+            //         // let _ = ast_rule.nesting_rules.get(i).unwrap();
+            //         nodes.push((ast_rule.nesting_rules.get(i).unwrap().clone(), f));
+            //     }
+            //
+            //     loop {
+            //         let mut current_depth_nodes = Vec::new();
+            //         let mut left = Vec::new();
+            //         for x in nodes.into_iter() {
+            //             if x.0.len() == depth {
+            //                 current_depth_nodes.push(x);
+            //             } else {
+            //                 left.push(x);
+            //             }
+            //         }
+            //         nodes = left;
+            //
+            //         if current_depth_nodes.len() == 0 {
+            //             break;
+            //         }
+            //
+            //         let mut offset = 0;
+            //         for mut node in current_depth_nodes {
+            //             let mut current = &mut current.as_mut().unwrap().children;
+            //             let slice = &node.0[0..node.0.len() - 1];
+            //             for i in slice {
+            //                 current = &mut current.get_mut(*i as usize).unwrap().children;
+            //             }
+            //
+            //             if current.len() < *node.0.last().unwrap() as usize {
+            //                 if self.g.non_terminals.contains(&node.1.symbol) {
+            //                     if !node.1.children.is_empty() {
+            //                         node.1.children.reverse();
+            //                         offset -= 1;
+            //                         for x in node.1.children {
+            //                             offset += 1;
+            //                             current.push(x);
+            //                         }
+            //                         for (nesting, _) in nodes.iter_mut() {
+            //                             if nesting.len() >= depth {
+            //                                 if let Some(next_depth) = nesting.get_mut(depth - 1) {
+            //                                     let correct_index = *node.0.last().unwrap() as usize;
+            //                                     if *next_depth >= correct_index as i16 {
+            //                                         *next_depth += offset;
+            //                                     }
+            //                                 }
+            //                             }
+            //                         }
+            //                     }
+            //                 } else {
+            //                     current.push(node.1);
+            //                 }
+            //             } else {
+            //                 if self.g.non_terminals.contains(&node.1.symbol) {
+            //                     if !node.1.children.is_empty() {
+            //                         node.1.children.reverse();
+            //                         offset -= 1;
+            //                         for x in node.1.children {
+            //                             offset += 1;
+            //                             current.insert(*node.0.last().unwrap() as usize, x);
+            //                         }
+            //                         for (nesting, _) in nodes.iter_mut() {
+            //                             if nesting.len() >= depth {
+            //                                 if let Some(next_depth) = nesting.get_mut(depth - 1) {
+            //                                     let correct_index = *node.0.last().unwrap() as usize;
+            //                                     if *next_depth >= correct_index as i16 {
+            //                                         *next_depth += offset;
+            //                                     }
+            //                                 }
+            //                             }
+            //                         }
+            //                     }
+            //                 } else {
+            //                     current.insert((*node.0.last().unwrap() + offset) as usize, node.1);
+            //                 }
+            //             }
+            //         }
+            //
+            //         depth += 1;
+            //     }
+            // } else {
+            //     // If there exists no rule for this then just chuck everything into parent.
+            //     children.reverse();
+            //     let mut iter = children.into_iter();
+            //     while let Some(x) = iter.next() {
+            //         parent.prepend_child(x);
+            //     }
+            // }
 
             let left = TokenGrammarTuple::new(rule.left, Associativity::Undefined, self.gen_id(), T::default());
             self.open_nodes.insert(left.id, parent);

@@ -1,17 +1,22 @@
+use std::borrow::Cow;
 use crate::parser::{Node, ParseTree};
 use std::cmp::max;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{Debug, Formatter};
+use std::io::Write;
 use std::os::unix::fs::symlink;
 use std::sync;
 use log::info;
-use crate::grammar::Token;
+use crate::grammar::{OpGrammar, Token};
 use crate::lexer::fern::{FernData, FernTokens};
 use crate::parser::fern::Operator::{Add, Divide, GreaterThan, LessThan, Multiply};
 use simple_error::SimpleError;
-use crate::FernParseTree;
-use crate::parser::fern::AstNode::{Else, ElseIf};
+
+pub struct FernParseTree {
+    pub g: OpGrammar,
+    root: Node<FernData>,
+}
 
 #[derive(Clone)]
 pub enum Operator {
@@ -38,7 +43,7 @@ pub enum AstNode {
     Let(Box<AstNode>, Option<TypeExpr>, Box<AstNode>),
     Return(Option<Box<AstNode>>),
     Module(Vec<AstNode>),
-    Function(Box<AstNode>, Box<AstNode>, Vec<AstNode>),
+    Function(Box<AstNode>, Option<Box<AstNode>>, Vec<AstNode>),
     If(Box<AstNode>, Vec<AstNode>, Option<Box<AstNode>>),
     ElseIf(Box<AstNode>, Vec<AstNode>, Option<Box<AstNode>>),
     Else(Vec<AstNode>),
@@ -70,7 +75,7 @@ impl Debug for AstNode {
             AstNode::Assign(_, _) => write!(f, "="),
             AstNode::Let(_, _, _) => write!(f, "Let"),
             AstNode::Module(_) => write!(f, "Module"),
-            AstNode::Function(name, _, _) => write!(f, "{:?}", name),
+            AstNode::Function(name, _, _) => write!(f, "Function\n{:?}", name),
             AstNode::If(_, _, _) => write!(f, "If"),
             AstNode::ElseIf(_, _, _) => write!(f, "Else If"),
             AstNode::Else(_) => write!(f, "Else"),
@@ -80,6 +85,74 @@ impl Debug for AstNode {
         }
     }
 }
+
+impl ParseTree<FernData> for FernParseTree {
+
+    fn new(root: Node<FernData>, g: OpGrammar) -> Self {
+        Self { g, root }
+    }
+
+    fn print(&self) {
+        let mut node_stack: Vec<&Node<FernData>> = vec![&self.root];
+        let mut child_count_stack: Vec<(i32, i32)> = vec![((self.root.children.len() - 1) as i32, 0)];
+        let mut b = String::new();
+
+        b.push_str(format!("{}", self.g.token_raw.get(&self.root.symbol).unwrap()).as_str());
+        info!("{}", b);
+        b.clear();
+        while !node_stack.is_empty() {
+            let current = node_stack.pop().unwrap();
+            let (mut current_child, min_child) = child_count_stack.pop().unwrap();
+
+            while current.children.len() > 0 && current_child >= min_child {
+                for i in 0..child_count_stack.len() {
+                    let (current, min) = child_count_stack.get(i).unwrap();
+                    if *current >= *min {
+                        b.push_str("| ");
+                    } else {
+                        b.push_str("  ");
+                    }
+                }
+                if current_child != min_child {
+                    b.push_str(format!(
+                        "├─{}",
+                        self.g
+                            .token_raw
+                            .get(&current.children.get(current_child as usize).unwrap().symbol)
+                            .unwrap()
+                    ).as_str());
+                } else {
+                    b.push_str(format!(
+                        "└─{}",
+                        self.g
+                            .token_raw
+                            .get(&current.children.get(current_child as usize).unwrap().symbol)
+                            .unwrap()
+                    ).as_str());
+                }
+                info!("{}", b);
+                b.clear();
+                if !current
+                    .children
+                    .get(current_child as usize)
+                    .unwrap()
+                    .children
+                    .is_empty()
+                {
+                    node_stack.push(current);
+                    let child = current.children.get(current_child as usize).unwrap();
+                    current_child -= 1;
+                    node_stack.push(child);
+                    child_count_stack.push((current_child, min_child));
+                    child_count_stack.push(((child.children.len() - 1) as i32, 0));
+                    break;
+                }
+                current_child -= 1;
+            }
+        }
+    }
+}
+
 
 fn reduce<T: Debug>(node: Node<T>, stack: &mut Vec<Vec<AstNode>>, tok: &FernTokens) -> Option<AstNode> {
     if let Some(mut last) = stack.pop() {
@@ -125,7 +198,7 @@ fn reduce<T: Debug>(node: Node<T>, stack: &mut Vec<Vec<AstNode>>, tok: &FernToke
             let expr = last.pop().unwrap();
             let else_node = if let Some(first_of_last) = last.first() {
                 match first_of_last {
-                    Else(_) | ElseIf(_,_,_) => Some(Box::from(last.remove(0))),
+                    AstNode::Else(_) | AstNode::ElseIf(_, _, _) => Some(Box::from(last.remove(0))),
                     _ => None
                 }
             } else {
@@ -135,7 +208,7 @@ fn reduce<T: Debug>(node: Node<T>, stack: &mut Vec<Vec<AstNode>>, tok: &FernToke
         } else if tok.elseif == node.symbol {
             let expr = last.pop().unwrap();
             let else_node = if let Some(first_of_last) = last.first() {
-                if let Else(_) = first_of_last {
+                if let AstNode::Else(_) = first_of_last {
                     Some(Box::from(last.remove(0)))
                 } else {
                     None
@@ -156,7 +229,7 @@ fn reduce<T: Debug>(node: Node<T>, stack: &mut Vec<Vec<AstNode>>, tok: &FernToke
         } else if tok.fn_t == node.symbol {
             let name = last.pop().unwrap();
             let params = last.pop().unwrap();
-            (Some(AstNode::Function(Box::from(name), Box::from(params), last.clone())), Some(last))
+            (Some(AstNode::Function(Box::from(name), Some(Box::from(params)), last.clone())), Some(last))
         } else if tok.semi == node.symbol {
             return if let Some(parent) = stack.last_mut() {
                 for x in last {
@@ -272,3 +345,137 @@ impl FernParseTree {
     }
 }
 
+type Nd = (usize, String);
+type Ed = (Nd, Nd);
+struct Graph { nodes: Vec<String>, edges: Vec<(usize,usize)> }
+
+impl<'a> dot::Labeller<'a, Nd, Ed> for Graph {
+    fn graph_id(&'a self) -> dot::Id<'a> { dot::Id::new("example3").unwrap() }
+    fn node_id(&'a self, n: &Nd) -> dot::Id<'a> {
+        dot::Id::new(format!("N{}", n.0)).unwrap()
+    }
+    fn node_label(&self, n: &Nd) -> dot::LabelText {
+        let &(i, _) = n;
+        dot::LabelText::LabelStr(self.nodes[i].clone().into())
+    }
+    fn edge_label(&self, _: &Ed) -> dot::LabelText {
+        dot::LabelText::LabelStr("".into())
+    }
+}
+
+impl<'a> dot::GraphWalk<'a, Nd, Ed> for Graph {
+    fn nodes(&'a self) -> dot::Nodes<'a,Nd> {
+        let mut new_nodes = self.nodes.clone().into_iter().enumerate().collect();
+        Cow::Owned(new_nodes)
+    }
+    fn edges(&'a self) -> dot::Edges<'a,Ed> {
+        self.edges.iter()
+            .map(|&(i,j)|((i, self.nodes[i].clone()),
+                          (j, self.nodes[j].clone())))
+            .collect()
+    }
+    fn source(&self, e: &Ed) -> Nd { e.0.clone() }
+    fn target(&self, e: &Ed) -> Nd { e.1.clone() }
+}
+
+pub fn render<W: Write>(ast: AstNode, output: &mut W) {
+    let mut nodes: Vec<String> = Vec::new();
+    let mut edges = Vec::new();
+
+    nodes.push("Module".to_string());
+    let mut stack: Vec<(Box<AstNode>, usize)> = vec!((Box::from(ast), 0));
+
+
+    while let Some((current, id)) = stack.pop() {
+        let mut push_node = |id, str: String, node: Box<AstNode> | {
+            nodes.push(str);
+            let child = nodes.len() - 1;
+            edges.push((id, child));
+            stack.push((node, child));
+        };
+
+        match *current {
+            AstNode::Binary(left, op, right) => {
+                push_node(id,  format!("{:?}", &left), left);
+                push_node(id, format!("{:?}", &right), right);
+            }
+            AstNode::Unary(op, expr) => {
+                push_node(id, format!("{:?}", &expr), expr);
+            }
+            AstNode::Number(_) => {}
+            AstNode::String(_) => {}
+            AstNode::Name(_) => {}
+            AstNode::NameList(name_list) => {
+                for x in name_list {
+                    push_node(id, format!("{:?}", x), Box::from(x));
+                }
+            }
+            AstNode::Assign(name, expr) => {
+                push_node(id, format!("{:?}", name), name);
+                push_node(id, format!("{:?}", expr), expr);
+            }
+            AstNode::Let(name, _, expr) => {
+                push_node(id, format!("{:?}", name), name);
+                push_node(id, format!("{:?}", expr), expr);
+            }
+            AstNode::Module(stmts) => {
+                for x in stmts {
+                    push_node(id, format!("{:?}", x), Box::from(x));
+                }
+            }
+            AstNode::Function(_, param, stmts) => {
+                if let Some(p) = param {
+                    push_node(id, format!("{:?}", p), p);
+                }
+                for x in stmts {
+                    push_node(id, format!("{:?}", x), Box::from(x));
+                }
+            }
+            AstNode::If(expr, stmts, else_or_elseif) => {
+                push_node(id, format!("Condition\n{:?}", expr), expr);
+                for x in stmts {
+                    push_node(id, format!("{:?}", x), Box::from(x));
+                }
+                if let Some(e) = else_or_elseif {
+                    push_node(id, format!("{:?}", e), e);
+                }
+            }
+            AstNode::For(var, expr, stmts) => {
+                push_node(id, format!("Variable\n{:?}", var), var);
+                push_node(id, format!("List\n{:?}", expr), expr);
+                for x in stmts {
+                    push_node(id, format!("{:?}", x), Box::from(x));
+                }
+            }
+            AstNode::While(expr, stmts) => {
+                push_node(id, format!("Condition\n{:?}", expr), expr);
+                for x in stmts {
+                    push_node(id, format!("{:?}", x), Box::from(x));
+                }
+            },
+            AstNode::Return(expr) => {
+                if let Some(expr) = expr {
+                    push_node(id, format!("{:?}", expr), expr);
+                }
+            }
+            AstNode::ElseIf(expr, stmts, else_or_elseif) => {
+                push_node(id, format!("Condition\n{:?}", expr), expr);
+                for x in stmts {
+                    push_node(id, format!("{:?}", x), Box::from(x));
+                }
+                if let Some(e) = else_or_elseif {
+                    push_node(id, format!("{:?}", e), e);
+                }
+            }
+            AstNode::Else(stmts) => {
+                for x in stmts {
+                    push_node(id, format!("{:?}", x), Box::from(x));
+                }
+            }
+        }
+    }
+
+
+    let graph = Graph { nodes: nodes, edges: edges };
+    dot::render(&graph, output).unwrap()
+}

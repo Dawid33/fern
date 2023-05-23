@@ -1,21 +1,2 @@
 
-
-for x in y {
-    x = 0;
-}
-
-while x {
-    if w {
-        let w = 0;
-    } elseif x {
-        let x = 0;
-    } elseif y {
-        let y = 0
-    } else {
-        let z = 0;
-    }
-}
-
-fn test[a, b] {
-    return a + b * 30 / 30;
-}
+let x = 0;

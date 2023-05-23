@@ -59,6 +59,12 @@ pub enum JsonData {
     NoData
 }
 
+impl Default for JsonData {
+    fn default() -> Self {
+        NoData
+    }
+}
+
 impl LexerInterface<JsonLexerState, JsonData> for JsonLexer {
     fn new(grammar: OpGrammar, start_state: JsonLexerState) -> JsonLexer {
         // Create a list of terminals that the lexer can output.

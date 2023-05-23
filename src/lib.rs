@@ -14,6 +14,7 @@ pub mod lexer;
 pub mod parser;
 pub mod server;
 pub mod slab;
+pub mod analysis;
 
 pub use grammar::*;
 pub use lexer::*;
