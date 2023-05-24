@@ -1,13 +1,17 @@
 use crate::grammar::error::GrammarError;
 use crate::grammar::reader::TokenTypes::{Axiom, NonTerminal, Terminal};
 use crate::grammar::{OpGrammar, Rule, Token};
-use log::trace;
+use log::{debug, info, trace};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::error::Error;
 use std::fs;
 use std::io::{BufReader, Read};
+use std::ops::Deref;
 use std::prelude::rust_2015;
+use std::slice::Iter;
+use crate::reader::SymbolParserState::InKeyword;
+use crate::TokenGrammarTuple;
 
 #[derive(Clone, Debug, Copy)]
 enum GeneralState {
@@ -62,6 +66,8 @@ pub struct RawGrammar {
     pub token_reverse: HashMap<String, (Token, TokenTypes)>,
     pub axiom: Token,
     pub ast_rules: Vec<Rule>,
+    pub new_non_terminal_reverse : HashMap<Token, BTreeSet<Token>>,
+    pub new_non_terminals_subset: Vec<Token>,
     id_counter: IdCounter,
 }
 
@@ -306,6 +312,7 @@ impl RawGrammar {
             }
         }
 
+
         for r in &rules {
             let mut output = Vec::new();
             for (i, t) in r.right.iter().enumerate() {
@@ -328,7 +335,6 @@ impl RawGrammar {
             }
         }
 
-
         Ok(RawGrammar {
             rules,
             terminals,
@@ -339,9 +345,133 @@ impl RawGrammar {
             axiom,
             id_counter,
             ast_rules,
+            new_non_terminal_reverse: HashMap::new(),
+            new_non_terminals_subset: Vec::new(),
         })
     }
     pub fn gen_id(&mut self) -> Token {
         self.id_counter.gen_id()
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ReductionTree {
+    root_nodes: HashMap<Token, Vec<ReductionNode>>,
+}
+
+impl ReductionTree {
+    pub fn new() -> Self {
+        Self {
+            root_nodes: HashMap::new(),
+        }
+    }
+
+    pub fn match_rule<T: Clone>(&self, rhs: &[TokenGrammarTuple<T>], tokens_raw: &HashMap<Token, String>) -> Option<&Rule>{
+        if rhs.len() == 0 {
+            return None;
+        }
+        let mut iter = rhs.iter();
+        let first = iter.next().unwrap();
+        let mut current = if let Some(next_nodes) = self.root_nodes.get(&first.token) {
+            debug!("Matched : {}", tokens_raw.get(&first.token).unwrap());
+            next_nodes
+        } else {
+            return None;
+        };
+
+        for t in iter {
+            let mut found_node: Option<usize> = None;
+            for (i, exiting_node) in current.iter().enumerate() {
+                match exiting_node {
+                    ReductionNode::Node(n, _) => {
+                        if *n == t.token {
+                            found_node = Some(i);
+                            break;
+                        }
+                    },
+                    ReductionNode::Rule(_) => {
+                        if found_node.is_none() {
+                            found_node = Some(i);
+                        }
+                    }
+                }
+            }
+            current = if let Some(i) = found_node {
+                match current.get(i).unwrap() {
+                    ReductionNode::Node(t, vec) => {
+                        debug!("Matched : {}", tokens_raw.get(t).unwrap());
+                        vec
+                    },
+                    ReductionNode::Rule(r) => {
+                        debug!("Found : {:?}", r);
+                        return Some(r);
+                    }
+                }
+            } else {
+                return None;
+            };
+        }
+
+        for (i, exiting_node) in current.iter().enumerate() {
+            match exiting_node {
+                ReductionNode::Rule(r) => {
+                    debug!("Found : {:?}", r);
+                    return Some(r)
+                },
+                _ => (),
+            }
+        }
+        None
+    }
+
+    pub fn add_rule(&mut self, r: &Rule) {
+        if r.right.len() == 0 {
+            return;
+        }
+        let first = r.right.first().unwrap();
+        if !self.root_nodes.contains_key(first) {
+            self.root_nodes.insert(*first, vec![ReductionNode::Node(*first, Vec::new())]);
+        }
+
+        let mut iter = r.right.iter();
+        let current = self.root_nodes.get_mut(iter.next().unwrap()).unwrap();
+        Self::build_next(iter, current, r);
+    }
+
+    fn build_next(mut new_term_iter: Iter<Token>, current: &mut Vec<ReductionNode>, r: &Rule) {
+        let next_term = new_term_iter.next();
+        if let Some(t) = next_term {
+            let mut found_node: Option<usize> = None;
+            for (i, exiting_node) in current.iter().enumerate() {
+                match exiting_node {
+                    ReductionNode::Node(n, vec) => {
+                        if *n == *t {
+                            found_node = Some(i);
+                            break;
+                        }
+                    },
+                    ReductionNode::Rule(_) => {}
+                }
+            }
+            let next = if let Some(i) = found_node {
+                current.get_mut(i).unwrap()
+            } else {
+                current.push(ReductionNode::Node(*t, Vec::new()));
+                current.last_mut().unwrap()
+            };
+            if let ReductionNode::Node(_, vec) = next {
+                Self::build_next(new_term_iter, vec, r);
+            } else {
+                unreachable!();
+            }
+        } else {
+            current.push(ReductionNode::Rule(r.clone()));
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum ReductionNode {
+    Node(Token, Vec<ReductionNode>),
+    Rule(Rule),
 }

@@ -46,10 +46,10 @@ impl<T> Node<T> {
 }
 
 #[derive(Clone, Copy, Eq, PartialEq, Hash)]
-struct TokenGrammarTuple<T>
+pub struct TokenGrammarTuple<T>
 where T: Clone {
     data: T,
-    token: Token,
+    pub token: Token,
     id: u64,
     associativity: Associativity,
 }
@@ -119,11 +119,11 @@ impl<T> ParallelParser<T>
             self.iteration += 1;
             self.should_reconsume = false;
 
-            let mut output = String::new();
-            for (key, node) in &self.open_nodes {
-                output.push_str(format!("({:?} {:?}) ", key, self.g.token_raw.get(&node.symbol).unwrap()).as_str());
-            }
-            debug!("{} Open nodes: {}", self.iteration, output);
+            // let mut output = String::new();
+            // for (key, node) in &self.open_nodes {
+            //     output.push_str(format!("({:?} {:?}) ", key, self.g.token_raw.get(&node.symbol).unwrap()).as_str());
+            // }
+            // debug!("{} Open nodes: {}", self.iteration, output);
             self.print_stack();
 
             let mut y: Option<TokenGrammarTuple<T>> = None;
@@ -235,57 +235,58 @@ impl<T> ParallelParser<T>
     }
 
     fn reduce_stack(&mut self, i: i32, offset: i32) {
-        let mut rule: Option<Rule> = None;
         let mut apply_rewrites: HashMap<Token, Token> = HashMap::new();
         let mut longest: i32 = 0;
 
         let now = Instant::now();
-        for r in &self.g.rules {
-            let mut rewrites: HashMap<Token, Token> = HashMap::new();
-            let mut rule_applies = true;
-            for j in 0..r.right.len() {
-                let j = j as i32;
+        let mut rule: Option<&Rule> = self.g.new_reduction_tree.match_rule(&self.stack[(i + offset) as usize..], &self.g.token_raw);
 
-                let curr: Token = if i + j + offset >= 0 && i + j + offset < self.stack.len() as i32 {
-                    self.stack.get((i + j + offset) as usize).unwrap().token
-                } else {
-                    rule_applies = false;
-                    break;
-                };
-
-                if self.g.non_terminals.contains(&curr) {
-                    let mut token: Option<Token> = None;
-                    for t in self.g.inverse_rewrite_rules.get(&curr).unwrap() {
-                        if *t == *r.right.get(j as usize).unwrap() {
-                            token = Some(*t);
-                        }
-                    }
-                    if let Some(t) = token {
-                        rewrites.insert(r.right[j as usize], t);
-                    } else {
-                        rule_applies = false;
-                    }
-                } else if curr != *r.right.get(j as usize).unwrap() {
-                    rule_applies = false;
-                    break;
-                }
-            }
-            if rule_applies {
-                if r.right.len() > longest as usize {
-                    longest = r.right.len() as i32;
-
-                    debug!("Found rule {:?}", self.g.token_raw.get(&r.left).unwrap());
-
-                    if rewrites.is_empty() {
-                        rule = Some((*r).clone());
-                    } else {
-                        rule = Some((*r).clone());
-                        apply_rewrites = rewrites.clone();
-                        rewrites.clear();
-                    }
-                }
-            }
-        }
+        // for r in &self.g.rules {
+        //     let mut rewrites: HashMap<Token, Token> = HashMap::new();
+        //     let mut rule_applies = true;
+        //     for j in 0..r.right.len() {
+        //         let j = j as i32;
+        //
+        //         let curr: Token = if i + j + offset >= 0 && i + j + offset < self.stack.len() as i32 {
+        //             self.stack.get((i + j + offset) as usize).unwrap().token
+        //         } else {
+        //             rule_applies = false;
+        //             break;
+        //         };
+        //
+        //         if self.g.non_terminals.contains(&curr) {
+        //             let mut token: Option<Token> = None;
+        //             for t in self.g.inverse_rewrite_rules.get(&curr).unwrap() {
+        //                 if *t == *r.right.get(j as usize).unwrap() {
+        //                     token = Some(*t);
+        //                 }
+        //             }
+        //             if let Some(t) = token {
+        //                 rewrites.insert(r.right[j as usize], t);
+        //             } else {
+        //                 rule_applies = false;
+        //             }
+        //         } else if curr != *r.right.get(j as usize).unwrap() {
+        //             rule_applies = false;
+        //             break;
+        //         }
+        //     }
+        //     if rule_applies {
+        //         if r.right.len() > longest as usize {
+        //             longest = r.right.len() as i32;
+        //
+        //             debug!("Found rule {:?}", self.g.token_raw.get(&r.left).unwrap());
+        //
+        //             if rewrites.is_empty() {
+        //                 rule = Some((*r).clone());
+        //             } else {
+        //                 rule = Some((*r).clone());
+        //                 apply_rewrites = rewrites.clone();
+        //                 rewrites.clear();
+        //             }
+        //         }
+        //     }
+        // }
         let time = now.elapsed();
         debug!("Time spend searching: {:?}", &time);
         self.time_spent_rule_searching = self.time_spent_rule_searching.add(time);
@@ -311,7 +312,7 @@ impl<T> ParallelParser<T>
                 let current = self.stack.remove((i + offset) as usize);
                 if self.open_nodes.contains_key(&current.id) {
                     let mut sub_tree = self.open_nodes.remove(&current.id).unwrap();
-                    // Self::flatten(&mut sub_tree, &self.g);
+                    // Self::expand(&mut sub_tree, &self.g);
                     children.push(sub_tree);
                 } else {
                     let leaf = Node::new(current.token, Some(current.data));
@@ -321,127 +322,6 @@ impl<T> ParallelParser<T>
 
             let mut parent = Node::new(rule.left, None);
             parent.children.append(&mut children);
-
-            // let mut ast_rule: Option<Rule> = None;
-            // for r in &self.g.ast_rules {
-            //     let mut found_rule = true;
-            //     for (i, t) in r.right.iter().enumerate() {
-            //         if r.right.len() != rule.right.len() {
-            //             found_rule = false;
-            //         } else if self.g.terminals.contains(t) {
-            //             if let Some(current) = rule.right.get(i) {
-            //                 if *current != *t {
-            //                     found_rule = false;
-            //                     continue;
-            //                 }
-            //             }
-            //         } else if let Some(current) = rule.right.get(i) {
-            //             if !self.g.non_terminals.contains(current) {
-            //                 found_rule = false;
-            //                 continue;
-            //             }
-            //         }
-            //     }
-            //     if found_rule {
-            //         ast_rule = Some(r.clone());
-            //         break;
-            //     }
-            // }
-            //
-            // let mut parent = Node::new(rule.left, None);
-            //
-            // if let Some(ast_rule) = ast_rule {
-            //     let mut depth = 1;
-            //     let mut nodes: Vec<(Vec<_>, Node<T>)> = Vec::new();
-            //     let mut current: Option<&mut Node<T>> = Some(&mut parent);
-            //     for (i, f) in children.into_iter().enumerate() {
-            //         // let _ = ast_rule.nesting_rules.get(i).unwrap();
-            //         nodes.push((ast_rule.nesting_rules.get(i).unwrap().clone(), f));
-            //     }
-            //
-            //     loop {
-            //         let mut current_depth_nodes = Vec::new();
-            //         let mut left = Vec::new();
-            //         for x in nodes.into_iter() {
-            //             if x.0.len() == depth {
-            //                 current_depth_nodes.push(x);
-            //             } else {
-            //                 left.push(x);
-            //             }
-            //         }
-            //         nodes = left;
-            //
-            //         if current_depth_nodes.len() == 0 {
-            //             break;
-            //         }
-            //
-            //         let mut offset = 0;
-            //         for mut node in current_depth_nodes {
-            //             let mut current = &mut current.as_mut().unwrap().children;
-            //             let slice = &node.0[0..node.0.len() - 1];
-            //             for i in slice {
-            //                 current = &mut current.get_mut(*i as usize).unwrap().children;
-            //             }
-            //
-            //             if current.len() < *node.0.last().unwrap() as usize {
-            //                 if self.g.non_terminals.contains(&node.1.symbol) {
-            //                     if !node.1.children.is_empty() {
-            //                         node.1.children.reverse();
-            //                         offset -= 1;
-            //                         for x in node.1.children {
-            //                             offset += 1;
-            //                             current.push(x);
-            //                         }
-            //                         for (nesting, _) in nodes.iter_mut() {
-            //                             if nesting.len() >= depth {
-            //                                 if let Some(next_depth) = nesting.get_mut(depth - 1) {
-            //                                     let correct_index = *node.0.last().unwrap() as usize;
-            //                                     if *next_depth >= correct_index as i16 {
-            //                                         *next_depth += offset;
-            //                                     }
-            //                                 }
-            //                             }
-            //                         }
-            //                     }
-            //                 } else {
-            //                     current.push(node.1);
-            //                 }
-            //             } else {
-            //                 if self.g.non_terminals.contains(&node.1.symbol) {
-            //                     if !node.1.children.is_empty() {
-            //                         node.1.children.reverse();
-            //                         offset -= 1;
-            //                         for x in node.1.children {
-            //                             offset += 1;
-            //                             current.insert(*node.0.last().unwrap() as usize, x);
-            //                         }
-            //                         for (nesting, _) in nodes.iter_mut() {
-            //                             if nesting.len() >= depth {
-            //                                 if let Some(next_depth) = nesting.get_mut(depth - 1) {
-            //                                     let correct_index = *node.0.last().unwrap() as usize;
-            //                                     if *next_depth >= correct_index as i16 {
-            //                                         *next_depth += offset;
-            //                                     }
-            //                                 }
-            //                             }
-            //                         }
-            //                     }
-            //                 } else {
-            //                     current.insert((*node.0.last().unwrap() + offset) as usize, node.1);
-            //                 }
-            //             }
-            //         }
-            //
-            //         depth += 1;
-            //     }
-            // } else {
-            //     // If there exists no rule for this then just chuck everything into parent.
-            //     children.reverse();
-            //     let mut iter = children.into_iter();
-            //     while let Some(x) = iter.next() {
-            //         parent.prepend_child(x);
-            //     }
-            // }
 
             let left = TokenGrammarTuple::new(rule.left, Associativity::Undefined, self.gen_id(), T::default());
             self.open_nodes.insert(left.id, parent);
@@ -455,32 +335,36 @@ impl<T> ParallelParser<T>
         }
     }
 
-    fn flatten(mut n: &mut Node<T>, g: &OpGrammar) {
-        if n.children.len() == 1 && g.non_terminals.contains(&n.symbol) {
-            let other = n.children.remove(0);
-            n.symbol = other.symbol;
-            n.data = other.data;
-            n.children = other.children;
-        } else {
-            for next in &mut n.children {
-                Self::flatten(next, g);
+    fn expand(mut n: &mut Node<T>, g: &OpGrammar) {
+        if g.new_non_terminal_reverse.contains_key(&n.symbol) {
+            let term_list = g.new_non_terminal_reverse.get(&n.symbol).unwrap();
+            for x in term_list {
+                for r in &g.rules {
+                    if r.left == *x {
+
+                    }
+                }
             }
+            // println!("{:?}", g.token_raw.get(&n.symbol).unwrap());
+        }
+        for next in &mut n.children {
+            Self::expand(next, g);
         }
     }
 
     pub fn print_stack(&self) {
-        let mut output = String::new();
-        for i in &self.stack {
-            let x = match i.associativity {
-                Associativity::Left => '<',
-                Associativity::Right => '>',
-                Associativity::Equal => '=',
-                Associativity::Undefined => '?',
-                Associativity::None => '!',
-            };
-            output.push_str(format!("({:?}, {}) ", self.g.token_raw.get(&i.token).unwrap(), x).as_str());
-        }
-        debug!("{} Stack: {}", self.iteration, output);
+        // let mut output = String::new();
+        // for i in &self.stack {
+        //     let x = match i.associativity {
+        //         Associativity::Left => '<',
+        //         Associativity::Right => '>',
+        //         Associativity::Equal => '=',
+        //         Associativity::Undefined => '?',
+        //         Associativity::None => '!',
+        //     };
+        //     output.push_str(format!("({:?}, {}) ", self.g.token_raw.get(&i.token).unwrap(), x).as_str());
+        // }
+        // debug!("{} Stack: {}", self.iteration, output);
     }
 
     pub fn collect_parse_tree<U: ParseTree<T>>(self) -> Result<U, Box<dyn Error>> {

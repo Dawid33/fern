@@ -13,6 +13,7 @@ use std::fs;
 use std::fs::File;
 use std::hash::Hash;
 use std::io::{Read, Seek, Write};
+use crate::reader::ReductionTree;
 
 mod error;
 pub mod printing;
@@ -67,6 +68,9 @@ pub struct OpGrammar {
     pub token_raw: HashMap<Token, String>,
     pub token_reverse: HashMap<String, (Token, TokenTypes)>,
     pub ast_rules: Vec<Rule>,
+    pub new_non_terminals_subset: Vec<Token>,
+    pub new_non_terminal_reverse : HashMap<Token, BTreeSet<Token>>,
+    pub new_reduction_tree: ReductionTree,
     op_table: HashMap<Token, HashMap<Token, Associativity>>,
 }
 
@@ -327,6 +331,11 @@ impl OpGrammar {
         g.terminals.push(delim);
 
         print_op_table(&g.token_raw, &g.token_reverse, &g.terminals, &op_table);
+        
+        let mut tree = ReductionTree::new();
+        for r in &g.rules {
+            tree.add_rule(r);
+        }
 
         Ok(OpGrammar {
             token_raw: g.token_raw,
@@ -340,6 +349,9 @@ impl OpGrammar {
             op_table,
             ast_rules: g.ast_rules,
             token_reverse: g.token_reverse,
+            new_non_terminal_reverse : g.new_non_terminal_reverse,
+            new_non_terminals_subset: g.new_non_terminals_subset,
+            new_reduction_tree: tree,
         })
     }
 

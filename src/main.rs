@@ -32,16 +32,19 @@ use crate::parser::json::JsonParseTree;
 
 fn json() -> Result<(), Box<dyn Error>> {
     let mut now = Instant::now();
-    let grammar = OpGrammar::from("data/grammar/json.g");
+    let mut raw = RawGrammar::from("data/grammar/json.g")?;
+    raw.delete_repeated_rhs()?;
+    let grammar = OpGrammar::new(raw)?;
+    grammar.to_file("data/grammar/json-fnf.g");
     info!("Total Time to get grammar : {:?}", now.elapsed());
     now = Instant::now();
 
     let tokens: LinkedList<Vec<(Token, JsonData)>> = {
-        let file = File::open("data/test.json")?;
+        let file = File::open("data/json/100KB.json")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         thread::scope(|s| {
             let mut lexer: ParallelLexer<JsonLexerState, JsonLexer, JsonData> =
-                ParallelLexer::new(&grammar, s, 1, &[JsonLexerState::Start, JsonLexerState::InString], JsonLexerState::Start);
+                ParallelLexer::new(&grammar, s, 16, &[JsonLexerState::Start, JsonLexerState::InString], JsonLexerState::Start);
             let batch = lexer.new_batch();
             lexer.add_to_batch(&batch, &mmap[..], 0);
             let tokens = lexer.collect_batch(batch);
@@ -61,7 +64,7 @@ fn json() -> Result<(), Box<dyn Error>> {
         (parser.collect_parse_tree().unwrap(), time)
     };
 
-    tree.print();
+    // tree.print();
     info!("Total Time to parse: {:?}", now.elapsed());
     info!("└─Total Time spent rule-searching: {:?}", time);
 
@@ -126,10 +129,8 @@ fn rust() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-
-
 fn main() -> Result<(), Box<dyn Error>> {
     Logger::try_with_str("trace, core::grammar = info")?.start_with_specfile("log.toml")?;
-    rust()?;
+    json()?;
     Ok(())
 }

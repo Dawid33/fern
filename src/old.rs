@@ -123,6 +123,128 @@
 //     f.write(line.as_bytes());
 // }
 
+// let mut ast_rule: Option<Rule> = None;
+// for r in &self.g.ast_rules {
+//     let mut found_rule = true;
+//     for (i, t) in r.right.iter().enumerate() {
+//         if r.right.len() != rule.right.len() {
+//             found_rule = false;
+//         } else if self.g.terminals.contains(t) {
+//             if let Some(current) = rule.right.get(i) {
+//                 if *current != *t {
+//                     found_rule = false;
+//                     continue;
+//                 }
+//             }
+//         } else if let Some(current) = rule.right.get(i) {
+//             if !self.g.non_terminals.contains(current) {
+//                 found_rule = false;
+//                 continue;
+//             }
+//         }
+//     }
+//     if found_rule {
+//         ast_rule = Some(r.clone());
+//         break;
+//     }
+// }
+//
+// let mut parent = Node::new(rule.left, None);
+//
+// if let Some(ast_rule) = ast_rule {
+//     let mut depth = 1;
+//     let mut nodes: Vec<(Vec<_>, Node<T>)> = Vec::new();
+//     let mut current: Option<&mut Node<T>> = Some(&mut parent);
+//     for (i, f) in children.into_iter().enumerate() {
+//         // let _ = ast_rule.nesting_rules.get(i).unwrap();
+//         nodes.push((ast_rule.nesting_rules.get(i).unwrap().clone(), f));
+//     }
+//
+//     loop {
+//         let mut current_depth_nodes = Vec::new();
+//         let mut left = Vec::new();
+//         for x in nodes.into_iter() {
+//             if x.0.len() == depth {
+//                 current_depth_nodes.push(x);
+//             } else {
+//                 left.push(x);
+//             }
+//         }
+//         nodes = left;
+//
+//         if current_depth_nodes.len() == 0 {
+//             break;
+//         }
+//
+//         let mut offset = 0;
+//         for mut node in current_depth_nodes {
+//             let mut current = &mut current.as_mut().unwrap().children;
+//             let slice = &node.0[0..node.0.len() - 1];
+//             for i in slice {
+//                 current = &mut current.get_mut(*i as usize).unwrap().children;
+//             }
+//
+//             if current.len() < *node.0.last().unwrap() as usize {
+//                 if self.g.non_terminals.contains(&node.1.symbol) {
+//                     if !node.1.children.is_empty() {
+//                         node.1.children.reverse();
+//                         offset -= 1;
+//                         for x in node.1.children {
+//                             offset += 1;
+//                             current.push(x);
+//                         }
+//                         for (nesting, _) in nodes.iter_mut() {
+//                             if nesting.len() >= depth {
+//                                 if let Some(next_depth) = nesting.get_mut(depth - 1) {
+//                                     let correct_index = *node.0.last().unwrap() as usize;
+//                                     if *next_depth >= correct_index as i16 {
+//                                         *next_depth += offset;
+//                                     }
+//                                 }
+//                             }
+//                         }
+//                     }
+//                 } else {
+//                     current.push(node.1);
+//                 }
+//             } else {
+//                 if self.g.non_terminals.contains(&node.1.symbol) {
+//                     if !node.1.children.is_empty() {
+//                         node.1.children.reverse();
+//                         offset -= 1;
+//                         for x in node.1.children {
+//                             offset += 1;
+//                             current.insert(*node.0.last().unwrap() as usize, x);
+//                         }
+//                         for (nesting, _) in nodes.iter_mut() {
+//                             if nesting.len() >= depth {
+//                                 if let Some(next_depth) = nesting.get_mut(depth - 1) {
+//                                     let correct_index = *node.0.last().unwrap() as usize;
+//                                     if *next_depth >= correct_index as i16 {
+//                                         *next_depth += offset;
+//                                     }
+//                                 }
+//                             }
+//                         }
+//                     }
+//                 } else {
+//                     current.insert((*node.0.last().unwrap() + offset) as usize, node.1);
+//                 }
+//             }
+//         }
+//
+//         depth += 1;
+//     }
+// } else {
+//     // If there exists no rule for this then just chuck everything into parent.
+//     children.reverse();
+//     let mut iter = children.into_iter();
+//     while let Some(x) = iter.next() {
+//         parent.prepend_child(x);
+//     }
+// }
+
+
 
 // let mut f = File::create("V.txt").unwrap();
 // for val in &v {
