@@ -4,7 +4,7 @@ pub mod fern;
 use crate::grammar::{Associativity, OpGrammar, Rule, Token};
 use log::{debug, error, info, warn};
 use std::any::Any;
-use std::collections::{HashMap, LinkedList, VecDeque};
+use std::collections::{BTreeSet, HashMap, LinkedList, VecDeque};
 use std::error::Error;
 use std::hint::unreachable_unchecked;
 use std::io::ErrorKind::AlreadyExists;
@@ -12,6 +12,8 @@ use std::io::Read;
 use std::marker::PhantomData;
 use std::ops::Add;
 use std::panic::{resume_unwind, set_hook};
+use std::slice::Iter;
+use std::sync::mpsc::channel;
 use std::thread::current;
 use std::time::Duration;
 use tokio::time::Instant;
@@ -27,9 +29,9 @@ pub trait ParseTree<T> {
 
 #[derive(Clone)]
 pub struct Node<T> {
-    symbol: Token,
+    pub symbol: Token,
     data: Option<T>,
-    children: Vec<Node<T>>,
+    pub children: Vec<Node<T>>,
 }
 
 impl<T> Node<T> {
@@ -119,11 +121,11 @@ impl<T> ParallelParser<T>
             self.iteration += 1;
             self.should_reconsume = false;
 
-            // let mut output = String::new();
-            // for (key, node) in &self.open_nodes {
-            //     output.push_str(format!("({:?} {:?}) ", key, self.g.token_raw.get(&node.symbol).unwrap()).as_str());
-            // }
-            // debug!("{} Open nodes: {}", self.iteration, output);
+            let mut output = String::new();
+            for (key, node) in &self.open_nodes {
+                output.push_str(format!("({:?} {:?}) ", key, self.g.token_raw.get(&node.symbol).unwrap()).as_str());
+            }
+            debug!("{} Open nodes: {}", self.iteration, output);
             self.print_stack();
 
             let mut y: Option<TokenGrammarTuple<T>> = None;
@@ -239,54 +241,12 @@ impl<T> ParallelParser<T>
         let mut longest: i32 = 0;
 
         let now = Instant::now();
-        let mut rule: Option<&Rule> = self.g.new_reduction_tree.match_rule(&self.stack[(i + offset) as usize..], &self.g.token_raw);
+        // TODO: Make this into a slice without collecting into vec, probably implement custom iter.
+        let iter: Vec<&Token> = (&self.stack[(i + offset) as usize..]).iter().map(|x| -> &Token {
+            &x.token
+        }).collect();
+        let mut rule: Option<&Rule> = self.g.new_reduction_tree.match_rule(&iter[..], &self.g.token_raw);
 
-        // for r in &self.g.rules {
-        //     let mut rewrites: HashMap<Token, Token> = HashMap::new();
-        //     let mut rule_applies = true;
-        //     for j in 0..r.right.len() {
-        //         let j = j as i32;
-        //
-        //         let curr: Token = if i + j + offset >= 0 && i + j + offset < self.stack.len() as i32 {
-        //             self.stack.get((i + j + offset) as usize).unwrap().token
-        //         } else {
-        //             rule_applies = false;
-        //             break;
-        //         };
-        //
-        //         if self.g.non_terminals.contains(&curr) {
-        //             let mut token: Option<Token> = None;
-        //             for t in self.g.inverse_rewrite_rules.get(&curr).unwrap() {
-        //                 if *t == *r.right.get(j as usize).unwrap() {
-        //                     token = Some(*t);
-        //                 }
-        //             }
-        //             if let Some(t) = token {
-        //                 rewrites.insert(r.right[j as usize], t);
-        //             } else {
-        //                 rule_applies = false;
-        //             }
-        //         } else if curr != *r.right.get(j as usize).unwrap() {
-        //             rule_applies = false;
-        //             break;
-        //         }
-        //     }
-        //     if rule_applies {
-        //         if r.right.len() > longest as usize {
-        //             longest = r.right.len() as i32;
-        //
-        //             debug!("Found rule {:?}", self.g.token_raw.get(&r.left).unwrap());
-        //
-        //             if rewrites.is_empty() {
-        //                 rule = Some((*r).clone());
-        //             } else {
-        //                 rule = Some((*r).clone());
-        //                 apply_rewrites = rewrites.clone();
-        //                 rewrites.clear();
-        //             }
-        //         }
-        //     }
-        // }
         let time = now.elapsed();
         debug!("Time spend searching: {:?}", &time);
         self.time_spent_rule_searching = self.time_spent_rule_searching.add(time);
@@ -336,35 +296,44 @@ impl<T> ParallelParser<T>
     }
 
     fn expand(mut n: &mut Node<T>, g: &OpGrammar) {
-        if g.new_non_terminal_reverse.contains_key(&n.symbol) {
-            let term_list = g.new_non_terminal_reverse.get(&n.symbol).unwrap();
-            for x in term_list {
-                for r in &g.rules {
-                    if r.left == *x {
-
-                    }
-                }
+        info!("Expanding: {}", g.token_raw.get(&n.symbol).unwrap());
+        let term_list = g.new_non_terminal_reverse.get(&n.symbol);
+        let term_list = if let Some(list) = term_list {
+            list.iter().map(|x|{*x}).collect()
+        } else {
+            Vec::from([n.symbol])
+        };
+        for possible_non_term in term_list.iter().rev() {
+            info!("Trying : {}", g.token_raw.get(possible_non_term).unwrap());
+            let tree = g.foobar.get(possible_non_term).unwrap();
+            if let Some(r) = tree.disambiguate(&n, g) {
+                info!("Selected : {}", g.token_raw.get(possible_non_term).unwrap());
+                n.symbol = r.left;
+                break;
+            } else {
+                info!("Failed to disambiguate token.");
             }
-            // println!("{:?}", g.token_raw.get(&n.symbol).unwrap());
         }
         for next in &mut n.children {
-            Self::expand(next, g);
+            if !g.terminals.contains(&next.symbol) {
+                Self::expand(next, g);
+            }
         }
     }
 
     pub fn print_stack(&self) {
-        // let mut output = String::new();
-        // for i in &self.stack {
-        //     let x = match i.associativity {
-        //         Associativity::Left => '<',
-        //         Associativity::Right => '>',
-        //         Associativity::Equal => '=',
-        //         Associativity::Undefined => '?',
-        //         Associativity::None => '!',
-        //     };
-        //     output.push_str(format!("({:?}, {}) ", self.g.token_raw.get(&i.token).unwrap(), x).as_str());
-        // }
-        // debug!("{} Stack: {}", self.iteration, output);
+        let mut output = String::new();
+        for i in &self.stack {
+            let x = match i.associativity {
+                Associativity::Left => '<',
+                Associativity::Right => '>',
+                Associativity::Equal => '=',
+                Associativity::Undefined => '?',
+                Associativity::None => '!',
+            };
+            output.push_str(format!("({:?}, {}) ", self.g.token_raw.get(&i.token).unwrap(), x).as_str());
+        }
+        debug!("{} Stack: {}", self.iteration, output);
     }
 
     pub fn collect_parse_tree<U: ParseTree<T>>(self) -> Result<U, Box<dyn Error>> {
@@ -382,7 +351,10 @@ impl<T> ParallelParser<T>
 
         if self.open_nodes.len() == 1 {
             let mut nodes: Vec<Node<T>> = self.open_nodes.into_iter().map(|(_, v)| v).collect();
-            let root = nodes.remove(0);
+            let mut root = nodes.remove(0);
+            for child in &mut root.children {
+                Self::expand(child, &self.g);
+            }
             return Ok(U::new(root, self.g));
         } else {
             panic!("Cannot create parse tree.");

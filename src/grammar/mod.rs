@@ -70,7 +70,10 @@ pub struct OpGrammar {
     pub ast_rules: Vec<Rule>,
     pub new_non_terminals_subset: Vec<Token>,
     pub new_non_terminal_reverse : HashMap<Token, BTreeSet<Token>>,
+    pub reduction_tree: ReductionTree,
     pub new_reduction_tree: ReductionTree,
+    pub foobar: HashMap<Token, ReductionTree>,
+    pub old_axiom: Token,
     op_table: HashMap<Token, HashMap<Token, Associativity>>,
 }
 
@@ -351,7 +354,10 @@ impl OpGrammar {
             token_reverse: g.token_reverse,
             new_non_terminal_reverse : g.new_non_terminal_reverse,
             new_non_terminals_subset: g.new_non_terminals_subset,
+            reduction_tree: g.reduction_tree,
             new_reduction_tree: tree,
+            foobar: g.foobar,
+            old_axiom: g.old_axiom,
         })
     }
 

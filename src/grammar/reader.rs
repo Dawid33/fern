@@ -1,3 +1,4 @@
+use std::any::Any;
 use crate::grammar::error::GrammarError;
 use crate::grammar::reader::TokenTypes::{Axiom, NonTerminal, Terminal};
 use crate::grammar::{OpGrammar, Rule, Token};
@@ -11,7 +12,7 @@ use std::ops::Deref;
 use std::prelude::rust_2015;
 use std::slice::Iter;
 use crate::reader::SymbolParserState::InKeyword;
-use crate::TokenGrammarTuple;
+use crate::{Node, TokenGrammarTuple};
 
 #[derive(Clone, Debug, Copy)]
 enum GeneralState {
@@ -46,6 +47,7 @@ pub enum TokenTypes {
 struct IdCounter {
     highest_id: Token,
 }
+
 impl IdCounter {
     pub fn new() -> Self {
         Self { highest_id: 0 }
@@ -66,8 +68,11 @@ pub struct RawGrammar {
     pub token_reverse: HashMap<String, (Token, TokenTypes)>,
     pub axiom: Token,
     pub ast_rules: Vec<Rule>,
-    pub new_non_terminal_reverse : HashMap<Token, BTreeSet<Token>>,
+    pub new_non_terminal_reverse: HashMap<Token, BTreeSet<Token>>,
     pub new_non_terminals_subset: Vec<Token>,
+    pub reduction_tree: ReductionTree,
+    pub foobar: HashMap<Token, ReductionTree>,
+    pub old_axiom: Token,
     id_counter: IdCounter,
 }
 
@@ -150,7 +155,7 @@ impl RawGrammar {
                         return Err(GrammarError::from(format!(
                             "Invalid character in grammar definition: {}",
                             c
-                        )))
+                        )));
                     }
                 },
                 GeneralState::Rules => match c {
@@ -165,7 +170,7 @@ impl RawGrammar {
                             rule.as_mut().unwrap().right.push(*id);
                             rule_parser_state = RuleParserState::InRuleRight;
                             let mut b = String::new();
-                            let mut nesting : Vec<i16> = Vec::new();
+                            let mut nesting: Vec<i16> = Vec::new();
                             if !nesting_buf.is_empty() {
                                 for c in nesting_buf.chars() {
                                     if c == '.' {
@@ -192,7 +197,7 @@ impl RawGrammar {
                     },
                     ':' | '|' => match rule_parser_state {
                         RuleParserState::InData => {
-                            return Err(GrammarError::from("Identifier should precede :.".to_string()))
+                            return Err(GrammarError::from("Identifier should precede :.".to_string()));
                         }
                         RuleParserState::InRuleLeft | RuleParserState::AwaitingRuleRight => {
                             rule_parser_state = RuleParserState::InRuleRight;
@@ -201,10 +206,10 @@ impl RawGrammar {
                             nesting_buf.clear();
                         }
                         RuleParserState::InRuleRight => {
-                            return Err(GrammarError::from("Illegal char : in right rule".to_string()))
+                            return Err(GrammarError::from("Illegal char : in right rule".to_string()));
                         }
                         RuleParserState::InRuleIdentifierRight => {
-                            return Err(GrammarError::from("Illegal char : in right rule".to_string()))
+                            return Err(GrammarError::from("Illegal char : in right rule".to_string()));
                         }
                     },
                     '\n' => match rule_parser_state {
@@ -224,7 +229,7 @@ impl RawGrammar {
                             let (id, _) = token_reverse.get(&*buf).unwrap();
                             rule.as_mut().unwrap().right.push(*id);
                             let mut b = String::new();
-                            let mut nesting : Vec<i16> = Vec::new();
+                            let mut nesting: Vec<i16> = Vec::new();
                             if !nesting_buf.is_empty() {
                                 for c in nesting_buf.chars() {
                                     if c == '.' {
@@ -247,7 +252,7 @@ impl RawGrammar {
                             rules.push(rule.as_mut().unwrap().clone());
                         }
                         RuleParserState::InRuleLeft => {
-                            return Err(GrammarError::from("Unexected new line after left rule.".to_string()))
+                            return Err(GrammarError::from("Unexected new line after left rule.".to_string()));
                         }
                     },
                     ';' => {
@@ -268,24 +273,24 @@ impl RawGrammar {
                         RuleParserState::InRuleLeft => buf.push(c),
                         RuleParserState::InRuleIdentifierRight => {
                             match c {
-                                'A'..='Z' | 'a'..='z' => buf.push(c) ,
-                                '0'..='9' | '_' | '.' =>  {
+                                'A'..='Z' | 'a'..='z' => buf.push(c),
+                                '0'..='9' | '_' | '.' => {
                                     nesting_buf.push(c);
                                 }
-                                _ => {panic!("Shouldn't happen")}
+                                _ => { panic!("Shouldn't happen") }
                             }
-                        },
+                        }
                         RuleParserState::AwaitingRuleRight => {
                             return Err(GrammarError::from(
                                 "Expected :, | or ;, found start of identifier.".to_string(),
-                            ))
+                            ));
                         }
                     },
                     _ => {
                         return Err(GrammarError::from(format!(
                             "Invalid character in grammar definition: {}",
                             c
-                        )))
+                        )));
                     }
                 },
             }
@@ -312,8 +317,18 @@ impl RawGrammar {
             }
         }
 
+        let mut foobar: HashMap<Token, ReductionTree> = HashMap::new();
 
+        let mut r_tree = ReductionTree::new();
         for r in &rules {
+            r_tree.add_rule(r);
+            if foobar.contains_key(&r.left) {
+                foobar.get_mut(&r.left).unwrap().add_rule(r);
+            } else {
+                let mut new_r_tree = ReductionTree::new();
+                new_r_tree.add_rule(r);
+                foobar.insert(r.left, new_r_tree);
+            }
             let mut output = Vec::new();
             for (i, t) in r.right.iter().enumerate() {
                 output.push(format!("({}, {:?}), ", token_raw.get(t).unwrap().clone(), r.nesting_rules.get(i).unwrap()));
@@ -347,6 +362,9 @@ impl RawGrammar {
             ast_rules,
             new_non_terminal_reverse: HashMap::new(),
             new_non_terminals_subset: Vec::new(),
+            reduction_tree: r_tree,
+            foobar,
+            old_axiom: axiom,
         })
     }
     pub fn gen_id(&mut self) -> Token {
@@ -366,14 +384,149 @@ impl ReductionTree {
         }
     }
 
-    pub fn match_rule<T: Clone>(&self, rhs: &[TokenGrammarTuple<T>], tokens_raw: &HashMap<Token, String>) -> Option<&Rule>{
+    pub fn disambiguate<T>(&self, node: &Node<T>, g: &OpGrammar) -> Option<&Rule> {
+        let mut result: Option<&Rule> = None;
+        let mut iter = node.children.iter();
+        let first = iter.next().unwrap();
+
+        let current: Option<_> = if g.new_non_terminal_reverse.contains_key(&first.symbol) {
+            let mut result = None;
+            for t in g.new_non_terminal_reverse.get(&first.symbol).unwrap() {
+                if let Some(next_nodes) = self.root_nodes.get(t) {
+                    debug!("Disambiguate - Matched : {}", g.token_raw.get(t).unwrap());
+                    result = Some(next_nodes);
+                    break;
+                }
+            }
+            result
+        } else {
+            if let Some(next_nodes) = self.root_nodes.get(&first.symbol) {
+                debug!("Disambiguate - Matched : {}", g.token_raw.get(&first.symbol).unwrap());
+                Some(next_nodes)
+            } else {
+                None
+            }
+        };
+
+        if let Some(mut current) = current {
+            for child in iter {
+                let possible_options_for_child: Vec<Token> = if let Some(t) = g.new_non_terminal_reverse.get(&child.symbol) {
+                    t.iter().map(|x| { *x }).rev().collect()
+                } else {
+                    Vec::from([child.symbol])
+                };
+
+                let mut has_changed = false;
+                for t in possible_options_for_child {
+                    let mut found_node: Option<usize> = None;
+                    for (i, exiting_node) in current.iter().enumerate() {
+                        match exiting_node {
+                            ReductionNode::Node(n, _) => {
+                                if *n == t {
+                                    found_node = Some(i);
+                                    break;
+                                }
+                            }
+                            ReductionNode::Rule(_) => (),
+                        }
+                    }
+                    current = if let Some(i) = found_node {
+                        match current.get(i).unwrap() {
+                            ReductionNode::Node(t, vec) => {
+                                debug!("Disambiguate - Matched : {}", g.token_raw.get(t).unwrap());
+                                has_changed = true;
+                                vec
+                            }
+                            ReductionNode::Rule(_) => { unreachable!() }
+                        }
+                    } else {
+                        current
+                    };
+                    if has_changed {
+                        break;
+                    }
+                }
+            }
+
+            for (i, exiting_node) in current.iter().enumerate() {
+                match exiting_node {
+                    ReductionNode::Rule(r) => {
+                        debug!("Found : {:?}", r);
+                        result = Some(r);
+                        break;
+                    }
+                    _ => (),
+                }
+            }
+        }
+
+        if let Some(r) = result {
+            Some(r)
+        } else {
+            None
+        }
+    }
+
+    // let mut iter = rhs.iter();
+    // let first = iter.next().unwrap();
+    // let mut current = if let Some(next_nodes) = self.root_nodes.get(&first) {
+    //     debug!("Get Rules - Matched : {}", tokens_raw.get(&first).unwrap());
+    //     next_nodes
+    // } else {
+    //     return None;
+    // };
+    //
+    // for t in iter {
+    //     let mut found_node: Option<usize> = None;
+    //     for (i, exiting_node) in current.iter().enumerate() {
+    //         match exiting_node {
+    //             ReductionNode::Node(n, _) => {
+    //                 if *n == *t {
+    //                     found_node = Some(i);
+    //                     break;
+    //                 }
+    //             },
+    //             ReductionNode::Rule(_) => {
+    //                 if found_node.is_none() {
+    //                     found_node = Some(i);
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     current = if let Some(i) = found_node {
+    //         match current.get(i).unwrap() {
+    //             ReductionNode::Node(t, vec) => {
+    //                 debug!("Matched : {}", tokens_raw.get(t).unwrap());
+    //                 vec
+    //             },
+    //             ReductionNode::Rule(r) => {
+    //                 debug!("Found : {:?}", r);
+    //                 return Some(r);
+    //             }
+    //         }
+    //     } else {
+    //         return None;
+    //     };
+    // }
+    //
+    // for (i, exiting_node) in current.iter().enumerate() {
+    //     match exiting_node {
+    //         ReductionNode::Rule(r) => {
+    //             debug!("Found : {:?}", r);
+    //             return Some(r)
+    //         },
+    //         _ => (),
+    //     }
+    // }
+
+    pub fn match_rule(&self, rhs: &[&Token], tokens_raw: &HashMap<Token, String>) -> Option<&Rule> {
         if rhs.len() == 0 {
             return None;
         }
         let mut iter = rhs.iter();
         let first = iter.next().unwrap();
-        let mut current = if let Some(next_nodes) = self.root_nodes.get(&first.token) {
-            debug!("Matched : {}", tokens_raw.get(&first.token).unwrap());
+        let mut current = if let Some(next_nodes) = self.root_nodes.get(&first) {
+            debug!("Matched : {}", tokens_raw.get(&first).unwrap());
             next_nodes
         } else {
             return None;
@@ -384,11 +537,11 @@ impl ReductionTree {
             for (i, exiting_node) in current.iter().enumerate() {
                 match exiting_node {
                     ReductionNode::Node(n, _) => {
-                        if *n == t.token {
+                        if *n == **t {
                             found_node = Some(i);
                             break;
                         }
-                    },
+                    }
                     ReductionNode::Rule(_) => {
                         if found_node.is_none() {
                             found_node = Some(i);
@@ -401,7 +554,7 @@ impl ReductionTree {
                     ReductionNode::Node(t, vec) => {
                         debug!("Matched : {}", tokens_raw.get(t).unwrap());
                         vec
-                    },
+                    }
                     ReductionNode::Rule(r) => {
                         debug!("Found : {:?}", r);
                         return Some(r);
@@ -416,8 +569,8 @@ impl ReductionTree {
             match exiting_node {
                 ReductionNode::Rule(r) => {
                     debug!("Found : {:?}", r);
-                    return Some(r)
-                },
+                    return Some(r);
+                }
                 _ => (),
             }
         }
@@ -449,7 +602,7 @@ impl ReductionTree {
                             found_node = Some(i);
                             break;
                         }
-                    },
+                    }
                     ReductionNode::Rule(_) => {}
                 }
             }

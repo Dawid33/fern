@@ -6,9 +6,6 @@
 %nonterminal exprThenElseIfB
 %nonterminal exprThen
 %nonterminal name
-%nonterminal eCe
-%nonterminal eCeCe
-%nonterminal dot3
 %nonterminal retStat
 %nonterminal label
 %nonterminal funcName
@@ -113,24 +110,23 @@ statList : stat
 	| statList.0.0 SEMI.0
 	;
 
-
 stat :  varList.0.0 EQ.0 exprList0.1
 	| functionCall
 	| retStat
-	| LBRACE.0 chunk.1 RBRACE.2
+	| LBRACE.0 statList.1 RBRACE.2
 	| LBRACE.0 RBRACE.1
-	| WHILE.0 expr.0.0 LBRACE.0.1 chunk.0.2 RBRACE.0.3
+	| WHILE.0 expr.0.0 LBRACE.0.1 statList.0.2 RBRACE.0.3
 	| WHILE.0 expr.0.0 LBRACE.0.1 RBRACE.0.2
-	| FUNCTION.0 funcName.0.0 LBRACK.0.1 nameList.0.2 RBRACK.0.3 LBRACE.0.4 chunk.0.5 RBRACE.0.6
+	| FUNCTION.0 funcName.0.0 LBRACK.0.1 nameList.0.2 RBRACK.0.3 LBRACE.0.4 statList.0.5 RBRACE.0.6
 	| IF.0 exprThen.0.0 RBRACE.0.1
 	| IF.0 exprThen.0.0 RBRACE.0.1 elseIfBlock.0.2
 	| STRUCT.0 name.0.0 LBRACE.0.2 RBRACE.0.2
 	| STRUCT.0 name.0.0 LBRACE.0.1 fieldList.0.2 RBRACE.0.3
-	| FUNCTION.0 funcName.0.0 LPARENFUNC.0.0.0 RPARENFUNC.0.0.1 LBRACE.0.1 chunk.0.2 RBRACE.0.3
-	| FUNCTION.0 funcName.0.0 LPARENFUNC.0.0.0 nameList.0.0.1 RPARENFUNC.0.0.2 LBRACE.0.1 chunk.0.2 RBRACE.0.3
+	| FUNCTION.0 funcName.0.0 LPARENFUNC.0.0.0 RPARENFUNC.0.0.1 LBRACE.0.1 statList.0.2 RBRACE.0.3
+	| FUNCTION.0 funcName.0.0 LPARENFUNC.0.0.0 nameList.0.0.1 RPARENFUNC.0.0.2 LBRACE.0.1 statList.0.2 RBRACE.0.3
 	| FUNCTION.0 funcName.0.0 LPARENFUNC.0.0.0 nameList.0.0.1 RPARENFUNC.0.0.2 LBRACE.0.1 RBRACE.0.2
 	| FUNCTION.0 funcName.0.0 LPARENFUNC.0.0.0 RPARENFUNC.0.0.1 LBRACE.0.1 RBRACE.0.2
-	| FOR.0 nameList.0.0 IN.0.1 exprList.0.2 LBRACE.0.3 chunk.0.4 RBRACE.0.5
+	| FOR.0 nameList.0.0 IN.0.1 exprList.0.2 LBRACE.0.3 statList.0.4 RBRACE.0.5
 	| FOR.0 nameList.0.0 IN.0.1 exprList.0.2 LBRACE.0.3 RBRACE.0.4
 	| LET.0 nameList.0.0.0 COLON.0.0.1 typeExpr.0.0.1.0 EQ.0.0 exprList.0.0.2
 	| LET.0 nameList.0.0 COLON.0.1 typeExpr.0.1.0
@@ -153,15 +149,15 @@ retStat : RETURN.0 SEMI.0.0
 	| RETURN.0 exprList.0.0
 	;
 
-elseIfBlock : ELSEIF.0 expr.0.0 LBRACE.0.1 chunk.0.2 RBRACE.0.3
+elseIfBlock : ELSEIF.0 expr.0.0 LBRACE.0.1 statList.0.2 RBRACE.0.3
 	| ELSEIF.0 expr.0.0 LBRACE.0.1 RBRACE.0.2
 	| ELSEIF.0 expr.0.0 LBRACE.0.1 RBRACE.0.2 elseIfBlock.0.3
-	| ELSEIF.0 expr.0.0 LBRACE.0.1 chunk.0.2 RBRACE.0.3 elseIfBlock.0.4
+	| ELSEIF.0 expr.0.0 LBRACE.0.1 statList.0.2 RBRACE.0.3 elseIfBlock.0.4
 	| ELSE.0 LBRACE.0.0 RBRACE.0.1
-	| ELSE.0 LBRACE.0.0 chunk.0.1 RBRACE.0.2
+	| ELSE.0 LBRACE.0.0 statList.0.1 RBRACE.0.2
 	;
 
-exprThen : expr.0 LBRACE.1 chunk.2
+exprThen : expr.0 LBRACE.1 statList.2
 	| expr.0 LBRACE.1
 	;
 
