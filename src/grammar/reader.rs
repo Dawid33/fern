@@ -384,8 +384,8 @@ impl ReductionTree {
         }
     }
 
-    pub fn disambiguate<T>(&self, node: &Node<T>, g: &OpGrammar) -> Option<&Rule> {
-        let mut result: Option<&Rule> = None;
+    pub fn disambiguate<T>(&self, node: &Node<T>, g: &OpGrammar, expected: Option<Token>) -> Option<&Rule> {
+        let mut output: Vec<&Rule> = Vec::new();
         let mut iter = node.children.iter();
         let first = iter.next().unwrap();
 
@@ -452,16 +452,34 @@ impl ReductionTree {
                 match exiting_node {
                     ReductionNode::Rule(r) => {
                         debug!("Found : {:?}", r);
-                        result = Some(r);
-                        break;
+                        output.push(r);
                     }
                     _ => (),
                 }
             }
         }
-
-        if let Some(r) = result {
-            Some(r)
+        for r in &output {
+            info!("Could be {}", g.token_raw.get(&r.left).unwrap());
+        }
+        if output.len() > 1 {
+            let mut matched: Option<&Rule> = None;
+            if let Some(t) = expected {
+                info!("Expected from parent : {}", g.token_raw.get(&t).unwrap());
+                for r in &output {
+                    if r.left == t {
+                        info!("Matched Rule: {} with {}", g.token_raw.get(&t).unwrap(), g.token_raw.get(&r.left).unwrap());
+                        matched = Some(*r);
+                    } else {
+                        info!("Expected: {}, got {}", g.token_raw.get(&t).unwrap(), g.token_raw.get(&r.left).unwrap())
+                    }
+                }
+            }
+            if matched.is_none() {
+                matched = Some(output.remove(0));
+            }
+            matched
+        } else if output.len() == 1 {
+            Some(*output.get(0).unwrap())
         } else {
             None
         }

@@ -1,8 +1,2 @@
 
-let y = 0;
-
-if x > y {
-    while x {
-        let x = 0;
-    }
-}
+let x, y;

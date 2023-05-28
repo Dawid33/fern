@@ -10,7 +10,7 @@ use std::sync;
 use log::info;
 use crate::grammar::{OpGrammar, Token};
 use crate::lexer::fern::{FernData, FernTokens};
-use crate::parser::fern::Operator::{Add, Divide, GreaterThan, LessThan, Multiply};
+use crate::parser::fern::Operator::{Add, Divide, GreaterThan, LessThan, Multiply, Subtract};
 use simple_error::SimpleError;
 
 pub struct FernParseTree {
@@ -55,8 +55,8 @@ impl Debug for Operator{
         match self {
             Add => write!(f, "+"),
             Multiply => write!(f, "*"),
-            Operator::Divide => write!(f, "/"),
-            Operator::Subtract => write!(f, "-"),
+            Divide => write!(f, "/"),
+            Subtract => write!(f, "-"),
             GreaterThan => write!(f, ">"),
             LessThan => write!(f, "<"),
         }
@@ -160,85 +160,8 @@ fn reduce<T: Debug>(node: Node<T>, stack: &mut Vec<Vec<AstNode>>, tok: &FernToke
             let left = last.pop().unwrap();
             let right = last.pop().unwrap();
             (Some(AstNode::Binary(Box::from(left), Multiply, Box::from(right))), Some(last))
-        } else if tok.plus == node.symbol {
-            let left = last.pop().unwrap();
-            let right = last.pop().unwrap();
-            (Some(AstNode::Binary(Box::from(left), Add, Box::from(right))), Some(last))
-        } else if tok.divide == node.symbol {
-            let left = last.pop().unwrap();
-            let right = last.pop().unwrap();
-            (Some(AstNode::Binary(Box::from(left), Divide, Box::from(right))), Some(last))
-        } else if tok.gt == node.symbol {
-            let left = last.pop().unwrap();
-            let right = last.pop().unwrap();
-            (Some(AstNode::Binary(Box::from(left), GreaterThan, Box::from(right))), Some(last))
-        } else if tok.lt == node.symbol {
-            let left = last.pop().unwrap();
-            let right = last.pop().unwrap();
-            (Some(AstNode::Binary(Box::from(left), LessThan, Box::from(right))), Some(last))
-        } else if tok.return_t == node.symbol {
-            if let Some(expr) = last.pop() {
-                (Some(AstNode::Return(Some(Box::from(expr)))), Some(last))
-            } else {
-                (Some(AstNode::Return(None)), Some(last))
-            }
-        } else if tok.eq == node.symbol {
-            let left = last.pop().unwrap();
-            let right = last.pop().unwrap();
-            (Some(AstNode::Assign(Box::from(left), Box::from(right))), Some(last))
-        } else if tok.let_t == node.symbol {
-            let eq = last.pop().unwrap();
-            match eq {
-                AstNode::Assign(s, expr) => (Some(AstNode::Let(s, None, expr)), Some(last)),
-                _ => panic!("Invalid let statement. If you see this then you've probably found a lexer / parser bug."),
-            }
-        } else if tok.comma == node.symbol {
-            (Some(AstNode::NameList(last.clone())), Some(last))
-        } else if tok.if_t == node.symbol {
-            let expr = last.pop().unwrap();
-            let else_node = if let Some(first_of_last) = last.first() {
-                match first_of_last {
-                    AstNode::Else(_) | AstNode::ElseIf(_, _, _) => Some(Box::from(last.remove(0))),
-                    _ => None
-                }
-            } else {
-                None
-            };
-            (Some(AstNode::If(Box::from(expr), last.clone(), else_node)), Some(last))
-        } else if tok.elseif == node.symbol {
-            let expr = last.pop().unwrap();
-            let else_node = if let Some(first_of_last) = last.first() {
-                if let AstNode::Else(_) = first_of_last {
-                    Some(Box::from(last.remove(0)))
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
-            (Some(AstNode::ElseIf(Box::from(expr), last.clone(), else_node)), Some(last))
-        } else if tok.else_t == node.symbol {
-            (Some(AstNode::Else((last.clone()))), Some(last))
-        } else if tok.while_t == node.symbol {
-            let expr = last.pop().unwrap();
-            (Some(AstNode::While(Box::from(expr), last.clone())), Some(last))
-        } else if tok.for_t == node.symbol {
-            let expr = last.pop().unwrap();
-            let list = last.pop().unwrap();
-            (Some(AstNode::For(Box::from(expr),Box::from(list), last.clone())), Some(last))
-        } else if tok.fn_t == node.symbol {
-            let name = last.pop().unwrap();
-            let params = last.pop().unwrap();
-            (Some(AstNode::Function(Box::from(name), Some(Box::from(params)), last.clone())), Some(last))
-        } else if tok.semi == node.symbol {
-            return if let Some(parent) = stack.last_mut() {
-                for x in last {
-                    parent.push(x);
-                }
-                None
-            } else {
-                Some(AstNode::Module(last))
-            }
+        } else if node.symbol == tok.name_list {
+            (None, None)
         } else {
             (None, None)
         };

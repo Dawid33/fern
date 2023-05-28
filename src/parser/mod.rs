@@ -272,7 +272,6 @@ impl<T> ParallelParser<T>
                 let current = self.stack.remove((i + offset) as usize);
                 if self.open_nodes.contains_key(&current.id) {
                     let mut sub_tree = self.open_nodes.remove(&current.id).unwrap();
-                    // Self::expand(&mut sub_tree, &self.g);
                     children.push(sub_tree);
                 } else {
                     let leaf = Node::new(current.token, Some(current.data));
@@ -295,7 +294,7 @@ impl<T> ParallelParser<T>
         }
     }
 
-    fn expand(mut n: &mut Node<T>, g: &OpGrammar) {
+    fn expand(mut n: &mut Node<T>, g: &OpGrammar, expected: Option<Token>) {
         info!("Expanding: {}", g.token_raw.get(&n.symbol).unwrap());
         let term_list = g.new_non_terminal_reverse.get(&n.symbol);
         let term_list = if let Some(list) = term_list {
@@ -306,17 +305,17 @@ impl<T> ParallelParser<T>
         for possible_non_term in term_list.iter().rev() {
             info!("Trying : {}", g.token_raw.get(possible_non_term).unwrap());
             let tree = g.foobar.get(possible_non_term).unwrap();
-            if let Some(r) = tree.disambiguate(&n, g) {
+            if let Some(r) = tree.disambiguate(&n, g, expected) {
                 info!("Selected : {}", g.token_raw.get(possible_non_term).unwrap());
                 n.symbol = r.left;
+                for (i, next) in n.children.iter_mut().enumerate() {
+                    if g.non_terminals.contains(&next.symbol) {
+                        Self::expand(next, g, Some(*r.right.get(i).unwrap()));
+                    }
+                }
                 break;
             } else {
                 info!("Failed to disambiguate token.");
-            }
-        }
-        for next in &mut n.children {
-            if !g.terminals.contains(&next.symbol) {
-                Self::expand(next, g);
             }
         }
     }
@@ -353,7 +352,7 @@ impl<T> ParallelParser<T>
             let mut nodes: Vec<Node<T>> = self.open_nodes.into_iter().map(|(_, v)| v).collect();
             let mut root = nodes.remove(0);
             for child in &mut root.children {
-                Self::expand(child, &self.g);
+                Self::expand(child, &self.g, None);
             }
             return Ok(U::new(root, self.g));
         } else {
