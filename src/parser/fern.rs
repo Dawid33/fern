@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use crate::parser::{Node, ParseTree};
 use std::cmp::max;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::error::Error;
 use std::fmt::{Debug, Formatter};
 use std::io::Write;
@@ -10,7 +10,7 @@ use std::sync;
 use log::info;
 use crate::grammar::{OpGrammar, Token};
 use crate::lexer::fern::{FernData, FernTokens};
-use crate::parser::fern::Operator::{Add, Divide, GreaterThan, LessThan, Multiply, Subtract};
+use crate::parser::fern::Operator::{Add, Divide, Equal, GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Modulo, Multiply, NotEqual, Subtract};
 use simple_error::SimpleError;
 
 pub struct FernParseTree {
@@ -23,9 +23,14 @@ pub enum Operator {
     Add,
     Multiply,
     Divide,
+    Modulo,
     Subtract,
+    Equal,
+    NotEqual,
     GreaterThan,
+    GreaterThanOrEqual,
     LessThan,
+    LessThanOrEqual,
 }
 
 #[derive(Debug, Clone)]
@@ -38,17 +43,19 @@ pub enum AstNode {
     Number(i64),
     String(String),
     Name(String),
-    NameList(Vec<AstNode>),
+    ExprList(VecDeque<AstNode>),
     Assign(Box<AstNode>, Box<AstNode>),
     Let(Box<AstNode>, Option<TypeExpr>, Box<AstNode>),
     Return(Option<Box<AstNode>>),
-    Module(Vec<AstNode>),
-    Function(Box<AstNode>, Option<Box<AstNode>>, Vec<AstNode>),
-    If(Box<AstNode>, Vec<AstNode>, Option<Box<AstNode>>),
-    ElseIf(Box<AstNode>, Vec<AstNode>, Option<Box<AstNode>>),
-    Else(Vec<AstNode>),
-    For(Box<AstNode>, Box<AstNode>, Vec<AstNode>),
-    While(Box<AstNode>, Vec<AstNode>),
+    Module(Box<AstNode>),
+    StatList(VecDeque<AstNode>),
+    Function(Box<AstNode>, Option<Box<AstNode>>, Option<Box<AstNode>>),
+    If(Box<AstNode>, Option<Box<AstNode>>, Option<Box<AstNode>>),
+    ExprThen(Box<AstNode>, Option<Box<AstNode>>),
+    ElseIf(Box<AstNode>, Option<Box<AstNode>>, Option<Box<AstNode>>),
+    Else(Option<Box<AstNode>>),
+    For(Box<AstNode>, Box<AstNode>, Box<AstNode>),
+    While(Box<AstNode>, Box<AstNode>),
 }
 impl Debug for Operator{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -57,8 +64,13 @@ impl Debug for Operator{
             Multiply => write!(f, "*"),
             Divide => write!(f, "/"),
             Subtract => write!(f, "-"),
-            GreaterThan => write!(f, ">"),
-            LessThan => write!(f, "<"),
+            GreaterThan => write!(f, "gt"),
+            LessThan => write!(f, "lt"),
+            Modulo => write!(f, "%"),
+            Equal => write!(f, "=="),
+            NotEqual => write!(f, "!="),
+            GreaterThanOrEqual => write!(f, "gt="),
+            LessThanOrEqual => write!(f, "lt="),
         }
     }
 }
@@ -71,17 +83,19 @@ impl Debug for AstNode {
             AstNode::Number(n) => write!(f, "{}", n),
             AstNode::String(s) => { write!(f, "\"{}\"", s) }
             AstNode::Name(n) => write!(f, "{}", n),
-            AstNode::NameList(_) => write!(f, "Name List"),
+            AstNode::ExprList(_) => write!(f, "Expr List"),
             AstNode::Assign(_, _) => write!(f, "="),
             AstNode::Let(_, _, _) => write!(f, "Let"),
             AstNode::Module(_) => write!(f, "Module"),
-            AstNode::Function(name, _, _) => write!(f, "Function\n{:?}", name),
+            AstNode::Function(name, _, _) => write!(f, "Function<BR/>{:?}", name),
             AstNode::If(_, _, _) => write!(f, "If"),
+            AstNode::ExprThen(_, _) => write!(f, "Expr Then"),
             AstNode::ElseIf(_, _, _) => write!(f, "Else If"),
             AstNode::Else(_) => write!(f, "Else"),
             AstNode::For(_, _, _) => write!(f, "For"),
             AstNode::While(_, _) => write!(f, "While"),
             AstNode::Return(_) => write!(f, "Return"),
+            AstNode::StatList(_) => write!(f, "Statement List"),
         }
     }
 }
@@ -154,26 +168,244 @@ impl ParseTree<FernData> for FernParseTree {
 }
 
 
-fn reduce<T: Debug>(node: Node<T>, stack: &mut Vec<Vec<AstNode>>, tok: &FernTokens) -> Option<AstNode> {
+fn reduce<T: Debug>(node: Node<T>, stack: &mut Vec<VecDeque<AstNode>>, tok: &FernTokens, g: &OpGrammar) -> Option<AstNode> {
     if let Some(mut last) = stack.pop() {
-        let (reduced, last) = if tok.asterisk == node.symbol {
-            let left = last.pop().unwrap();
-            let right = last.pop().unwrap();
-            (Some(AstNode::Binary(Box::from(left), Multiply, Box::from(right))), Some(last))
-        } else if node.symbol == tok.name_list {
-            (None, None)
+        let (reduced, last) = if node.symbol == tok.base_exp {
+            (Some(last.pop_front().unwrap()), Some(last))
+        } else if node.symbol == tok.n_name {
+            (Some(last.pop_front().unwrap()), Some(last))
+        } else if node.symbol == tok.additive_exp {
+            let right = last.pop_front().unwrap();
+            let left = last.pop_front().unwrap();
+            let result = if let Some(op) = node.children.get(0) {
+                let result = if op.symbol == tok.plus {
+                    (Some(AstNode::Binary(Box::from(left), Add, Box::from(right))), Some(last))
+                } else if op.symbol == tok.minus {
+                    (Some(AstNode::Binary(Box::from(left), Subtract, Box::from(right))), Some(last))
+                } else {
+                    panic!("Badly formed additive node in parse tree.");
+                };
+                result
+            } else {
+                panic!("Badly formed additive node in parse tree.");
+            };
+            result
+        } else if node.symbol == tok.multiplicative_exp {
+            let right = last.pop_front().unwrap();
+            let left = last.pop_front().unwrap();
+            let result = if let Some(op) = node.children.get(0) {
+                let result = if op.symbol == tok.asterisk {
+                    (Some(AstNode::Binary(Box::from(left), Multiply, Box::from(right))), Some(last))
+                } else if op.symbol == tok.divide {
+                    (Some(AstNode::Binary(Box::from(left), Divide, Box::from(right))), Some(last))
+                } else if op.symbol == tok.percent {
+                    (Some(AstNode::Binary(Box::from(left), Modulo, Box::from(right))), Some(last))
+                } else {
+                    panic!("Badly formed multiplicative node in parse tree.");
+                };
+                result
+            } else {
+                panic!("Badly formed multiplicative node in parse tree.");
+            };
+            result
+        } else if node.symbol == tok.relational_exp {
+            let right = last.pop_front().unwrap();
+            let left = last.pop_front().unwrap();
+            let result = if let Some(op) = node.children.get(0) {
+                let result = if op.symbol == tok.lt {
+                    (Some(AstNode::Binary(Box::from(left), LessThan, Box::from(right))), Some(last))
+                } else if op.symbol == tok.gt {
+                    (Some(AstNode::Binary(Box::from(left), GreaterThan, Box::from(right))), Some(last))
+                } else if op.symbol == tok.lteq {
+                    (Some(AstNode::Binary(Box::from(left), LessThanOrEqual, Box::from(right))), Some(last))
+                } else if op.symbol == tok.gteq {
+                    (Some(AstNode::Binary(Box::from(left), GreaterThanOrEqual, Box::from(right))), Some(last))
+                } else if op.symbol == tok.neq {
+                    (Some(AstNode::Binary(Box::from(left), NotEqual, Box::from(right))), Some(last))
+                } else if op.symbol == tok.eq2 {
+                    (Some(AstNode::Binary(Box::from(left), Equal, Box::from(right))), Some(last))
+                } else {
+                    panic!("Badly formed multiplicative node in parse tree.");
+                };
+                result
+            } else {
+                panic!("Badly formed multiplicative node in parse tree.");
+            };
+            result
+        } else if node.symbol == tok.n_expr_then {
+            let expr = last.pop_back().unwrap();
+            let body = last.pop_back();
+            let result = if let Some(b) = body {
+                (Some(AstNode::ExprThen(Box::from(expr), Some(Box::from(b)))), None)
+            } else {
+                (Some(AstNode::ExprThen(Box::from(expr), None)), None)
+            };
+            result
+        } else if node.symbol == tok.n_else_if_block {
+            let result = if let Some(first) = node.children.first() {
+                let result = if first.symbol == tok.else_t {
+                    let result = if let Some(else_block) = last.pop_front() {
+                        (Some(AstNode::Else(Some(Box::from(else_block)))), None)
+                    } else {
+                        (Some(AstNode::Else(None)), None)
+                    };
+                    result
+                } else if first.symbol == tok.elseif {
+                    let expr = Box::from(last.pop_back().unwrap());
+                    let result = if let Some(first) = last.pop_back() {
+                        match first {
+                            AstNode::StatList(_) => {
+                                let result = if let Some(second) = last.pop_back() {
+                                    match second {
+                                        AstNode::ElseIf(_, _, _) | AstNode::Else(_) => {
+                                            (Some(AstNode::ElseIf(expr, Some(Box::from(first)), Some(Box::from(second)))), None)
+                                        },
+                                        _ => {
+                                            panic!("Badly formed else if / else statement.");
+                                        }
+                                    }
+                                } else {
+                                    (Some(AstNode::ElseIf(expr, Some(Box::from(first)), None)), None)
+                                };
+                                result
+                            }
+                            AstNode::ElseIf(_, _, _) => {
+                                (Some(AstNode::ElseIf(expr, None, Some(Box::from(first)))), None)
+                            }
+                            _ => {
+                                panic!("Badly formed else if / else statement.");
+                            }
+                        }
+                    } else {
+                        (Some(AstNode::ElseIf(expr, None, None)), None)
+                    };
+                    result
+                } else {
+                    panic!("Badly formed else if / else statement.");
+                };
+                result
+            } else {
+                panic!("Badly formed else if statement.");
+            };
+            result
+        } else if node.symbol == tok.n_ret_stat {
+            let exp = last.pop_front();
+            let result = if let Some(exp) = exp {
+                (Some(AstNode::Return(Some(Box::from(exp)))), None)
+            } else {
+                (Some(AstNode::Return(None)), None)
+            };
+            result
+        } else if node.symbol == tok.n_stat {
+            let result = if let Some(first) = node.children.first() {
+                let result = if first.symbol == tok.let_t {
+                    let exp = last.pop_front().unwrap();
+                    let name = last.pop_front().unwrap();
+                    (Some(AstNode::Let(Box::from(name), None, Box::from(exp))), None)
+                } else if first.symbol == tok.if_t {
+                    let exprThen = last.pop_back().unwrap();
+                    let result = if let AstNode::ExprThen(expr, body) = exprThen {
+                        let result = if let Some(else_if_block) = last.pop_front() {
+                            (Some(AstNode::If(expr, body, Some(Box::from(else_if_block)))), None)
+                        } else {
+                            (Some(AstNode::If(expr, body, None)), None)
+                        };
+                        result
+                    } else {
+                        panic!("Badly formed if statement.");
+                    };
+                    result
+                } else if first.symbol == tok.fn_t {
+                    let name = Box::from(last.pop_back().unwrap());
+                    let result = if let Some(first) = last.pop_back() {
+                        match first {
+                            AstNode::ExprList(_) | AstNode::Name(_) => {
+                                let result = if let Some(second) = last.pop_back() {
+                                    match second {
+                                        AstNode::If(_, _, _) |
+                                        AstNode::Let(_, _, _) |
+                                        AstNode::StatList(_) => {
+                                            (Some(AstNode::Function(name, Some(Box::from(first)), Some(Box::from(second)))), None)
+                                        },
+                                        _ => {
+                                            panic!("Badly formed function definition.");
+                                        }
+                                    }
+                                } else {
+                                    (Some(AstNode::Function(name, Some(Box::from(first)), None)), None)
+                                };
+                                result
+                            }
+                            AstNode::If(_, _, _) |
+                            AstNode::Let(_, _, _) |
+                            AstNode::StatList(_) => {
+                                (Some(AstNode::Function(name, None, Some(Box::from(first)))), None)
+                            }
+                            _ => {
+                                panic!("Badly formed function definition.");
+                            }
+                        }
+                    } else {
+                        (Some(AstNode::Function(name, None, None)), None)
+                    };
+                    result
+                } else if let Some(first) = last.pop_back() {
+                    let result = match first {
+                        AstNode::Name(_) => {
+                            let expr = last.pop_front().unwrap();
+                            (Some(AstNode::Assign(Box::from(first), Box::from(expr))), None)
+                        },
+                        AstNode::Return(_) => {
+                            (Some(first), None)
+                        },
+                        _ => (None, None)
+                    };
+                    result
+                } else {
+                    panic!("Either a missing statement parse in ast gen or a bug. Actually its a bug either way.");
+                };
+                result
+            } else {
+                panic!("Either a missing statement parse in ast gen or a bug. Actually its a bug either way.");
+            };
+
+            result
+        } else if node.symbol == tok.expr_list {
+            let mut list = VecDeque::new();
+            for x in last {
+                if let AstNode::StatList(child_list) = x {
+                    for x in child_list.into_iter().rev() {
+                        list.push_front(x);
+                    }
+                } else {
+                    list.push_front(x);
+                }
+            }
+            (Some(AstNode::ExprList(list)), None)
+        } else if node.symbol == tok.n_stat_list {
+            let mut list = VecDeque::new();
+            for x in last {
+                if let AstNode::StatList(child_list) = x {
+                    for x in child_list.into_iter().rev() {
+                        list.push_front(x);
+                    }
+                } else {
+                    list.push_front(x);
+                }
+            }
+            (Some(AstNode::StatList(list)), None)
         } else {
             (None, None)
         };
 
         if let Some(parent) = stack.last_mut() {
             if let Some(reduced) = reduced {
-                parent.push(reduced);
+                parent.push_back(reduced);
             }
         } else if let Some(reduced) = reduced {
-            return Some(AstNode::Module(vec![reduced]));
+            return Some(AstNode::StatList(VecDeque::from([reduced])));
         } else if let Some(last) = last {
-            return Some(AstNode::Module(last));
+            return Some(AstNode::StatList(last));
         } else {
             panic!("Cannot reduce, fix buggo.")
         }
@@ -187,7 +419,7 @@ impl FernParseTree {
     pub fn build_ast(self) -> Result<AstNode, SimpleError> {
         let tok = FernTokens::new(&self.g.token_reverse);
 
-        let mut stack: Vec<Vec<AstNode>> = Vec::new();
+        let mut stack: Vec<VecDeque<AstNode>> = Vec::new();
         let mut b = String::new();
         b.push_str(format!("{}", self.g.token_raw.get(&self.root.symbol).unwrap()).as_str());
         info!("{}", b);
@@ -213,7 +445,7 @@ impl FernParseTree {
                     // Go deeper or process current node.
                     if !current.children.get(current_child as usize).unwrap().children.is_empty() {
                         // Push onto stack
-                        stack.push(vec![]);
+                        stack.push(VecDeque::new());
 
                         let child = current.children.remove(current_child as usize);
                         current_child -= 1;
@@ -231,16 +463,16 @@ impl FernParseTree {
                                 match data {
                                     FernData::Number(n) => {
                                         if child.symbol == tok.number {
-                                            last.push(AstNode::Number(n));
+                                            last.push_back(AstNode::Number(n));
                                         } else  {
                                             wrong_data();
                                         }
                                     }
                                     FernData::String(s) => {
                                         if child.symbol == tok.name {
-                                            last.push(AstNode::Name(s));
+                                            last.push_back(AstNode::Name(s));
                                         } else if child.symbol == tok.string {
-                                            last.push(AstNode::String(s));
+                                            last.push_back(AstNode::String(s));
                                         } else {
                                             wrong_data();
                                         }
@@ -252,14 +484,14 @@ impl FernParseTree {
                     }
                     current_child -= 1;
                     if current_child < min_child {
-                        if let Some(root) = reduce(current, &mut stack, &tok) {
+                        if let Some(root) = reduce(current, &mut stack, &tok, &self.g) {
                             return Ok(root);
                         }
                         break;
                     }
                 }
             } else {
-                if let Some(root) = reduce(current, &mut stack, &tok) {
+                if let Some(root) = reduce(current, &mut stack, &tok, &self.g) {
                     return Ok(root);
                 }
             }
@@ -279,7 +511,7 @@ impl<'a> dot::Labeller<'a, Nd, Ed> for Graph {
     }
     fn node_label(&self, n: &Nd) -> dot::LabelText {
         let &(i, _) = n;
-        dot::LabelText::LabelStr(self.nodes[i].clone().into())
+        dot::LabelText::HtmlStr(self.nodes[i].clone().into())
     }
     fn edge_label(&self, _: &Ed) -> dot::LabelText {
         dot::LabelText::LabelStr("".into())
@@ -328,8 +560,8 @@ pub fn render<W: Write>(ast: AstNode, output: &mut W) {
             AstNode::Number(_) => {}
             AstNode::String(_) => {}
             AstNode::Name(_) => {}
-            AstNode::NameList(name_list) => {
-                for x in name_list {
+            AstNode::ExprList(expr_list) => {
+                for x in expr_list {
                     push_node(id, format!("{:?}", x), Box::from(x));
                 }
             }
@@ -342,22 +574,20 @@ pub fn render<W: Write>(ast: AstNode, output: &mut W) {
                 push_node(id, format!("{:?}", expr), expr);
             }
             AstNode::Module(stmts) => {
-                for x in stmts {
-                    push_node(id, format!("{:?}", x), Box::from(x));
-                }
+                push_node(id, format!("{:?}", stmts), stmts);
             }
             AstNode::Function(_, param, stmts) => {
                 if let Some(p) = param {
                     push_node(id, format!("{:?}", p), p);
                 }
-                for x in stmts {
-                    push_node(id, format!("{:?}", x), Box::from(x));
+                if let Some(stmts) = stmts {
+                    push_node(id, format!("{:?}", stmts), stmts);
                 }
             }
             AstNode::If(expr, stmts, else_or_elseif) => {
-                push_node(id, format!("Condition\n{:?}", expr), expr);
-                for x in stmts {
-                    push_node(id, format!("{:?}", x), Box::from(x));
+                push_node(id, format!("<B>Condition</B><BR/>{:?}", expr), expr);
+                if let Some(stmts) = stmts {
+                    push_node(id, format!("<B>If Body</B><BR/>{:?}", stmts), stmts);
                 }
                 if let Some(e) = else_or_elseif {
                     push_node(id, format!("{:?}", e), e);
@@ -366,15 +596,11 @@ pub fn render<W: Write>(ast: AstNode, output: &mut W) {
             AstNode::For(var, expr, stmts) => {
                 push_node(id, format!("Variable\n{:?}", var), var);
                 push_node(id, format!("List\n{:?}", expr), expr);
-                for x in stmts {
-                    push_node(id, format!("{:?}", x), Box::from(x));
-                }
+                push_node(id, format!("{:?}", stmts), stmts);
             }
             AstNode::While(expr, stmts) => {
                 push_node(id, format!("Condition\n{:?}", expr), expr);
-                for x in stmts {
-                    push_node(id, format!("{:?}", x), Box::from(x));
-                }
+                push_node(id, format!("{:?}", stmts), stmts);
             },
             AstNode::Return(expr) => {
                 if let Some(expr) = expr {
@@ -382,17 +608,28 @@ pub fn render<W: Write>(ast: AstNode, output: &mut W) {
                 }
             }
             AstNode::ElseIf(expr, stmts, else_or_elseif) => {
-                push_node(id, format!("Condition\n{:?}", expr), expr);
-                for x in stmts {
-                    push_node(id, format!("{:?}", x), Box::from(x));
+                push_node(id, format!("<B>Condition</B><BR/>{:?}", expr), expr);
+                if let Some(stmts) = stmts {
+                    push_node(id, format!("<B>Else If Body</B><BR/>{:?}", stmts), stmts);
                 }
                 if let Some(e) = else_or_elseif {
                     push_node(id, format!("{:?}", e), e);
                 }
             }
             AstNode::Else(stmts) => {
+                if let Some(stmts) = stmts {
+                    push_node(id, format!("{:?}", stmts), stmts);
+                }
+            }
+            AstNode::StatList(stmts) => {
                 for x in stmts {
                     push_node(id, format!("{:?}", x), Box::from(x));
+                }
+            }
+            AstNode::ExprThen(expr, stmt) => {
+                push_node(id, format!("Condition\n{:?}", expr), expr);
+                if let Some(e) = stmt {
+                    push_node(id, format!("{:?}", e), e);
                 }
             }
         }

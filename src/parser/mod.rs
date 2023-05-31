@@ -30,7 +30,7 @@ pub trait ParseTree<T> {
 #[derive(Clone)]
 pub struct Node<T> {
     pub symbol: Token,
-    data: Option<T>,
+    pub data: Option<T>,
     pub children: Vec<Node<T>>,
 }
 
@@ -294,7 +294,7 @@ impl<T> ParallelParser<T>
         }
     }
 
-    fn expand(mut n: &mut Node<T>, g: &OpGrammar, expected: Option<Token>) {
+    fn expand(mut n: &mut Node<T>, g: &OpGrammar) {
         info!("Expanding: {}", g.token_raw.get(&n.symbol).unwrap());
         let term_list = g.new_non_terminal_reverse.get(&n.symbol);
         let term_list = if let Some(list) = term_list {
@@ -302,20 +302,10 @@ impl<T> ParallelParser<T>
         } else {
             Vec::from([n.symbol])
         };
-        for possible_non_term in term_list.iter().rev() {
-            info!("Trying : {}", g.token_raw.get(possible_non_term).unwrap());
-            let tree = g.foobar.get(possible_non_term).unwrap();
-            if let Some(r) = tree.disambiguate(&n, g, expected) {
-                info!("Selected : {}", g.token_raw.get(possible_non_term).unwrap());
-                n.symbol = r.left;
-                for (i, next) in n.children.iter_mut().enumerate() {
-                    if g.non_terminals.contains(&next.symbol) {
-                        Self::expand(next, g, Some(*r.right.get(i).unwrap()));
-                    }
-                }
-                break;
-            } else {
-                info!("Failed to disambiguate token.");
+        n.symbol = *term_list.last().unwrap();
+        for (i, next) in n.children.iter_mut().enumerate() {
+            if g.non_terminals.contains(&next.symbol) {
+                Self::expand(next, g);
             }
         }
     }
@@ -352,7 +342,7 @@ impl<T> ParallelParser<T>
             let mut nodes: Vec<Node<T>> = self.open_nodes.into_iter().map(|(_, v)| v).collect();
             let mut root = nodes.remove(0);
             for child in &mut root.children {
-                Self::expand(child, &self.g, None);
+                Self::expand(child, &self.g);
             }
             return Ok(U::new(root, self.g));
         } else {

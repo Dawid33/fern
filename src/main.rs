@@ -117,10 +117,10 @@ fn rust() -> Result<(), Box<dyn Error>> {
 
     now = Instant::now();
 
-    // let ast: AstNode = tree.build_ast().unwrap();
-    // use std::fs::File;
-    // let mut f = File::create("ast.dot").unwrap();
-    // render(ast, &mut f);
+    let ast: AstNode = tree.build_ast().unwrap();
+    use std::fs::File;
+    let mut f = File::create("ast.dot").unwrap();
+    render(ast, &mut f);
 
     info!(
         "Total Time to transform ParseTree -> AST Conversion: {:?}",

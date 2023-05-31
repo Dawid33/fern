@@ -83,7 +83,7 @@
 %terminal GT
 %terminal LTEQ
 %terminal GTEQ
-%terminal EQ2
+%terminal EQDOUBLE
 %terminal NEQ
 %terminal AND
 %terminal OR
@@ -109,7 +109,7 @@ statList : stat
 	| statList SEMI
 	;
 
-stat :  varList EQ exprList
+stat :  baseExp EQ expr
 	| functionCall
 	| retStat
 	| LBRACE statList RBRACE
@@ -121,31 +121,29 @@ stat :  varList EQ exprList
 	| IF exprThen RBRACE elseIfBlock
 	| STRUCT name LBRACE RBRACE
 	| STRUCT name LBRACE fieldList RBRACE
-	| FUNCTION funcName LPARENFUNC RPARENFUNC LBRACE statList RBRACE
-	| FUNCTION funcName LPARENFUNC nameList RPARENFUNC LBRACE statList RBRACE
-	| FUNCTION funcName LPARENFUNC nameList RPARENFUNC LBRACE RBRACE
-	| FUNCTION funcName LPARENFUNC RPARENFUNC LBRACE RBRACE
+	| FUNCTION baseExp LPARENFUNC RPARENFUNC LBRACE statList RBRACE
+	| FUNCTION baseExp LPARENFUNC exprList RPARENFUNC LBRACE statList RBRACE
+	| FUNCTION baseExp LPARENFUNC exprList RPARENFUNC LBRACE RBRACE
+	| FUNCTION baseExp LPARENFUNC baseExp RPARENFUNC LBRACE statList RBRACE
+	| FUNCTION baseExp LPARENFUNC baseExp RPARENFUNC LBRACE RBRACE
+	| FUNCTION baseExp LPARENFUNC RPARENFUNC LBRACE RBRACE
 	| FOR nameList IN exprList LBRACE statList RBRACE
 	| FOR nameList IN exprList LBRACE RBRACE
-	| LET nameList COLON typeExpr EQ exprList
-	| LET nameList COLON typeExpr
-	| LET nameList EQ exprList
-	| LET nameList
+	| LET baseExp EQ expr
+	| LET baseExp
 	;
 
 functionCall : prefixExp LPAREN exprList RPAREN
+	| prefixExp LPAREN expr RPAREN
 	| prefixExp LPAREN RPAREN
 	;
 
-typeExpr : name
-    | ASTERISK name
-    | QUESTIONMARK
-    ;
-
 retStat : RETURN SEMI
 	| RETURN exprList SEMI
+	| RETURN expr SEMI
 	| RETURN
 	| RETURN exprList
+	| RETURN expr
 	;
 
 elseIfBlock : ELSEIF expr LBRACE statList RBRACE
@@ -160,14 +158,7 @@ exprThen : expr LBRACE statList
 	| expr LBRACE
 	;
 
-name : NAME
-	;
-
-nameList : NAME
-	| nameList COMMA name
-	;
-
-exprList	: expr
+exprList : expr COMMA expr
 	| exprList COMMA expr
 	;
 
@@ -188,7 +179,7 @@ relationalExp : concatExp
 	| relationalExp LTEQ concatExp
 	| relationalExp GTEQ concatExp
 	| relationalExp NEQ concatExp
-	| relationalExp EQ2 concatExp
+	| relationalExp EQDOUBLE concatExp
 	;
 
 concatExp : additiveExp
@@ -221,6 +212,7 @@ baseExp : NIL
 	| TRUE
 	| NUMBER
 	| STRING
+	| NAME
 	| functionDef
 	| prefixExp
 	;
@@ -238,25 +230,20 @@ fieldListBody : field
 	| fieldListBody COMMA field
 	;
 
-field : name COLON typeExpr
+field : baseExp COLON typeExpr
 	;
 
-var : NAME
-	| prefixExp DOT NAME
+var : prefixExp DOT baseExp
 	;
 
-varList : var
+varList : var COMMA var
 	| varList COMMA var
 	;
 
 funcName : nameDotList
-	| nameDotList COLON name
+	| nameDotList COLON baseExp
 	;
 
-nameDotList : NAME
-	| nameDotList DOT NAME
-	;
-
-nameList : NAME
-	| nameList COMMA name
+nameDotList : baseExp DOT baseExp
+	| nameDotList DOT baseExp
 	;

@@ -1,2 +1,9 @@
 
-let x, y;
+
+fn max(a, b) {
+    if a > b {
+        return a;
+    } else {
+        return b;
+    }
+}

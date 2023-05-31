@@ -51,7 +51,7 @@ impl RawGrammar {
         );
         }
 
-        debug!("Direct ambiguities :");
+        info!("Direct ambiguities :");
         for (rhs, lhs)in &dict_rules {
             if lhs.len() > 1 {
                 let mut b = String::new();
@@ -62,7 +62,7 @@ impl RawGrammar {
                 for t in lhs {
                     b.push_str(format!("{} ", self.token_raw.get(&t).unwrap()).as_str());
                 }
-                debug!("{})", b);
+                info!("{})", b);
             }
         }
 
