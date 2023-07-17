@@ -28,6 +28,7 @@ use flexi_logger::Logger;
 use tungstenite::protocol::frame::coding::Data;
 use crate::parser::fern::{AstNode, render};
 use crate::parser::json::JsonParseTree;
+use crate::cfg::ControlFlowGraph;
 
 
 fn json() -> Result<(), Box<dyn Error>> {
@@ -64,7 +65,7 @@ fn json() -> Result<(), Box<dyn Error>> {
         (parser.collect_parse_tree().unwrap(), time)
     };
 
-    // tree.print();
+    tree.print();
     info!("Total Time to parse: {:?}", now.elapsed());
     info!("└─Total Time spent rule-searching: {:?}", time);
 
@@ -114,16 +115,22 @@ fn rust() -> Result<(), Box<dyn Error>> {
     tree.print();
     info!("Total Time to parse: {:?}", now.elapsed());
     info!("└─Total Time spent rule-searching: {:?}", time);
-
     now = Instant::now();
 
-    let ast: AstNode = tree.build_ast().unwrap();
+    let ast: Box<AstNode> = Box::from(tree.build_ast().unwrap());
     use std::fs::File;
     let mut f = File::create("ast.dot").unwrap();
-    render(ast, &mut f);
+    render(ast.clone(), &mut f);
 
     info!(
-        "Total Time to transform ParseTree -> AST Conversion: {:?}",
+        "Total Time to transform ParseTree -> AST: {:?}",
+        now.elapsed()
+    );
+    now = Instant::now();
+
+    let graph = ControlFlowGraph::from(ast);
+    info!(
+        "Total Time to transform AST -> Control Flow Graph: {:?}",
         now.elapsed()
     );
     Ok(())

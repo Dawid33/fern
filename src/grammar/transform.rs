@@ -111,28 +111,28 @@ impl RawGrammar {
             }
         }
 
-        let mut f = File::create("copy.txt").unwrap();
-        for (key, val) in &copy {
-            let mut builder = String::new();
-            builder.push_str(format!("{} = [", self.token_raw.get(&key).unwrap()).as_str());
-
-            let mut sorted = Vec::new();
-            for x in val.iter() {
-                sorted.push(self.token_raw.get(x).unwrap());
-            }
-            sorted.sort();
-
-            let mut val_iter = sorted.iter();
-            if val_iter.len() > 0 {
-                builder.push_str(format!("\'{}\'", val_iter.next().unwrap()).as_str());
-            }
-            while let Some(t) = val_iter.next() {
-                builder.push_str(", ");
-                builder.push_str(format!("\'{}\'", t).as_str());
-            }
-            builder.push_str("]\n");
-            f.write(builder.as_bytes()).unwrap();
-        }
+        // let mut f = File::create("copy.txt").unwrap();
+        // for (key, val) in &copy {
+        //     let mut builder = String::new();
+        //     builder.push_str(format!("{} = [", self.token_raw.get(&key).unwrap()).as_str());
+        //
+        //     let mut sorted = Vec::new();
+        //     for x in val.iter() {
+        //         sorted.push(self.token_raw.get(x).unwrap());
+        //     }
+        //     sorted.sort();
+        //
+        //     let mut val_iter = sorted.iter();
+        //     if val_iter.len() > 0 {
+        //         builder.push_str(format!("\'{}\'", val_iter.next().unwrap()).as_str());
+        //     }
+        //     while let Some(t) = val_iter.next() {
+        //         builder.push_str(", ");
+        //         builder.push_str(format!("\'{}\'", t).as_str());
+        //     }
+        //     builder.push_str("]\n");
+        //     f.write(builder.as_bytes()).unwrap();
+        // }
 
         for n in &self.non_terminals {
             for copy_rhs in copy.get(n).unwrap() {
@@ -176,22 +176,22 @@ impl RawGrammar {
         }
         let dict_rules = copied_dict;
 
-       let mut f = File::create("V.txt").unwrap();
-        for val in &v {
-            let mut builder = String::new();
-            builder.push_str("[");
-
-            let mut val_iter = val.iter();
-            if let Some(t) = val_iter.next() {
-                builder.push_str(format!("\'{}\'", self.token_raw.get(t).unwrap()).as_str());
-            }
-            while let Some(t) = val_iter.next() {
-                builder.push_str(", ");
-                builder.push_str(format!("\'{}\'", self.token_raw.get(t).unwrap()).as_str());
-            }
-            builder.push_str("]\n");
-            f.write(builder.as_bytes());
-        }
+       // let mut f = File::create("V.txt").unwrap();
+       //  for val in &v {
+       //      let mut builder = String::new();
+       //      builder.push_str("[");
+       //
+       //      let mut val_iter = val.iter();
+       //      if let Some(t) = val_iter.next() {
+       //          builder.push_str(format!("\'{}\'", self.token_raw.get(t).unwrap()).as_str());
+       //      }
+       //      while let Some(t) = val_iter.next() {
+       //          builder.push_str(", ");
+       //          builder.push_str(format!("\'{}\'", self.token_raw.get(t).unwrap()).as_str());
+       //      }
+       //      builder.push_str("]\n");
+       //      f.write(builder.as_bytes());
+       //  }
         let mut non_terms_chunked : HashMap<BTreeSet<Token>, Vec<BTreeSet<Token>>> = HashMap::new();
         // for x in &v {
         //     non_terms_chunked.insert(x.clone(), vec![x.clone()]);
@@ -295,45 +295,45 @@ impl RawGrammar {
             }
         }
 
-        let mut f = File::create("non_terms_chunked.txt").unwrap();
-        for (key, val) in &non_terms_chunked {
-            let mut builder = String::new();
-            builder.push_str("[");
-            let mut key_iter = key.iter();
-            if let Some(t) = key_iter.next() {
-                builder.push_str(format!("\'{}\'", self.token_raw.get(t).unwrap()).as_str());
-            }
-            while let Some(t) = key_iter.next() {
-                builder.push_str(", ");
-                builder.push_str(format!("\'{}\'", self.token_raw.get(t).unwrap()).as_str());
-            }
-            builder.push_str("] = [");
-            if !val.is_empty() {
-                let mut val_iter = val.get(0).unwrap().iter();
-                if let Some(t) = val_iter.next() {
-                    builder.push_str(format!("\'{}\'", self.token_raw.get(t).unwrap()).as_str());
-                }
-                while let Some(t) = val_iter.next() {
-                    builder.push_str(", ");
-                    builder.push_str(format!("\'{}\'", self.token_raw.get(t).unwrap()).as_str());
-                }
-                if val.len() > 1 {
-                    for k in &val[1..val.len()] {
-                        builder.push_str("], [");
-                        let mut val_iter = val.get(0).unwrap().iter();
-                        if let Some(t) = val_iter.next() {
-                            builder.push_str(format!("\'{}\'", self.token_raw.get(t).unwrap()).as_str());
-                        }
-                        while let Some(t) = val_iter.next() {
-                            builder.push_str(", ");
-                            builder.push_str(format!("\'{}\'", self.token_raw.get(t).unwrap()).as_str());
-                        }
-                    }
-                }
-            }
-            builder.push_str("]\n");
-            f.write(builder.as_bytes());
-        }
+        // let mut f = File::create("non_terms_chunked.txt").unwrap();
+        // for (key, val) in &non_terms_chunked {
+        //     let mut builder = String::new();
+        //     builder.push_str("[");
+        //     let mut key_iter = key.iter();
+        //     if let Some(t) = key_iter.next() {
+        //         builder.push_str(format!("\'{}\'", self.token_raw.get(t).unwrap()).as_str());
+        //     }
+        //     while let Some(t) = key_iter.next() {
+        //         builder.push_str(", ");
+        //         builder.push_str(format!("\'{}\'", self.token_raw.get(t).unwrap()).as_str());
+        //     }
+        //     builder.push_str("] = [");
+        //     if !val.is_empty() {
+        //         let mut val_iter = val.get(0).unwrap().iter();
+        //         if let Some(t) = val_iter.next() {
+        //             builder.push_str(format!("\'{}\'", self.token_raw.get(t).unwrap()).as_str());
+        //         }
+        //         while let Some(t) = val_iter.next() {
+        //             builder.push_str(", ");
+        //             builder.push_str(format!("\'{}\'", self.token_raw.get(t).unwrap()).as_str());
+        //         }
+        //         if val.len() > 1 {
+        //             for k in &val[1..val.len()] {
+        //                 builder.push_str("], [");
+        //                 let mut val_iter = val.get(0).unwrap().iter();
+        //                 if let Some(t) = val_iter.next() {
+        //                     builder.push_str(format!("\'{}\'", self.token_raw.get(t).unwrap()).as_str());
+        //                 }
+        //                 while let Some(t) = val_iter.next() {
+        //                     builder.push_str(", ");
+        //                     builder.push_str(format!("\'{}\'", self.token_raw.get(t).unwrap()).as_str());
+        //                 }
+        //             }
+        //         }
+        //     }
+        //     builder.push_str("]\n");
+        //     f.write(builder.as_bytes());
+        // }
 
         self.rules.clear();
         self.non_terminals.clear();

@@ -533,12 +533,12 @@ impl<'a> dot::GraphWalk<'a, Nd, Ed> for Graph {
     fn target(&self, e: &Ed) -> Nd { e.1.clone() }
 }
 
-pub fn render<W: Write>(ast: AstNode, output: &mut W) {
+pub fn render<W: Write>(ast: Box<AstNode>, output: &mut W) {
     let mut nodes: Vec<String> = Vec::new();
     let mut edges = Vec::new();
 
     nodes.push("Module".to_string());
-    let mut stack: Vec<(Box<AstNode>, usize)> = vec!((Box::from(ast), 0));
+    let mut stack: Vec<(Box<AstNode>, usize)> = vec!((ast, 0));
 
 
     while let Some((current, id)) = stack.pop() {
@@ -578,7 +578,7 @@ pub fn render<W: Write>(ast: AstNode, output: &mut W) {
             }
             AstNode::Function(_, param, stmts) => {
                 if let Some(p) = param {
-                    push_node(id, format!("{:?}", p), p);
+                    push_node(id, format!("Parameters: {:?}", p), p);
                 }
                 if let Some(stmts) = stmts {
                     push_node(id, format!("{:?}", stmts), stmts);

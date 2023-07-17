@@ -15,6 +15,7 @@ pub mod parser;
 pub mod server;
 pub mod slab;
 pub mod analysis;
+pub mod cfg;
 
 pub use grammar::*;
 pub use lexer::*;
