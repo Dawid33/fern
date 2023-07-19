@@ -22,7 +22,7 @@ use crate::lua::LuaData::NoData;
 
 #[allow(unused)]
 pub trait ParseTree<T> {
-    fn new(root: Node<T>, g: OpGrammar) -> Self;
+    fn new(root: Node<T>, g: OpGrammar, ) -> Self;
     fn print(&self);
 }
 
@@ -76,6 +76,8 @@ where T: Clone {
     should_reconsume: bool,
     highest_id: u64,
     iteration: u64,
+    terminals_set: bittyset::BitSet<Token>,
+    non_terminals_set: bittyset::BitSet<Token>,
     pub time_spent_rule_searching: Duration,
 }
 
@@ -84,6 +86,12 @@ impl<T> ParallelParser<T>
 {
     pub fn new(grammar: OpGrammar, threads: usize) -> Self {
         let _ = threads;
+        let mut terminals_set = bittyset::BitSet::<Token>::new();
+        grammar.terminals.iter().for_each(|x| { terminals_set.insert(*x as usize); });
+
+        let mut non_terminals_set = bittyset::BitSet::<Token>::new();
+        grammar.non_terminals.iter().for_each(|x| { non_terminals_set.insert(*x as usize); });
+
         let parser = Self {
             stack: Vec::new(),
             g: grammar,
@@ -91,6 +99,8 @@ impl<T> ParallelParser<T>
             open_nodes: HashMap::new(),
             highest_id: 0,
             iteration: 0,
+            terminals_set,
+            non_terminals_set,
             time_spent_rule_searching: Duration::new(0, 0),
         };
 
@@ -130,7 +140,7 @@ impl<T> ParallelParser<T>
 
             let mut y: Option<TokenGrammarTuple<T>> = None;
             for element in &self.stack {
-                if self.g.terminals.contains(&element.token) {
+                if self.terminals_set.contains(element.token as usize) {
                     y = Some(element.clone());
                 }
             }
@@ -187,7 +197,7 @@ impl<T> ParallelParser<T>
                 return Ok(());
             }
 
-            if self.g.non_terminals.contains(&token) {
+            if self.non_terminals_set.contains(token as usize) {
                 let t = TokenGrammarTuple::new(token, Associativity::Undefined, self.gen_id(), data);
                 self.stack.push(t);
                 debug!("{}, Append", self.iteration);
@@ -210,9 +220,9 @@ impl<T> ParallelParser<T>
                 } else if i - 1 >= 0 {
                     let xi_minus_one = self.stack.get((i - 1) as usize).unwrap();
 
-                    if self.g.terminals.contains(&xi_minus_one.token) {
+                    if self.terminals_set.contains(xi_minus_one.token as usize) {
                         self.process_terminal(i);
-                    } else if self.g.non_terminals.contains(&xi_minus_one.token) {
+                    } else if self.non_terminals_set.contains(xi_minus_one.token as usize) {
                         self.process_non_terminal(i);
                     } else {
                         panic!("Should be able to reduce but cannot. Probably a parser bug.");
@@ -294,9 +304,9 @@ impl<T> ParallelParser<T>
         }
     }
 
-    fn expand(mut n: &mut Node<T>, g: &OpGrammar) {
-        info!("Expanding: {}", g.token_raw.get(&n.symbol).unwrap());
-        let term_list = g.new_non_terminal_reverse.get(&n.symbol);
+    fn expand(mut n: &mut Node<T>, p: &ParallelParser<T>) {
+        info!("Expanding: {}", p.g.token_raw.get(&n.symbol).unwrap());
+        let term_list = p.g.new_non_terminal_reverse.get(&n.symbol);
         let term_list = if let Some(list) = term_list {
             list.iter().map(|x|{*x}).collect()
         } else {
@@ -304,8 +314,8 @@ impl<T> ParallelParser<T>
         };
         n.symbol = *term_list.last().unwrap();
         for (i, next) in n.children.iter_mut().enumerate() {
-            if g.non_terminals.contains(&next.symbol) {
-                Self::expand(next, g);
+            if p.non_terminals_set.contains(next.symbol as usize) {
+                Self::expand(next, p);
             }
         }
     }
@@ -339,10 +349,10 @@ impl<T> ParallelParser<T>
         self.print_stack();
 
         if self.open_nodes.len() == 1 {
-            let mut nodes: Vec<Node<T>> = self.open_nodes.into_iter().map(|(_, v)| v).collect();
+            let mut nodes: Vec<Node<T>> = self.open_nodes.clone().into_iter().map(|(_, v)| v).collect();
             let mut root = nodes.remove(0);
             for child in &mut root.children {
-                Self::expand(child, &self.g);
+                Self::expand(child, &self);
             }
             return Ok(U::new(root, self.g));
         } else {

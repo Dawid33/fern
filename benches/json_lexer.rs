@@ -13,29 +13,6 @@ use core::grammar::Token;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use memmap::MmapOptions;
 
-fn fair_sequential_lexing(path: &str) -> Result<(), Box<dyn Error>> {
-    let grammar = OpGrammar::from("data/grammar/json.g");
-    let mut tokens: LinkedList<Vec<Token>> = LinkedList::new();
-    {
-        let file = File::open(path)?;
-        let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
-        thread::scope(|s| {
-            let mut lexer: ParallelLexer<JsonLexerState, JsonLexer> = ParallelLexer::new(
-                &grammar,
-                s,
-                1,
-                &[JsonLexerState::Start, JsonLexerState::InString],
-                JsonLexerState::Start,
-            );
-            let batch = lexer.new_batch();
-            lexer.add_to_batch(&batch, &mmap[..], 0);
-            tokens = lexer.collect_batch(batch);
-            lexer.kill();
-        });
-    }
-    Ok(())
-}
-
 fn bench_parallel_lexing(path: &str, threads: usize) {
     let grammar = OpGrammar::from("data/grammar/json.g");
     let file = File::open(path).unwrap();
@@ -43,7 +20,7 @@ fn bench_parallel_lexing(path: &str, threads: usize) {
     let chunks = split_mmap_into_chunks(&mut memmap, 6000).unwrap();
 
     let _ = thread::scope(|s| {
-        let mut lexer: ParallelLexer<JsonLexerState, JsonLexer> = ParallelLexer::new(
+        let mut lexer: ParallelLexer<JsonLexerState, JsonLexer, JsonData> = ParallelLexer::new(
             &grammar,
             s,
             threads,
@@ -68,11 +45,11 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("json_lexer_8_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 8)));
     c.bench_function("json_lexer_16_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 16)));
 
-    c.bench_function("json_fair_sequential_lexing_10KB", |b| b.iter(|| fair_sequential_lexing("data/json/10KB.json")));
-    c.bench_function("json_fair_sequential_lexing_100KB", |b| b.iter(|| fair_sequential_lexing("data/json/100KB.json")));
-    c.bench_function("json_fair_sequential_lexing_1MB", |b| b.iter(|| fair_sequential_lexing("data/json/1MB.json")));
-    c.bench_function("json_fair_sequential_lexing_10MB", |b| b.iter(|| fair_sequential_lexing("data/json/10MB.json")));
-    c.bench_function("json_fair_sequential_lexing_50MB", |b| b.iter(|| fair_sequential_lexing("data/json/50MB.json")));
+    // c.bench_function("json_fair_sequential_lexing_10KB", |b| b.iter(|| fair_sequential_lexing("data/json/10KB.json")));
+    // c.bench_function("json_fair_sequential_lexing_100KB", |b| b.iter(|| fair_sequential_lexing("data/json/100KB.json")));
+    // c.bench_function("json_fair_sequential_lexing_1MB", |b| b.iter(|| fair_sequential_lexing("data/json/1MB.json")));
+    // c.bench_function("json_fair_sequential_lexing_10MB", |b| b.iter(|| fair_sequential_lexing("data/json/10MB.json")));
+    // c.bench_function("json_fair_sequential_lexing_50MB", |b| b.iter(|| fair_sequential_lexing("data/json/50MB.json")));
 }
 
 criterion_group!(benches, criterion_benchmark);

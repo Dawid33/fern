@@ -31,6 +31,7 @@ tokio-tungstenite = { version = "0.13" }
 linked_hash_set = "0.1.4"
 simple-error = "0.3.0"
 dot = "0.1.4"
+bittyset = "0.1.0"
 
 [dev-dependencies]
 criterion = { version = "0.4", features = ["html_reports"] }

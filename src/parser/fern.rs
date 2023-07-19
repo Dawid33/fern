@@ -78,8 +78,8 @@ impl Debug for Operator{
 impl Debug for AstNode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            AstNode::Binary(l, o, r) => write!(f, "{:?}", o),
-            AstNode::Unary(o, e) => write!(f, "{:?}", o),
+            AstNode::Binary(l, o, r) => write!(f, "Binary<BR/>{:?}", o),
+            AstNode::Unary(o, e) => write!(f, "Unary<BR/>{:?}", o),
             AstNode::Number(n) => write!(f, "{}", n),
             AstNode::String(s) => { write!(f, "\"{}\"", s) }
             AstNode::Name(n) => write!(f, "{}", n),

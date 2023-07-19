@@ -41,7 +41,7 @@ fn json() -> Result<(), Box<dyn Error>> {
     now = Instant::now();
 
     let tokens: LinkedList<Vec<(Token, JsonData)>> = {
-        let file = File::open("data/json/100KB.json")?;
+        let file = File::open("data/json/10KB.json")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         thread::scope(|s| {
             let mut lexer: ParallelLexer<JsonLexerState, JsonLexer, JsonData> =
