@@ -1,5 +1,13 @@
-use std::borrow::Cow;
+use crate::grammar::{OpGrammar, Token};
+use crate::lexer::fern::{FernData, FernTokens};
+use crate::parser::fern::Operator::{
+    Add, Divide, Equal, GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Modulo, Multiply, NotEqual,
+    Subtract,
+};
 use crate::parser::{Node, ParseTree};
+use log::info;
+use simple_error::SimpleError;
+use std::borrow::Cow;
 use std::cmp::max;
 use std::collections::{HashMap, VecDeque};
 use std::error::Error;
@@ -7,11 +15,6 @@ use std::fmt::{Debug, Formatter};
 use std::io::Write;
 use std::os::unix::fs::symlink;
 use std::sync;
-use log::info;
-use crate::grammar::{OpGrammar, Token};
-use crate::lexer::fern::{FernData, FernTokens};
-use crate::parser::fern::Operator::{Add, Divide, Equal, GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Modulo, Multiply, NotEqual, Subtract};
-use simple_error::SimpleError;
 
 pub struct FernParseTree {
     pub g: OpGrammar,
@@ -45,7 +48,7 @@ pub enum AstNode {
     Name(String),
     ExprList(VecDeque<AstNode>),
     Assign(Box<AstNode>, Box<AstNode>),
-    Let(Box<AstNode>, Option<TypeExpr>, Box<AstNode>),
+    Let(Box<AstNode>, Option<TypeExpr>, Option<Box<AstNode>>),
     Return(Option<Box<AstNode>>),
     Module(Box<AstNode>),
     StatList(VecDeque<AstNode>),
@@ -57,7 +60,7 @@ pub enum AstNode {
     For(Box<AstNode>, Box<AstNode>, Box<AstNode>),
     While(Box<AstNode>, Box<AstNode>),
 }
-impl Debug for Operator{
+impl Debug for Operator {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Add => write!(f, "+"),
@@ -81,7 +84,9 @@ impl Debug for AstNode {
             AstNode::Binary(l, o, r) => write!(f, "Binary<BR/>{:?}", o),
             AstNode::Unary(o, e) => write!(f, "Unary<BR/>{:?}", o),
             AstNode::Number(n) => write!(f, "{}", n),
-            AstNode::String(s) => { write!(f, "\"{}\"", s) }
+            AstNode::String(s) => {
+                write!(f, "\"{}\"", s)
+            }
             AstNode::Name(n) => write!(f, "{}", n),
             AstNode::ExprList(_) => write!(f, "Expr List"),
             AstNode::Assign(_, _) => write!(f, "="),
@@ -101,7 +106,6 @@ impl Debug for AstNode {
 }
 
 impl ParseTree<FernData> for FernParseTree {
-
     fn new(root: Node<FernData>, g: OpGrammar) -> Self {
         Self { g, root }
     }
@@ -128,21 +132,27 @@ impl ParseTree<FernData> for FernParseTree {
                     }
                 }
                 if current_child != min_child {
-                    b.push_str(format!(
-                        "├─{}",
-                        self.g
-                            .token_raw
-                            .get(&current.children.get(current_child as usize).unwrap().symbol)
-                            .unwrap()
-                    ).as_str());
+                    b.push_str(
+                        format!(
+                            "├─{}",
+                            self.g
+                                .token_raw
+                                .get(&current.children.get(current_child as usize).unwrap().symbol)
+                                .unwrap()
+                        )
+                        .as_str(),
+                    );
                 } else {
-                    b.push_str(format!(
-                        "└─{}",
-                        self.g
-                            .token_raw
-                            .get(&current.children.get(current_child as usize).unwrap().symbol)
-                            .unwrap()
-                    ).as_str());
+                    b.push_str(
+                        format!(
+                            "└─{}",
+                            self.g
+                                .token_raw
+                                .get(&current.children.get(current_child as usize).unwrap().symbol)
+                                .unwrap()
+                        )
+                        .as_str(),
+                    );
                 }
                 info!("{}", b);
                 b.clear();
@@ -167,8 +177,12 @@ impl ParseTree<FernData> for FernParseTree {
     }
 }
 
-
-fn reduce<T: Debug>(node: Node<T>, stack: &mut Vec<VecDeque<AstNode>>, tok: &FernTokens, g: &OpGrammar) -> Option<AstNode> {
+fn reduce<T: Debug>(
+    node: Node<T>,
+    stack: &mut Vec<VecDeque<AstNode>>,
+    tok: &FernTokens,
+    g: &OpGrammar,
+) -> Option<AstNode> {
     if let Some(mut last) = stack.pop() {
         let (reduced, last) = if node.symbol == tok.base_exp {
             (Some(last.pop_front().unwrap()), Some(last))
@@ -179,9 +193,15 @@ fn reduce<T: Debug>(node: Node<T>, stack: &mut Vec<VecDeque<AstNode>>, tok: &Fer
             let left = last.pop_front().unwrap();
             let result = if let Some(op) = node.children.get(0) {
                 let result = if op.symbol == tok.plus {
-                    (Some(AstNode::Binary(Box::from(left), Add, Box::from(right))), Some(last))
+                    (
+                        Some(AstNode::Binary(Box::from(left), Add, Box::from(right))),
+                        Some(last),
+                    )
                 } else if op.symbol == tok.minus {
-                    (Some(AstNode::Binary(Box::from(left), Subtract, Box::from(right))), Some(last))
+                    (
+                        Some(AstNode::Binary(Box::from(left), Subtract, Box::from(right))),
+                        Some(last),
+                    )
                 } else {
                     panic!("Badly formed additive node in parse tree.");
                 };
@@ -195,11 +215,20 @@ fn reduce<T: Debug>(node: Node<T>, stack: &mut Vec<VecDeque<AstNode>>, tok: &Fer
             let left = last.pop_front().unwrap();
             let result = if let Some(op) = node.children.get(0) {
                 let result = if op.symbol == tok.asterisk {
-                    (Some(AstNode::Binary(Box::from(left), Multiply, Box::from(right))), Some(last))
+                    (
+                        Some(AstNode::Binary(Box::from(left), Multiply, Box::from(right))),
+                        Some(last),
+                    )
                 } else if op.symbol == tok.divide {
-                    (Some(AstNode::Binary(Box::from(left), Divide, Box::from(right))), Some(last))
+                    (
+                        Some(AstNode::Binary(Box::from(left), Divide, Box::from(right))),
+                        Some(last),
+                    )
                 } else if op.symbol == tok.percent {
-                    (Some(AstNode::Binary(Box::from(left), Modulo, Box::from(right))), Some(last))
+                    (
+                        Some(AstNode::Binary(Box::from(left), Modulo, Box::from(right))),
+                        Some(last),
+                    )
                 } else {
                     panic!("Badly formed multiplicative node in parse tree.");
                 };
@@ -213,17 +242,35 @@ fn reduce<T: Debug>(node: Node<T>, stack: &mut Vec<VecDeque<AstNode>>, tok: &Fer
             let left = last.pop_front().unwrap();
             let result = if let Some(op) = node.children.get(0) {
                 let result = if op.symbol == tok.lt {
-                    (Some(AstNode::Binary(Box::from(left), LessThan, Box::from(right))), Some(last))
+                    (
+                        Some(AstNode::Binary(Box::from(left), LessThan, Box::from(right))),
+                        Some(last),
+                    )
                 } else if op.symbol == tok.gt {
-                    (Some(AstNode::Binary(Box::from(left), GreaterThan, Box::from(right))), Some(last))
+                    (
+                        Some(AstNode::Binary(Box::from(left), GreaterThan, Box::from(right))),
+                        Some(last),
+                    )
                 } else if op.symbol == tok.lteq {
-                    (Some(AstNode::Binary(Box::from(left), LessThanOrEqual, Box::from(right))), Some(last))
+                    (
+                        Some(AstNode::Binary(Box::from(left), LessThanOrEqual, Box::from(right))),
+                        Some(last),
+                    )
                 } else if op.symbol == tok.gteq {
-                    (Some(AstNode::Binary(Box::from(left), GreaterThanOrEqual, Box::from(right))), Some(last))
+                    (
+                        Some(AstNode::Binary(Box::from(left), GreaterThanOrEqual, Box::from(right))),
+                        Some(last),
+                    )
                 } else if op.symbol == tok.neq {
-                    (Some(AstNode::Binary(Box::from(left), NotEqual, Box::from(right))), Some(last))
+                    (
+                        Some(AstNode::Binary(Box::from(left), NotEqual, Box::from(right))),
+                        Some(last),
+                    )
                 } else if op.symbol == tok.eq2 {
-                    (Some(AstNode::Binary(Box::from(left), Equal, Box::from(right))), Some(last))
+                    (
+                        Some(AstNode::Binary(Box::from(left), Equal, Box::from(right))),
+                        Some(last),
+                    )
                 } else {
                     panic!("Badly formed multiplicative node in parse tree.");
                 };
@@ -257,9 +304,14 @@ fn reduce<T: Debug>(node: Node<T>, stack: &mut Vec<VecDeque<AstNode>>, tok: &Fer
                             AstNode::StatList(_) => {
                                 let result = if let Some(second) = last.pop_back() {
                                     match second {
-                                        AstNode::ElseIf(_, _, _) | AstNode::Else(_) => {
-                                            (Some(AstNode::ElseIf(expr, Some(Box::from(first)), Some(Box::from(second)))), None)
-                                        },
+                                        AstNode::ElseIf(_, _, _) | AstNode::Else(_) => (
+                                            Some(AstNode::ElseIf(
+                                                expr,
+                                                Some(Box::from(first)),
+                                                Some(Box::from(second)),
+                                            )),
+                                            None,
+                                        ),
                                         _ => {
                                             panic!("Badly formed else if / else statement.");
                                         }
@@ -300,8 +352,13 @@ fn reduce<T: Debug>(node: Node<T>, stack: &mut Vec<VecDeque<AstNode>>, tok: &Fer
             let result = if let Some(first) = node.children.first() {
                 let result = if first.symbol == tok.let_t {
                     let exp = last.pop_front().unwrap();
-                    let name = last.pop_front().unwrap();
-                    (Some(AstNode::Let(Box::from(name), None, Box::from(exp))), None)
+                    let name = last.pop_front();
+                    let result = if let Some(name) = name {
+                        (Some(AstNode::Let(Box::from(name), None, Some(Box::from(exp)))), None)
+                    } else {
+                        (Some(AstNode::Let(Box::from(exp), None, None)), None)
+                    };
+                    result
                 } else if first.symbol == tok.if_t {
                     let exprThen = last.pop_back().unwrap();
                     let result = if let AstNode::ExprThen(expr, body) = exprThen {
@@ -322,11 +379,14 @@ fn reduce<T: Debug>(node: Node<T>, stack: &mut Vec<VecDeque<AstNode>>, tok: &Fer
                             AstNode::ExprList(_) | AstNode::Name(_) => {
                                 let result = if let Some(second) = last.pop_back() {
                                     match second {
-                                        AstNode::If(_, _, _) |
-                                        AstNode::Let(_, _, _) |
-                                        AstNode::StatList(_) => {
-                                            (Some(AstNode::Function(name, Some(Box::from(first)), Some(Box::from(second)))), None)
-                                        },
+                                        AstNode::If(_, _, _) | AstNode::Let(_, _, _) | AstNode::StatList(_) => (
+                                            Some(AstNode::Function(
+                                                name,
+                                                Some(Box::from(first)),
+                                                Some(Box::from(second)),
+                                            )),
+                                            None,
+                                        ),
                                         _ => {
                                             panic!("Badly formed function definition.");
                                         }
@@ -336,9 +396,7 @@ fn reduce<T: Debug>(node: Node<T>, stack: &mut Vec<VecDeque<AstNode>>, tok: &Fer
                                 };
                                 result
                             }
-                            AstNode::If(_, _, _) |
-                            AstNode::Let(_, _, _) |
-                            AstNode::StatList(_) => {
+                            AstNode::If(_, _, _) | AstNode::Let(_, _, _) | AstNode::StatList(_) => {
                                 (Some(AstNode::Function(name, None, Some(Box::from(first)))), None)
                             }
                             _ => {
@@ -354,11 +412,9 @@ fn reduce<T: Debug>(node: Node<T>, stack: &mut Vec<VecDeque<AstNode>>, tok: &Fer
                         AstNode::Name(_) => {
                             let expr = last.pop_front().unwrap();
                             (Some(AstNode::Assign(Box::from(first), Box::from(expr))), None)
-                        },
-                        AstNode::Return(_) => {
-                            (Some(first), None)
-                        },
-                        _ => (None, None)
+                        }
+                        AstNode::Return(_) => (Some(first), None),
+                        _ => (None, None),
                     };
                     result
                 } else {
@@ -437,13 +493,27 @@ impl FernParseTree {
                     for i in 0..child_count_stack.len() {
                         b.push_str("  ");
                     }
-                    b.push_str(format!("{}", self.g.token_raw.get(&current.children.get(current_child as usize).unwrap().symbol).unwrap()).as_str());
+                    b.push_str(
+                        format!(
+                            "{}",
+                            self.g
+                                .token_raw
+                                .get(&current.children.get(current_child as usize).unwrap().symbol)
+                                .unwrap()
+                        )
+                        .as_str(),
+                    );
                     info!("{}", b);
                     b.clear();
 
-
                     // Go deeper or process current node.
-                    if !current.children.get(current_child as usize).unwrap().children.is_empty() {
+                    if !current
+                        .children
+                        .get(current_child as usize)
+                        .unwrap()
+                        .children
+                        .is_empty()
+                    {
                         // Push onto stack
                         stack.push(VecDeque::new());
 
@@ -457,14 +527,14 @@ impl FernParseTree {
                         break;
                     } else {
                         let child = current.children.get(current_child as usize).unwrap().clone();
-                        let wrong_data = || { panic!("I'm too tired to write this error message properly.") };
+                        let wrong_data = || panic!("I'm too tired to write this error message properly.");
                         if let Some(last) = stack.last_mut() {
                             if let Some(data) = child.data {
                                 match data {
                                     FernData::Number(n) => {
                                         if child.symbol == tok.number {
                                             last.push_back(AstNode::Number(n));
-                                        } else  {
+                                        } else {
                                             wrong_data();
                                         }
                                     }
@@ -477,7 +547,7 @@ impl FernParseTree {
                                             wrong_data();
                                         }
                                     }
-                                    FernData::NoData =>  ()
+                                    FernData::NoData => (),
                                 }
                             }
                         }
@@ -502,10 +572,15 @@ impl FernParseTree {
 
 type Nd = (usize, String);
 type Ed = (Nd, Nd);
-struct Graph { nodes: Vec<String>, edges: Vec<(usize,usize)> }
+struct Graph {
+    nodes: Vec<String>,
+    edges: Vec<(usize, usize)>,
+}
 
 impl<'a> dot::Labeller<'a, Nd, Ed> for Graph {
-    fn graph_id(&'a self) -> dot::Id<'a> { dot::Id::new("example3").unwrap() }
+    fn graph_id(&'a self) -> dot::Id<'a> {
+        dot::Id::new("example3").unwrap()
+    }
     fn node_id(&'a self, n: &Nd) -> dot::Id<'a> {
         dot::Id::new(format!("N{}", n.0)).unwrap()
     }
@@ -519,18 +594,22 @@ impl<'a> dot::Labeller<'a, Nd, Ed> for Graph {
 }
 
 impl<'a> dot::GraphWalk<'a, Nd, Ed> for Graph {
-    fn nodes(&'a self) -> dot::Nodes<'a,Nd> {
+    fn nodes(&'a self) -> dot::Nodes<'a, Nd> {
         let mut new_nodes = self.nodes.clone().into_iter().enumerate().collect();
         Cow::Owned(new_nodes)
     }
-    fn edges(&'a self) -> dot::Edges<'a,Ed> {
-        self.edges.iter()
-            .map(|&(i,j)|((i, self.nodes[i].clone()),
-                          (j, self.nodes[j].clone())))
+    fn edges(&'a self) -> dot::Edges<'a, Ed> {
+        self.edges
+            .iter()
+            .map(|&(i, j)| ((i, self.nodes[i].clone()), (j, self.nodes[j].clone())))
             .collect()
     }
-    fn source(&self, e: &Ed) -> Nd { e.0.clone() }
-    fn target(&self, e: &Ed) -> Nd { e.1.clone() }
+    fn source(&self, e: &Ed) -> Nd {
+        e.0.clone()
+    }
+    fn target(&self, e: &Ed) -> Nd {
+        e.1.clone()
+    }
 }
 
 pub fn render<W: Write>(ast: Box<AstNode>, output: &mut W) {
@@ -538,11 +617,10 @@ pub fn render<W: Write>(ast: Box<AstNode>, output: &mut W) {
     let mut edges = Vec::new();
 
     nodes.push("Module".to_string());
-    let mut stack: Vec<(Box<AstNode>, usize)> = vec!((ast, 0));
-
+    let mut stack: Vec<(Box<AstNode>, usize)> = vec![(ast, 0)];
 
     while let Some((current, id)) = stack.pop() {
-        let mut push_node = |id, str: String, node: Box<AstNode> | {
+        let mut push_node = |id, str: String, node: Box<AstNode>| {
             nodes.push(str);
             let child = nodes.len() - 1;
             edges.push((id, child));
@@ -551,7 +629,7 @@ pub fn render<W: Write>(ast: Box<AstNode>, output: &mut W) {
 
         match *current {
             AstNode::Binary(left, op, right) => {
-                push_node(id,  format!("{:?}", &left), left);
+                push_node(id, format!("{:?}", &left), left);
                 push_node(id, format!("{:?}", &right), right);
             }
             AstNode::Unary(op, expr) => {
@@ -571,7 +649,9 @@ pub fn render<W: Write>(ast: Box<AstNode>, output: &mut W) {
             }
             AstNode::Let(name, _, expr) => {
                 push_node(id, format!("{:?}", name), name);
-                push_node(id, format!("{:?}", expr), expr);
+                if let Some(expr) = expr {
+                    push_node(id, format!("{:?}", expr), expr);
+                }
             }
             AstNode::Module(stmts) => {
                 push_node(id, format!("{:?}", stmts), stmts);
@@ -601,7 +681,7 @@ pub fn render<W: Write>(ast: Box<AstNode>, output: &mut W) {
             AstNode::While(expr, stmts) => {
                 push_node(id, format!("Condition\n{:?}", expr), expr);
                 push_node(id, format!("{:?}", stmts), stmts);
-            },
+            }
             AstNode::Return(expr) => {
                 if let Some(expr) = expr {
                     push_node(id, format!("{:?}", expr), expr);
@@ -635,7 +715,9 @@ pub fn render<W: Write>(ast: Box<AstNode>, output: &mut W) {
         }
     }
 
-
-    let graph = Graph { nodes: nodes, edges: edges };
+    let graph = Graph {
+        nodes: nodes,
+        edges: edges,
+    };
     dot::render(&graph, output).unwrap()
 }

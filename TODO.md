@@ -1,0 +1,1 @@
+Traverse the ast in ir.rs to build that Module struct.

@@ -1,6 +1,6 @@
 
-fn main(argc, argv) {
+fn 100 (argc, argv) {
     let y = 3;
-    y = 3 + 4 * 4;
+    let x;
     return y;
 }

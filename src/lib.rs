@@ -9,18 +9,19 @@ use std::error::Error;
 use std::fs::File;
 use std::thread;
 
+pub mod analysis;
+pub mod cfg;
 pub mod grammar;
+pub mod ir;
 pub mod lexer;
 pub mod parser;
 pub mod server;
 pub mod slab;
-pub mod analysis;
-pub mod cfg;
 
+use crate::lexer::fern::{FernLexer, FernLexerState};
 pub use grammar::*;
 pub use lexer::*;
 pub use parser::*;
-use crate::lexer::fern::{FernLexer, FernLexerState};
 
 // pub fn lex_fern(input: &str, grammar: &OpGrammar) -> Result<(), Box<dyn Error>> {
 //     let _: LinkedList<Vec<Token>> = {

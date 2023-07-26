@@ -130,7 +130,7 @@ fn rust() -> Result<(), Box<dyn Error>> {
 
     let graph = ControlFlowGraph::from(ast);
     info!(
-        "Total Time to transform AST -> Control Flow Graph: {:?}",
+        "Total Time to transform AST -> IR: {:?}",
         now.elapsed()
     );
     Ok(())

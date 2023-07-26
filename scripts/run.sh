@@ -11,6 +11,6 @@ if [ $? = 0 ]
     # Single monitor mode
     tmux new-window -c ~/Projects/fern -t 'code' -a -n 'build' '
         trap "tmux kill-window" SIGINT SIGTERM
-        cargo run 2>/dev/null | less -R && tmux kill-window
+        cargo run 2>&1 | less -R +F && tmux kill-window
     '
 fi
