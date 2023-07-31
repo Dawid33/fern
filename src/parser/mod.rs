@@ -1,7 +1,11 @@
-pub mod json;
 pub mod fern;
+pub mod fern_transform;
+pub mod json;
+pub mod print;
 
 use crate::grammar::{Associativity, OpGrammar, Rule, Token};
+use crate::lexer::fern::FernData;
+use crate::lua::LuaData::NoData;
 use log::{debug, error, info, warn};
 use std::any::Any;
 use std::collections::{BTreeSet, HashMap, LinkedList, VecDeque};
@@ -17,15 +21,12 @@ use std::sync::mpsc::channel;
 use std::thread::current;
 use std::time::Duration;
 use tokio::time::Instant;
-use crate::lexer::fern::FernData;
-use crate::lua::LuaData::NoData;
 
 #[allow(unused)]
 pub trait ParseTree<T> {
-    fn new(root: Node<T>, g: OpGrammar, ) -> Self;
+    fn new(root: Node<T>, g: OpGrammar) -> Self;
     fn print(&self);
 }
-
 
 #[derive(Clone)]
 pub struct Node<T> {
@@ -49,7 +50,9 @@ impl<T> Node<T> {
 
 #[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct TokenGrammarTuple<T>
-where T: Clone {
+where
+    T: Clone,
+{
     data: T,
     pub token: Token,
     id: u64,
@@ -57,7 +60,9 @@ where T: Clone {
 }
 
 impl<T> TokenGrammarTuple<T>
-where T: Clone {
+where
+    T: Clone,
+{
     pub fn new(token: Token, associativity: Associativity, id: u64, data: T) -> Self {
         Self {
             token,
@@ -69,7 +74,9 @@ where T: Clone {
 }
 
 pub struct ParallelParser<T>
-where T: Clone {
+where
+    T: Clone,
+{
     stack: Vec<TokenGrammarTuple<T>>,
     pub g: OpGrammar,
     open_nodes: HashMap<u64, Node<T>>,
@@ -82,15 +89,20 @@ where T: Clone {
 }
 
 impl<T> ParallelParser<T>
-    where T : Default + Clone
+where
+    T: Default + Clone,
 {
     pub fn new(grammar: OpGrammar, threads: usize) -> Self {
         let _ = threads;
         let mut terminals_set = bittyset::BitSet::<Token>::new();
-        grammar.terminals.iter().for_each(|x| { terminals_set.insert(*x as usize); });
+        grammar.terminals.iter().for_each(|x| {
+            terminals_set.insert(*x as usize);
+        });
 
         let mut non_terminals_set = bittyset::BitSet::<Token>::new();
-        grammar.non_terminals.iter().for_each(|x| { non_terminals_set.insert(*x as usize); });
+        grammar.non_terminals.iter().for_each(|x| {
+            non_terminals_set.insert(*x as usize);
+        });
 
         let parser = Self {
             stack: Vec::new(),
@@ -252,9 +264,10 @@ impl<T> ParallelParser<T>
 
         let now = Instant::now();
         // TODO: Make this into a slice without collecting into vec, probably implement custom iter.
-        let iter: Vec<&Token> = (&self.stack[(i + offset) as usize..]).iter().map(|x| -> &Token {
-            &x.token
-        }).collect();
+        let iter: Vec<&Token> = (&self.stack[(i + offset) as usize..])
+            .iter()
+            .map(|x| -> &Token { &x.token })
+            .collect();
         let mut rule: Option<&Rule> = self.g.new_reduction_tree.match_rule(&iter[..], &self.g.token_raw);
 
         let time = now.elapsed();
@@ -300,7 +313,10 @@ impl<T> ParallelParser<T>
         } else if self.stack.len() > 0 && self.g.axiom == self.stack.get(0).unwrap().token {
             debug!("{} Reached axiom and finished parsing.", self.iteration);
         } else {
-            warn!("{} Should probably reduce but didn't. Could be a bug / error.", self.iteration);
+            warn!(
+                "{} Should probably reduce but didn't. Could be a bug / error.",
+                self.iteration
+            );
         }
     }
 
@@ -308,7 +324,7 @@ impl<T> ParallelParser<T>
         info!("Expanding: {}", p.g.token_raw.get(&n.symbol).unwrap());
         let term_list = p.g.new_non_terminal_reverse.get(&n.symbol);
         let term_list = if let Some(list) = term_list {
-            list.iter().map(|x|{*x}).collect()
+            list.iter().map(|x| *x).collect()
         } else {
             Vec::from([n.symbol])
         };

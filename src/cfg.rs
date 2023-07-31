@@ -6,7 +6,7 @@ pub struct ControlFlowGraph {}
 
 // Convert to
 impl ControlFlowGraph {
-    pub fn from(ast: Box<AstNode>) -> Self {
+    pub fn from(_: Box<AstNode>) -> Self {
         println!("Hello, World");
         return Self {};
     }

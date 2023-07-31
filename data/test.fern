@@ -1,6 +1,5 @@
-
-fn 100 (argc, argv) {
-    let y = 3;
-    let x;
-    return y;
+fn main (argc, argv) {
+    let x = 0;
+    x = 3;
+    return x;
 }

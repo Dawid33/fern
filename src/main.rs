@@ -1,8 +1,9 @@
 #![cfg_attr(debug_assertions, allow(dead_code, unused_imports))]
 extern crate core;
 
-use std::borrow::Cow;
+use core::print::render;
 pub use core::*;
+use std::borrow::Cow;
 
 use core::lexer::fern::FernData;
 use crossbeam_queue::SegQueue;
@@ -14,22 +15,21 @@ use std::io::Write;
 use std::thread;
 use std::time::{Duration, Instant};
 
+use crate::cfg::ControlFlowGraph;
+use crate::parser::fern::AstNode;
+use crate::parser::json::JsonParseTree;
 use core::grammar::OpGrammar;
 use core::grammar::RawGrammar;
 use core::grammar::Token;
 use core::lexer::*;
 use core::lexer::{fern::*, json::*, lua::*};
-use core::parser::{ParallelParser};
-use core::parser::fern::{FernParseTree};
-use std::ops::Deref;
-use memmap::MmapOptions;
-use std::thread::{current, park};
+use core::parser::fern::FernParseTree;
+use core::parser::ParallelParser;
 use flexi_logger::Logger;
+use memmap::MmapOptions;
+use std::ops::Deref;
+use std::thread::{current, park};
 use tungstenite::protocol::frame::coding::Data;
-use crate::parser::fern::{AstNode, render};
-use crate::parser::json::JsonParseTree;
-use crate::cfg::ControlFlowGraph;
-
 
 fn json() -> Result<(), Box<dyn Error>> {
     let mut now = Instant::now();
@@ -44,8 +44,13 @@ fn json() -> Result<(), Box<dyn Error>> {
         let file = File::open("data/json/10KB.json")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         thread::scope(|s| {
-            let mut lexer: ParallelLexer<JsonLexerState, JsonLexer, JsonData> =
-                ParallelLexer::new(&grammar, s, 16, &[JsonLexerState::Start, JsonLexerState::InString], JsonLexerState::Start);
+            let mut lexer: ParallelLexer<JsonLexerState, JsonLexer, JsonData> = ParallelLexer::new(
+                &grammar,
+                s,
+                16,
+                &[JsonLexerState::Start, JsonLexerState::InString],
+                JsonLexerState::Start,
+            );
             let batch = lexer.new_batch();
             lexer.add_to_batch(&batch, &mmap[..], 0);
             let tokens = lexer.collect_batch(batch);
@@ -122,17 +127,11 @@ fn rust() -> Result<(), Box<dyn Error>> {
     let mut f = File::create("ast.dot").unwrap();
     render(ast.clone(), &mut f);
 
-    info!(
-        "Total Time to transform ParseTree -> AST: {:?}",
-        now.elapsed()
-    );
+    info!("Total Time to transform ParseTree -> AST: {:?}", now.elapsed());
     now = Instant::now();
 
-    let graph = ControlFlowGraph::from(ast);
-    info!(
-        "Total Time to transform AST -> IR: {:?}",
-        now.elapsed()
-    );
+    let graph = ir::Module::from(ast);
+    info!("Total Time to transform AST -> IR: {:?}", now.elapsed());
     Ok(())
 }
 

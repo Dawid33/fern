@@ -1,0 +1,14 @@
+new_tab code
+layout horizontal
+launch --title "code" bash 
+
+new_tab terminal 
+enabled_layouts horizontal,stack
+layout horizontal 
+launch bash
+
+new_tab ranger
+enabled_layouts horizontal,stack
+layout horizontal 
+launch ranger
+
