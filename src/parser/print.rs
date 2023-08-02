@@ -1,10 +1,8 @@
 use crate::grammar::{Associativity, OpGrammar, Rule, Token};
+use crate::ir::{Block, BlockType};
 use crate::lexer::fern::FernData;
 use crate::lua::LuaData::NoData;
-use crate::parser::fern::Operator::{
-    Add, Divide, Equal, GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Modulo, Multiply, NotEqual,
-    Subtract,
-};
+use crate::parser::fern_ast::Operator::{Add, Divide, Equal, GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Modulo, Multiply, NotEqual, Subtract};
 use crate::parser::{Node, ParseTree};
 use log::info;
 use log::{debug, error, warn};
@@ -30,7 +28,7 @@ use std::thread::current;
 use std::time::Duration;
 use tokio::time::Instant;
 
-use super::fern::{AstNode, FernParseTree, Operator};
+use super::fern_ast::{AstNode, FernParseTree, Operator};
 
 impl Debug for Operator {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -107,10 +105,7 @@ impl ParseTree<FernData> for FernParseTree {
                     b.push_str(
                         format!(
                             "├─{}",
-                            self.g
-                                .token_raw
-                                .get(&current.children.get(current_child as usize).unwrap().symbol)
-                                .unwrap()
+                            self.g.token_raw.get(&current.children.get(current_child as usize).unwrap().symbol).unwrap()
                         )
                         .as_str(),
                     );
@@ -118,23 +113,14 @@ impl ParseTree<FernData> for FernParseTree {
                     b.push_str(
                         format!(
                             "└─{}",
-                            self.g
-                                .token_raw
-                                .get(&current.children.get(current_child as usize).unwrap().symbol)
-                                .unwrap()
+                            self.g.token_raw.get(&current.children.get(current_child as usize).unwrap().symbol).unwrap()
                         )
                         .as_str(),
                     );
                 }
                 info!("{}", b);
                 b.clear();
-                if !current
-                    .children
-                    .get(current_child as usize)
-                    .unwrap()
-                    .children
-                    .is_empty()
-                {
+                if !current.children.get(current_child as usize).unwrap().children.is_empty() {
                     node_stack.push(current);
                     let child = current.children.get(current_child as usize).unwrap();
                     current_child -= 1;
@@ -294,9 +280,53 @@ pub fn render<W: Write>(ast: Box<AstNode>, output: &mut W) {
         }
     }
 
-    let graph = Graph {
-        nodes: nodes,
-        edges: edges,
-    };
+    let graph = Graph { nodes: nodes, edges: edges };
     dot::render(&graph, output).unwrap()
+}
+
+pub fn render_block<W: Write>(ir: Block, w: &mut W) {
+    w.write(
+        r#"
+digraph g {
+    fontname="Helvetica,Arial,sans-serif"
+    node [fontname="Helvetica,Arial,sans-serif"]
+    edge [fontname="Helvetica,Arial,sans-serif"]
+    graph [
+        rankdir = "LR"
+    ];
+    node [
+        fontsize = "16"
+        shape = "ellipse"
+    ];
+    edge [
+    ];
+    "root" [
+    label = "root"
+    shape = "record"                
+    ];
+"#
+        .as_bytes(),
+    )
+    .unwrap();
+    let mut stack = VecDeque::new();
+    stack.push_front(&ir);
+    let print_b = |b: &Block, w: &mut W| {
+        let test = "test".to_string();
+        let label = if let BlockType::Code = b.block_type { &test } else { &b.prefix };
+
+        w.write(format!("\"{}\" [label = \"{}\"\n shape = \"record\"];\n", b.prefix, label).as_bytes())
+            .unwrap();
+    };
+
+    while !stack.is_empty() {
+        let current = stack.pop_front().unwrap();
+        print_b(current, w);
+
+        for b in &current.children {
+            stack.push_front(b);
+            w.write(format!("\"{}\" -> \"{}\" [];\n", current.prefix, b.prefix).as_bytes()).unwrap();
+        }
+    }
+
+    w.write("\n}\n".as_bytes()).unwrap();
 }

@@ -1,5 +1,4 @@
 fn main (argc, argv) {
-    let x = 0;
-    x = 3;
+    let x = 3;
     return x;
 }

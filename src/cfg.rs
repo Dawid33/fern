@@ -1,4 +1,4 @@
-use crate::parser::fern::AstNode;
+use crate::parser::fern_ast::AstNode;
 
 pub struct ControlFlowNode {}
 

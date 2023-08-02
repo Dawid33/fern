@@ -1,5 +1,4 @@
-pub mod fern;
-pub mod fern_transform;
+pub mod fern_ast;
 pub mod json;
 pub mod print;
 
@@ -188,12 +187,7 @@ where
                 )
             }
 
-            debug!(
-                "{} Applying {:?} {:?}",
-                self.iteration,
-                self.g.token_raw.get(&token).unwrap(),
-                precedence
-            );
+            debug!("{} Applying {:?} {:?}", self.iteration, self.g.token_raw.get(&token).unwrap(), precedence);
 
             if precedence == Associativity::Left {
                 let t = TokenGrammarTuple::new(token, Associativity::Left, self.gen_id(), data);
@@ -264,10 +258,7 @@ where
 
         let now = Instant::now();
         // TODO: Make this into a slice without collecting into vec, probably implement custom iter.
-        let iter: Vec<&Token> = (&self.stack[(i + offset) as usize..])
-            .iter()
-            .map(|x| -> &Token { &x.token })
-            .collect();
+        let iter: Vec<&Token> = (&self.stack[(i + offset) as usize..]).iter().map(|x| -> &Token { &x.token }).collect();
         let mut rule: Option<&Rule> = self.g.new_reduction_tree.match_rule(&iter[..], &self.g.token_raw);
 
         let time = now.elapsed();
@@ -313,10 +304,7 @@ where
         } else if self.stack.len() > 0 && self.g.axiom == self.stack.get(0).unwrap().token {
             debug!("{} Reached axiom and finished parsing.", self.iteration);
         } else {
-            warn!(
-                "{} Should probably reduce but didn't. Could be a bug / error.",
-                self.iteration
-            );
+            warn!("{} Should probably reduce but didn't. Could be a bug / error.", self.iteration);
         }
     }
 

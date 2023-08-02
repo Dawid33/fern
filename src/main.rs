@@ -1,7 +1,7 @@
 #![cfg_attr(debug_assertions, allow(dead_code, unused_imports))]
 extern crate core;
 
-use core::print::render;
+use core::print::{render, render_block};
 pub use core::*;
 use std::borrow::Cow;
 
@@ -16,14 +16,14 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::cfg::ControlFlowGraph;
-use crate::parser::fern::AstNode;
+use crate::parser::fern_ast::AstNode;
 use crate::parser::json::JsonParseTree;
 use core::grammar::OpGrammar;
 use core::grammar::RawGrammar;
 use core::grammar::Token;
 use core::lexer::*;
 use core::lexer::{fern::*, json::*, lua::*};
-use core::parser::fern::FernParseTree;
+use core::parser::fern_ast::FernParseTree;
 use core::parser::ParallelParser;
 use flexi_logger::Logger;
 use memmap::MmapOptions;
@@ -44,13 +44,8 @@ fn json() -> Result<(), Box<dyn Error>> {
         let file = File::open("data/json/10KB.json")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         thread::scope(|s| {
-            let mut lexer: ParallelLexer<JsonLexerState, JsonLexer, JsonData> = ParallelLexer::new(
-                &grammar,
-                s,
-                16,
-                &[JsonLexerState::Start, JsonLexerState::InString],
-                JsonLexerState::Start,
-            );
+            let mut lexer: ParallelLexer<JsonLexerState, JsonLexer, JsonData> =
+                ParallelLexer::new(&grammar, s, 16, &[JsonLexerState::Start, JsonLexerState::InString], JsonLexerState::Start);
             let batch = lexer.new_batch();
             lexer.add_to_batch(&batch, &mmap[..], 0);
             let tokens = lexer.collect_batch(batch);
@@ -75,10 +70,7 @@ fn json() -> Result<(), Box<dyn Error>> {
     info!("└─Total Time spent rule-searching: {:?}", time);
 
     now = Instant::now();
-    info!(
-        "Total Time to transform ParseTree -> AST Conversion: {:?}",
-        now.elapsed()
-    );
+    info!("Total Time to transform ParseTree -> AST Conversion: {:?}", now.elapsed());
     Ok(())
 }
 
@@ -130,7 +122,9 @@ fn rust() -> Result<(), Box<dyn Error>> {
     info!("Total Time to transform ParseTree -> AST: {:?}", now.elapsed());
     now = Instant::now();
 
-    let graph = ir::Module::from(ast);
+    let graph = ir::Block::from(ast).unwrap();
+    let mut f_ir = File::create("ir.dot").unwrap();
+    render_block(graph, &mut f_ir);
     info!("Total Time to transform AST -> IR: {:?}", now.elapsed());
     Ok(())
 }
