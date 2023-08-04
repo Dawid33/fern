@@ -3,7 +3,7 @@
 A parallel compiler implementation. Name is wip.
 
 > Papageno sounds like an italian chippers - Jim Ryan, 2023
-
+V
 *README updated 4th August 2023*
 
 ## Intro  
@@ -47,7 +47,7 @@ fn main (argc, argv) {
 ![ir.png](ir.png)
 
 ## Syntax goals
-This is the syntax I'm aiming for. the grammar isn't fully fleshed out yet so this isn't pareable yet
+This is the syntax I'm aiming for. the grammar isn't fully fleshed out yet so this isn't parseable yet
 ```
 let print = @include("std").print;
 
