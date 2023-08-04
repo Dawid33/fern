@@ -20,7 +20,6 @@ pub mod slab;
 
 use crate::lexer::fern::{FernLexer, FernLexerState};
 pub use grammar::*;
-pub use lexer::*;
 pub use parser::*;
 
 // pub fn lex_fern(input: &str, grammar: &OpGrammar) -> Result<(), Box<dyn Error>> {

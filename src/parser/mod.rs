@@ -4,7 +4,6 @@ pub mod print;
 
 use crate::grammar::{Associativity, OpGrammar, Rule, Token};
 use crate::lexer::fern::FernData;
-use crate::lua::LuaData::NoData;
 use log::{debug, error, info, warn};
 use std::any::Any;
 use std::collections::{BTreeSet, HashMap, LinkedList, VecDeque};
@@ -18,8 +17,9 @@ use std::panic::{resume_unwind, set_hook};
 use std::slice::Iter;
 use std::sync::mpsc::channel;
 use std::thread::current;
-use std::time::Duration;
-use tokio::time::Instant;
+use std::time::{Duration, Instant};
+
+// use tokio::time::Instant;
 
 #[allow(unused)]
 pub trait ParseTree<T> {
@@ -253,13 +253,13 @@ where
     }
 
     fn reduce_stack(&mut self, i: i32, offset: i32) {
-        let mut apply_rewrites: HashMap<Token, Token> = HashMap::new();
-        let mut longest: i32 = 0;
+        let apply_rewrites: HashMap<Token, Token> = HashMap::new();
+        // let longest: i32 = 0;
 
         let now = Instant::now();
         // TODO: Make this into a slice without collecting into vec, probably implement custom iter.
         let iter: Vec<&Token> = (&self.stack[(i + offset) as usize..]).iter().map(|x| -> &Token { &x.token }).collect();
-        let mut rule: Option<&Rule> = self.g.new_reduction_tree.match_rule(&iter[..], &self.g.token_raw);
+        let rule: Option<&Rule> = self.g.new_reduction_tree.match_rule(&iter[..], &self.g.token_raw);
 
         let time = now.elapsed();
         debug!("Time spend searching: {:?}", &time);
@@ -268,7 +268,7 @@ where
         if let Some(rule) = rule {
             if !apply_rewrites.is_empty() {
                 for _ in 0..rule.right.len() {
-                    let mut current = self.stack.get_mut((i + offset) as usize).unwrap();
+                    let current = self.stack.get_mut((i + offset) as usize).unwrap();
                     let token = apply_rewrites.get(&current.token);
                     if let Some(token) = token {
                         current.token = *token;
@@ -285,7 +285,7 @@ where
             for _ in 0..rule.right.len() {
                 let current = self.stack.remove((i + offset) as usize);
                 if self.open_nodes.contains_key(&current.id) {
-                    let mut sub_tree = self.open_nodes.remove(&current.id).unwrap();
+                    let sub_tree = self.open_nodes.remove(&current.id).unwrap();
                     children.push(sub_tree);
                 } else {
                     let leaf = Node::new(current.token, Some(current.data));
@@ -308,7 +308,7 @@ where
         }
     }
 
-    fn expand(mut n: &mut Node<T>, p: &ParallelParser<T>) {
+    fn expand(n: &mut Node<T>, p: &ParallelParser<T>) {
         info!("Expanding: {}", p.g.token_raw.get(&n.symbol).unwrap());
         let term_list = p.g.new_non_terminal_reverse.get(&n.symbol);
         let term_list = if let Some(list) = term_list {
@@ -317,7 +317,7 @@ where
             Vec::from([n.symbol])
         };
         n.symbol = *term_list.last().unwrap();
-        for (i, next) in n.children.iter_mut().enumerate() {
+        for (_i, next) in n.children.iter_mut().enumerate() {
             if p.non_terminals_set.contains(next.symbol as usize) {
                 Self::expand(next, p);
             }

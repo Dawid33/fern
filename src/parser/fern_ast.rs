@@ -49,6 +49,7 @@ pub enum AstNode {
     Return(Option<Box<AstNode>>),
     Module(Box<AstNode>),
     StatList(VecDeque<AstNode>),
+    FunctionCall(Box<AstNode>, Option<Box<AstNode>>),
     Function(Box<AstNode>, Option<Box<AstNode>>, Option<Box<AstNode>>),
     If(Box<AstNode>, Option<Box<AstNode>>, Option<Box<AstNode>>),
     ExprThen(Box<AstNode>, Option<Box<AstNode>>),
@@ -81,6 +82,15 @@ fn new_reduce<T: Debug>(node: Node<T>, stack: &mut Vec<VecDeque<AstNode>>, tok: 
         reduced = reduce_stat(node, last, tok);
     } else if node.symbol == tok.n_else_if_block {
         reduced = reduce_else_if(node, last, tok);
+    } else if node.symbol == tok.n_function_call {
+        let expr = last.pop_back().unwrap();
+        let body = last.pop_back();
+        let result = if let Some(b) = body {
+            Ok(AstNode::FunctionCall(Box::from(expr), Some(Box::from(b))))
+        } else {
+            Ok(AstNode::FunctionCall(Box::from(expr), None))
+        };
+        reduced = result
     } else if node.symbol == tok.n_expr_then {
         let expr = last.pop_back().unwrap();
         let body = last.pop_back();
@@ -133,7 +143,12 @@ fn new_reduce<T: Debug>(node: Node<T>, stack: &mut Vec<VecDeque<AstNode>>, tok: 
             parent.push_back(reduced);
         }
     } else if let Ok(reduced) = reduced {
-        return Some(AstNode::StatList(VecDeque::from([reduced])));
+        // return Some(AstNode::Module(VecDeque::from([reduced])));
+        if let AstNode::StatList(_) = reduced {
+            return Some(AstNode::Module(Box::from(reduced)));
+        } else {
+            return Some(AstNode::Module(Box::from(AstNode::StatList(VecDeque::from_iter([reduced].into_iter())))));
+        }
     } else {
         panic!("Cannot reduce, fix buggo.")
     }
@@ -345,7 +360,7 @@ impl FernParseTree {
 
             if current.children.len() > 0 && current_child >= min_child {
                 while current.children.len() > 0 && current_child >= min_child {
-                    for i in 0..child_count_stack.len() {
+                    for _i in 0..child_count_stack.len() {
                         b.push_str("  ");
                     }
                     b.push_str(
@@ -402,6 +417,7 @@ impl FernParseTree {
                     if current_child < min_child {
                         if let Some(root) = new_reduce(current, &mut stack, &tok, &self.g) {
                             return Ok(root);
+                            // return Ok(AstNode::Module(Box::from(AstNode::StatList(VecDeque::from_iter([root].into_iter())))));
                         }
                         break;
                     }
@@ -409,6 +425,7 @@ impl FernParseTree {
             } else {
                 if let Some(root) = new_reduce(current, &mut stack, &tok, &self.g) {
                     return Ok(root);
+                    // return Ok(AstNode::Module(Box::from(AstNode::StatList(VecDeque::from_iter([root].into_iter())))));
                 }
             }
         }

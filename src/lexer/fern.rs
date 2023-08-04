@@ -1,14 +1,14 @@
 use crate::grammar::reader::TokenTypes;
 use crate::grammar::{OpGrammar, Token};
 use crate::lexer::error::LexerError;
-use crate::lexer::LexerInterface;
-use log::trace;
-use std::collections::HashMap;
-use std::fmt::Debug;
 use crate::lexer::fern::FernData::NoData;
 use crate::lexer::fern::FernLexerState::{InFunctionDef, Start};
 use crate::lexer::fern::InLiteral::{Name, Number};
 use crate::lexer::lua::LuaLexer;
+use crate::lexer::LexerInterface;
+use log::trace;
+use std::collections::HashMap;
+use std::fmt::Debug;
 
 pub struct FernTokens {
     pub endfile: Token,
@@ -95,6 +95,16 @@ pub struct FernTokens {
     pub unary_exp: Token,
     pub caret_exp: Token,
     pub base_exp: Token,
+    pub n_prefix_exp: Token,
+    pub n_function_call: Token,
+    pub n_function_def: Token,
+    pub n_par_list: Token,
+    pub n_table_constructor: Token,
+    pub n_field_list: Token,
+    pub n_field_list_body: Token,
+    pub n_field: Token,
+    pub n_type_expr: Token,
+    pub n_ptr_type_start: Token,
 }
 
 impl FernTokens {
@@ -183,6 +193,16 @@ impl FernTokens {
             unary_exp: tokens_reverse.get("unaryExp").unwrap().0,
             caret_exp: tokens_reverse.get("caretExp").unwrap().0,
             base_exp: tokens_reverse.get("baseExp").unwrap().0,
+            n_prefix_exp: tokens_reverse.get("prefixExp").unwrap().0,
+            n_function_call: tokens_reverse.get("functionCall").unwrap().0,
+            n_function_def: tokens_reverse.get("functionDef").unwrap().0,
+            n_par_list: tokens_reverse.get("parList").unwrap().0,
+            n_table_constructor: tokens_reverse.get("tableConstructor").unwrap().0,
+            n_field_list: tokens_reverse.get("fieldList").unwrap().0,
+            n_field_list_body: tokens_reverse.get("fieldListBody").unwrap().0,
+            n_field: tokens_reverse.get("field").unwrap().0,
+            n_type_expr: tokens_reverse.get("typeExpr").unwrap().0,
+            n_ptr_type_start: tokens_reverse.get("ptrTypeStart").unwrap().0,
         }
     }
 }
@@ -198,7 +218,7 @@ pub enum FernLexerState {
 pub enum FernData {
     Number(i64),
     String(String),
-    NoData
+    NoData,
 }
 
 enum InLiteral {
@@ -243,104 +263,96 @@ impl LexerInterface<FernLexerState, FernData> for FernLexer {
             let mut should_reconsume = false;
 
             match self.state {
-                Start => {
-                    match self.in_literal {
-                        Name => {
-                            match c {
-                                'a'..='z' | 'A'..='Z' | '_' | '0'..='9' => {
-                                    self.buf.push(c);
-                                },
-                                _ => {
-                                    let token = match self.buf.as_str() {
-                                        "and" => self.tok.and,
-                                        "struct" => self.tok.struct_t,
-                                        "break" => self.tok.break_t,
-                                        "else" => self.tok.else_t,
-                                        "elseif" => self.tok.elseif,
-                                        "false" => self.tok.false_t,
-                                        "goto" => self.tok.goto,
-                                        "if" => self.tok.if_t,
-                                        "nil" => self.tok.nil,
-                                        "not" => self.tok.not,
-                                        "or" => self.tok.or,
-                                        "repeat" => self.tok.repeat,
-                                        "until" => self.tok.until,
-                                        "in" => self.tok.in_t,
-                                        "for" => self.tok.for_t,
-                                        "return" => self.tok.return_t,
-                                        "then" => self.tok.then,
-                                        "true" => self.tok.true_t,
-                                        "while" => self.tok.while_t,
-                                        "let" => self.tok.let_t,
-                                        "fn" => self.tok.fn_t,
-                                        "end" => self.tok.end,
-                                        _ => self.tok.name,
-                                    };
-                                    if token == self.tok.name {
-                                        self.push(token, FernData::String(self.buf.clone()));
-                                    } else {
-                                        self.push(token, NoData);
-                                    }
-                                    if token == self.tok.fn_t {
-                                        self.state = InFunctionDef(false, 0);
-                                    }
-                                    self.in_literal = InLiteral::None;
-                                    self.buf.clear();
-                                    should_reconsume = true;
-                                }
-                            }
+                Start => match self.in_literal {
+                    Name => match c {
+                        'a'..='z' | 'A'..='Z' | '_' | '0'..='9' => {
+                            self.buf.push(c);
                         }
-                        Number => {
-                            match c {
-                                '0'..='9' => self.buf.push(c),
-                                _ => {
-                                    self.push(self.tok.number, FernData::Number(self.buf.parse().unwrap()));
-                                    self.buf.clear();
-                                    self.in_literal = InLiteral::None;
-                                    should_reconsume = true;
-                                }
+                        _ => {
+                            let token = match self.buf.as_str() {
+                                "and" => self.tok.and,
+                                "struct" => self.tok.struct_t,
+                                "break" => self.tok.break_t,
+                                "else" => self.tok.else_t,
+                                "elseif" => self.tok.elseif,
+                                "false" => self.tok.false_t,
+                                "goto" => self.tok.goto,
+                                "if" => self.tok.if_t,
+                                "nil" => self.tok.nil,
+                                "not" => self.tok.not,
+                                "or" => self.tok.or,
+                                "repeat" => self.tok.repeat,
+                                "until" => self.tok.until,
+                                "in" => self.tok.in_t,
+                                "for" => self.tok.for_t,
+                                "return" => self.tok.return_t,
+                                "then" => self.tok.then,
+                                "true" => self.tok.true_t,
+                                "while" => self.tok.while_t,
+                                "let" => self.tok.let_t,
+                                "fn" => self.tok.fn_t,
+                                "end" => self.tok.end,
+                                _ => self.tok.name,
+                            };
+                            if token == self.tok.name {
+                                self.push(token, FernData::String(self.buf.clone()));
+                            } else {
+                                self.push(token, NoData);
                             }
-                        }
-                        InLiteral::None => {
-                            match c {
-                                'a'..='z' | 'A'..='Z' | '_' => {
-                                    self.buf.push(c);
-                                    self.in_literal = Name;
-                                }
-                                '0'..='9' => {
-                                    self.buf.push(c);
-                                    self.in_literal = Number;
-                                },
-                                '{' => self.push(self.tok.lbrace, NoData),
-                                '}' => self.push(self.tok.rbrace, NoData),
-                                '[' => self.push(self.tok.lbrack, NoData),
-                                ']' => self.push(self.tok.rbrack, NoData),
-                                '(' => self.push(self.tok.lparen, NoData),
-                                ')' => self.push(self.tok.rparen, NoData),
-                                '?' => self.push(self.tok.questionmark, NoData),
-                                '.' => self.push(self.tok.dot, NoData),
-                                ':' => self.push(self.tok.colon, NoData),
-                                ',' => self.push(self.tok.comma, NoData),
-                                ';' => self.push(self.tok.semi, NoData),
-                                '+' => self.push(self.tok.plus, NoData),
-                                '-' => self.push(self.tok.minus, NoData),
-                                '*' => self.push(self.tok.asterisk, NoData),
-                                '/' => self.push(self.tok.divide, NoData),
-                                '%' => self.push(self.tok.percent, NoData),
-                                '>' => self.push(self.tok.gt, NoData),
-                                '<' => self.push(self.tok.lt, NoData),
-                                '=' => self.push(self.tok.eq, NoData),
-                                '\"' => {
-                                    self.state = FernLexerState::InString;
-                                }
-                                '\n' => {},
-                                ' ' | '\t' => {}
-                                _ => {
-                                    return Err(LexerError::from(format!("Unrecognized char consumed by lexer '{}'", c)));
-                                }
+                            if token == self.tok.fn_t {
+                                self.state = InFunctionDef(false, 0);
                             }
+                            self.in_literal = InLiteral::None;
+                            self.buf.clear();
+                            should_reconsume = true;
                         }
-                    }
+                    },
+                    Number => match c {
+                        '0'..='9' => self.buf.push(c),
+                        _ => {
+                            self.push(self.tok.number, FernData::Number(self.buf.parse().unwrap()));
+                            self.buf.clear();
+                            self.in_literal = InLiteral::None;
+                            should_reconsume = true;
+                        }
+                    },
+                    InLiteral::None => match c {
+                        'a'..='z' | 'A'..='Z' | '_' => {
+                            self.buf.push(c);
+                            self.in_literal = Name;
+                        }
+                        '0'..='9' => {
+                            self.buf.push(c);
+                            self.in_literal = Number;
+                        }
+                        '{' => self.push(self.tok.lbrace, NoData),
+                        '}' => self.push(self.tok.rbrace, NoData),
+                        '[' => self.push(self.tok.lbrack, NoData),
+                        ']' => self.push(self.tok.rbrack, NoData),
+                        '(' => self.push(self.tok.lparen, NoData),
+                        ')' => self.push(self.tok.rparen, NoData),
+                        '?' => self.push(self.tok.questionmark, NoData),
+                        '.' => self.push(self.tok.dot, NoData),
+                        ':' => self.push(self.tok.colon, NoData),
+                        ',' => self.push(self.tok.comma, NoData),
+                        ';' => self.push(self.tok.semi, NoData),
+                        '+' => self.push(self.tok.plus, NoData),
+                        '-' => self.push(self.tok.minus, NoData),
+                        '*' => self.push(self.tok.asterisk, NoData),
+                        '/' => self.push(self.tok.divide, NoData),
+                        '%' => self.push(self.tok.percent, NoData),
+                        '>' => self.push(self.tok.gt, NoData),
+                        '<' => self.push(self.tok.lt, NoData),
+                        '=' => self.push(self.tok.eq, NoData),
+                        '\"' => {
+                            self.state = FernLexerState::InString;
+                        }
+                        '\n' => {}
+                        ' ' | '\t' => {}
+                        _ => {
+                            return Err(LexerError::from(format!("Unrecognized char consumed by lexer '{}'", c)));
+                        }
+                    },
                 },
                 FernLexerState::InString => match c {
                     '\"' => {
@@ -353,127 +365,119 @@ impl LexerInterface<FernLexerState, FernData> for FernLexer {
                     }
                     _ => self.buf.push(c),
                 },
-                InFunctionDef(has_encountered_lparen, mut paren_cnt) => {
-                    match self.in_literal {
-                        Name => {
-                            match c {
-                                'a'..='z' | 'A'..='Z' | '_' => {
-                                    self.buf.push(c);
-                                }
-                                _ => {
-                                    let token = match self.buf.as_str() {
-                                        "and" => self.tok.and,
-                                        "struct" => self.tok.struct_t,
-                                        "break" => self.tok.break_t,
-                                        "else" => self.tok.else_t,
-                                        "elseif" => self.tok.elseif,
-                                        "false" => self.tok.false_t,
-                                        "goto" => self.tok.goto,
-                                        "if" => self.tok.if_t,
-                                        "nil" => self.tok.nil,
-                                        "not" => self.tok.not,
-                                        "or" => self.tok.or,
-                                        "repeat" => self.tok.repeat,
-                                        "until" => self.tok.until,
-                                        "in" => self.tok.in_t,
-                                        "for" => self.tok.for_t,
-                                        "return" => self.tok.return_t,
-                                        "then" => self.tok.then,
-                                        "true" => self.tok.true_t,
-                                        "while" => self.tok.while_t,
-                                        "let" => self.tok.let_t,
-                                        "fn" => self.tok.fn_t,
-                                        "end" => self.tok.end,
-                                        _ => self.tok.name,
-                                    };
-                                    if token == self.tok.name {
-                                        self.push(token, FernData::String(self.buf.clone()));
-                                    } else {
-                                        self.push(token, NoData);
-                                    }
-                                    if token == self.tok.fn_t {
-                                        panic!("function def inside function def?? user error for sure...");
-                                    }
-                                    self.in_literal = InLiteral::None;
-                                    self.buf.clear();
-                                    should_reconsume = true;
-                                }
+                InFunctionDef(has_encountered_lparen, paren_cnt) => match self.in_literal {
+                    Name => match c {
+                        'a'..='z' | 'A'..='Z' | '_' => {
+                            self.buf.push(c);
+                        }
+                        _ => {
+                            let token = match self.buf.as_str() {
+                                "and" => self.tok.and,
+                                "struct" => self.tok.struct_t,
+                                "break" => self.tok.break_t,
+                                "else" => self.tok.else_t,
+                                "elseif" => self.tok.elseif,
+                                "false" => self.tok.false_t,
+                                "goto" => self.tok.goto,
+                                "if" => self.tok.if_t,
+                                "nil" => self.tok.nil,
+                                "not" => self.tok.not,
+                                "or" => self.tok.or,
+                                "repeat" => self.tok.repeat,
+                                "until" => self.tok.until,
+                                "in" => self.tok.in_t,
+                                "for" => self.tok.for_t,
+                                "return" => self.tok.return_t,
+                                "then" => self.tok.then,
+                                "true" => self.tok.true_t,
+                                "while" => self.tok.while_t,
+                                "let" => self.tok.let_t,
+                                "fn" => self.tok.fn_t,
+                                "end" => self.tok.end,
+                                _ => self.tok.name,
+                            };
+                            if token == self.tok.name {
+                                self.push(token, FernData::String(self.buf.clone()));
+                            } else {
+                                self.push(token, NoData);
+                            }
+                            if token == self.tok.fn_t {
+                                panic!("function def inside function def?? user error for sure...");
+                            }
+                            self.in_literal = InLiteral::None;
+                            self.buf.clear();
+                            should_reconsume = true;
+                        }
+                    },
+                    Number => match c {
+                        '0'..='9' => self.buf.push(c),
+                        _ => {
+                            self.push(self.tok.number, FernData::Number(self.buf.parse().unwrap()));
+                            self.buf.clear();
+                            self.in_literal = InLiteral::None;
+                            should_reconsume = true;
+                        }
+                    },
+                    InLiteral::None => match c {
+                        'a'..='z' | 'A'..='Z' | '_' => {
+                            self.buf.push(c);
+                            self.in_literal = Name;
+                        }
+                        '0'..='9' => {
+                            self.buf.push(c);
+                            self.in_literal = Number;
+                        }
+                        '{' => self.push(self.tok.lbrace, NoData),
+                        '}' => self.push(self.tok.rbrace, NoData),
+                        '[' => self.push(self.tok.lbrack, NoData),
+                        ']' => self.push(self.tok.rbrack, NoData),
+                        '(' => {
+                            if has_encountered_lparen && paren_cnt == 0 {
+                                self.push(self.tok.lparen, NoData);
+                            } else if has_encountered_lparen && paren_cnt != 0 {
+                                self.push(self.tok.lparen, NoData);
+                                self.state = InFunctionDef(has_encountered_lparen, paren_cnt + 1);
+                            } else if !has_encountered_lparen {
+                                self.push(self.tok.lparenfunc, NoData);
+                                self.state = InFunctionDef(true, paren_cnt + 1);
                             }
                         }
-                        Number => {
-                            match c {
-                                '0'..='9' => self.buf.push(c),
-                                _ => {
-                                    self.push(self.tok.number, FernData::Number(self.buf.parse().unwrap()));
-                                    self.buf.clear();
-                                    self.in_literal = InLiteral::None;
-                                    should_reconsume = true;
-                                }
+                        ')' => {
+                            if has_encountered_lparen && paren_cnt == 1 {
+                                self.push(self.tok.rparenfunc, NoData);
+                                self.state = Start;
+                            } else if has_encountered_lparen && paren_cnt == 0 {
+                                self.push(self.tok.rparen, NoData);
+                            } else if has_encountered_lparen && paren_cnt > 1 {
+                                self.push(self.tok.rparen, NoData);
+                                self.state = InFunctionDef(has_encountered_lparen, paren_cnt - 1);
+                            } else if !has_encountered_lparen {
+                                self.push(self.tok.rparen, NoData);
                             }
                         }
-                        InLiteral::None => {
-                            match c {
-                                'a'..='z' | 'A'..='Z' | '_' => {
-                                    self.buf.push(c);
-                                    self.in_literal = Name;
-                                }
-                                '0'..='9' => {
-                                    self.buf.push(c);
-                                    self.in_literal = Number;
-                                },
-                                '{' => self.push(self.tok.lbrace, NoData),
-                                '}' => self.push(self.tok.rbrace, NoData),
-                                '[' => self.push(self.tok.lbrack, NoData),
-                                ']' => self.push(self.tok.rbrack, NoData),
-                                '(' => {
-                                    if has_encountered_lparen && paren_cnt == 0 {
-                                        self.push(self.tok.lparen, NoData);
-                                    } else if has_encountered_lparen && paren_cnt != 0{
-                                        self.push(self.tok.lparen, NoData);
-                                        self.state = InFunctionDef(has_encountered_lparen, paren_cnt + 1);
-                                    } else if !has_encountered_lparen {
-                                        self.push(self.tok.lparenfunc, NoData);
-                                        self.state = InFunctionDef(true, paren_cnt + 1);
-                                    }
-                                },
-                                ')' => {
-                                    if has_encountered_lparen && paren_cnt == 1 {
-                                        self.push(self.tok.rparenfunc, NoData);
-                                        self.state = Start;
-                                    } else if has_encountered_lparen && paren_cnt == 0 {
-                                        self.push(self.tok.rparen, NoData);
-                                    } else if has_encountered_lparen && paren_cnt > 1 {
-                                        self.push(self.tok.rparen, NoData);
-                                        self.state = InFunctionDef(has_encountered_lparen, paren_cnt - 1);
-                                    } else if !has_encountered_lparen {
-                                        self.push(self.tok.rparen, NoData);
-                                    }
-                                },
-                                '?' => self.push(self.tok.questionmark, NoData),
-                                '.' => self.push(self.tok.dot, NoData),
-                                ':' => self.push(self.tok.colon, NoData),
-                                ',' => self.push(self.tok.comma, NoData),
-                                ';' => self.push(self.tok.semi, NoData),
-                                '+' => self.push(self.tok.plus, NoData),
-                                '-' => self.push(self.tok.minus, NoData),
-                                '*' => self.push(self.tok.asterisk, NoData),
-                                '/' => self.push(self.tok.divide, NoData),
-                                '%' => self.push(self.tok.percent, NoData),
-                                '>' => self.push(self.tok.gt, NoData),
-                                '<' => self.push(self.tok.lt, NoData),
-                                '=' => self.push(self.tok.eq, NoData),
-                                '\"' => {
-                                    self.state = FernLexerState::InString;
-                                }
-                                '\n' => {},
-                                ' ' | '\t' => {}
-                                _ => {
-                                    return Err(LexerError::from(format!("Unrecognized char consumed by lexer '{}'", c)));
-                                }
-                            }
+                        '?' => self.push(self.tok.questionmark, NoData),
+                        '.' => self.push(self.tok.dot, NoData),
+                        ':' => self.push(self.tok.colon, NoData),
+                        ',' => self.push(self.tok.comma, NoData),
+                        ';' => self.push(self.tok.semi, NoData),
+                        '+' => self.push(self.tok.plus, NoData),
+                        '-' => self.push(self.tok.minus, NoData),
+                        '*' => self.push(self.tok.asterisk, NoData),
+                        '/' => self.push(self.tok.divide, NoData),
+                        '%' => self.push(self.tok.percent, NoData),
+                        '>' => self.push(self.tok.gt, NoData),
+                        '<' => self.push(self.tok.lt, NoData),
+                        '=' => self.push(self.tok.eq, NoData),
+                        '\"' => {
+                            self.state = FernLexerState::InString;
                         }
-                    }
-                }
+                        '\n' => {}
+                        ' ' | '\t' => {}
+                        _ => {
+                            return Err(LexerError::from(format!("Unrecognized char consumed by lexer '{}'", c)));
+                        }
+                    },
+                },
             }
 
             if !should_reconsume {
@@ -489,7 +493,7 @@ impl LexerInterface<FernLexerState, FernData> for FernLexer {
 
 impl FernLexer {
     fn push(&mut self, t: Token, d: FernData) {
-        self.tokens.push((t,d));
+        self.tokens.push((t, d));
         if self.tokens.len() >= 2 {
             if let Some(second_last) = self.tokens.get(self.tokens.len() - 2) {
                 if let Some(last) = self.tokens.last() {
@@ -505,25 +509,26 @@ impl FernLexer {
 
     fn should_insert_semi(&self, first: &Token, second: &Token) -> bool {
         let first = *first;
-        if first  == self.tok.rbrace ||
-            first  == self.tok.rparen ||
-            first  == self.tok.rbrack ||
-            first  == self.tok.true_t ||
-            first  == self.tok.false_t ||
-            first  == self.tok.nil ||
-            first  == self.tok.number ||
-            first  == self.tok.string
-            // || first  == self.tok.name
+        if first == self.tok.rbrace
+            || first == self.tok.rparen
+            || first == self.tok.rbrack
+            || first == self.tok.true_t
+            || first == self.tok.false_t
+            || first == self.tok.nil
+            || first == self.tok.number
+            || first == self.tok.string
+        // || first  == self.tok.name
         {
-            if *second == self.tok.lparen ||
-                *second == self.tok.name ||
-                *second == self.tok.break_t ||
-                *second == self.tok.if_t ||
-                *second == self.tok.while_t ||
-                *second == self.tok.let_t ||
-                *second == self.tok.return_t ||
-                *second == self.tok.for_t ||
-                *second == self.tok.fn_t {
+            if *second == self.tok.lparen
+                || *second == self.tok.name
+                || *second == self.tok.break_t
+                || *second == self.tok.if_t
+                || *second == self.tok.while_t
+                || *second == self.tok.let_t
+                || *second == self.tok.return_t
+                || *second == self.tok.for_t
+                || *second == self.tok.fn_t
+            {
                 return true;
             }
         }

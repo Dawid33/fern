@@ -1,0 +1,19 @@
+   Compiling fern v0.1.0 (/home/dawids/Projects/fern)
+error: expected pattern, found `,`
+   --> src/ir.rs:227:50
+    |
+227 |                 AstNode::Assign(name, val) => (),,
+    |                                                  ^ expected pattern
+
+warning: ambiguous glob re-exports
+  --> src/lib.rs:23:9
+   |
+23 | pub use lexer::*;
+   |         ^^^^^^^^ the name `json` in the type namespace is first re-exported here
+24 | pub use parser::*;
+   |         --------- but the name `json` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: `fern` (lib) generated 1 warning
+error: could not compile `fern` (lib) due to previous error; 1 warning emitted

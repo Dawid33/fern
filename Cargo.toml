@@ -24,10 +24,6 @@ flexi_logger = { version = "0.25", features = ["specfile_without_notification", 
 log = "0.4"
 ciborium = "0.2.0"
 futures = { version = "0.3" }
-tokio = { version = "1.0", features = ["rt", "macros"] }
-hyper = { version = "0.14", features = ["server", "http1", "http2", "tcp"] }
-tungstenite = { version = "0.12", default-features = false }
-tokio-tungstenite = { version = "0.13" }
 linked_hash_set = "0.1.4"
 simple-error = "0.3.0"
 dot = "0.1.4"

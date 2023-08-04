@@ -5,7 +5,6 @@ use crate::lexer::LexerInterface;
 use log::trace;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use crate::lua::LuaData::NoData;
 
 pub struct LuaTokens {
     pub endfile: Token,
@@ -151,7 +150,7 @@ pub struct LuaLexer {
 }
 
 pub enum LuaData {
-    NoData
+    NoData,
 }
 
 impl LexerInterface<LuaLexerState, LuaData> for LuaLexer {
@@ -173,7 +172,7 @@ impl LexerInterface<LuaLexerState, LuaData> for LuaLexer {
             let c = *c as char;
             let mut push = |t: Token| {
                 trace!("{}", self.grammar.token_raw.get(&t).unwrap());
-                self.tokens.push((t, NoData));
+                self.tokens.push((t, LuaData::NoData));
             };
 
             match self.state {

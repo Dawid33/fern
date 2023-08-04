@@ -1,9 +1,11 @@
-use std::any::Any;
 use crate::grammar::error::GrammarError;
 use crate::grammar::reader::TokenTypes::{Axiom, NonTerminal, Terminal};
 use crate::grammar::{OpGrammar, Rule, Token};
+use crate::reader::SymbolParserState::InKeyword;
+use crate::{Node, TokenGrammarTuple};
 use log::{debug, info, trace};
 use serde::{Deserialize, Serialize};
+use std::any::Any;
 use std::collections::{BTreeSet, HashMap};
 use std::error::Error;
 use std::fs;
@@ -11,8 +13,6 @@ use std::io::{BufReader, Read};
 use std::ops::Deref;
 use std::prelude::rust_2015;
 use std::slice::Iter;
-use crate::reader::SymbolParserState::InKeyword;
-use crate::{Node, TokenGrammarTuple};
 
 #[derive(Clone, Debug, Copy)]
 enum GeneralState {
@@ -152,10 +152,7 @@ impl RawGrammar {
                         buf.push(c);
                     }
                     _ => {
-                        return Err(GrammarError::from(format!(
-                            "Invalid character in grammar definition: {}",
-                            c
-                        )));
+                        return Err(GrammarError::from(format!("Invalid character in grammar definition: {}", c)));
                     }
                 },
                 GeneralState::Rules => match c {
@@ -191,9 +188,7 @@ impl RawGrammar {
                             nesting_buf.clear();
                             rule.as_mut().unwrap().nesting_rules.push(nesting);
                         }
-                        RuleParserState::InRuleRight | RuleParserState::AwaitingRuleRight | RuleParserState::InData => {
-                            ()
-                        }
+                        RuleParserState::InRuleRight | RuleParserState::AwaitingRuleRight | RuleParserState::InData => (),
                     },
                     ':' | '|' => match rule_parser_state {
                         RuleParserState::InData => {
@@ -219,9 +214,7 @@ impl RawGrammar {
                             if let Some(r) = rule.clone() {
                                 rules.push(r.clone());
                             } else {
-                                return Err(GrammarError::from(
-                                    "Semicolon used without rule preceding it.".to_string(),
-                                ));
+                                return Err(GrammarError::from("Semicolon used without rule preceding it.".to_string()));
                             }
                         }
                         RuleParserState::InRuleIdentifierRight => {
@@ -271,26 +264,21 @@ impl RawGrammar {
                             buf.push(c);
                         }
                         RuleParserState::InRuleLeft => buf.push(c),
-                        RuleParserState::InRuleIdentifierRight => {
-                            match c {
-                                'A'..='Z' | 'a'..='z' => buf.push(c),
-                                '0'..='9' | '_' | '.' => {
-                                    nesting_buf.push(c);
-                                }
-                                _ => { panic!("Shouldn't happen") }
+                        RuleParserState::InRuleIdentifierRight => match c {
+                            'A'..='Z' | 'a'..='z' => buf.push(c),
+                            '0'..='9' | '_' | '.' => {
+                                nesting_buf.push(c);
                             }
-                        }
+                            _ => {
+                                panic!("Shouldn't happen")
+                            }
+                        },
                         RuleParserState::AwaitingRuleRight => {
-                            return Err(GrammarError::from(
-                                "Expected :, | or ;, found start of identifier.".to_string(),
-                            ));
+                            return Err(GrammarError::from("Expected :, | or ;, found start of identifier.".to_string()));
                         }
                     },
                     _ => {
-                        return Err(GrammarError::from(format!(
-                            "Invalid character in grammar definition: {}",
-                            c
-                        )));
+                        return Err(GrammarError::from(format!("Invalid character in grammar definition: {}", c)));
                     }
                 },
             }
@@ -333,11 +321,7 @@ impl RawGrammar {
             for (i, t) in r.right.iter().enumerate() {
                 output.push(format!("({}, {:?}), ", token_raw.get(t).unwrap().clone(), r.nesting_rules.get(i).unwrap()));
             }
-            trace!(
-                "Rule : {} -> {:?}",
-                &token_raw.get(&r.left).unwrap(),
-                output,
-            );
+            trace!("Rule : {} -> {:?}", &token_raw.get(&r.left).unwrap(), output,);
         }
 
         let mut non_terminals = Vec::new();
@@ -379,12 +363,10 @@ pub struct ReductionTree {
 
 impl ReductionTree {
     pub fn new() -> Self {
-        Self {
-            root_nodes: HashMap::new(),
-        }
+        Self { root_nodes: HashMap::new() }
     }
 
-    pub fn disambiguate<T>(&self, node: &Node<T>, g: &OpGrammar, expected: Option<Token>) -> Vec<&Rule> {
+    pub fn disambiguate<T>(&self, node: &Node<T>, g: &OpGrammar, _expected: Option<Token>) -> Vec<&Rule> {
         let mut output: Vec<&Rule> = Vec::new();
         let mut iter = node.children.iter();
         let first = iter.next().unwrap();
@@ -411,7 +393,7 @@ impl ReductionTree {
         if let Some(mut current) = current {
             for child in iter {
                 let possible_options_for_child: Vec<Token> = if let Some(t) = g.new_non_terminal_reverse.get(&child.symbol) {
-                    t.iter().map(|x| { *x }).rev().collect()
+                    t.iter().map(|x| *x).rev().collect()
                 } else {
                     Vec::from([child.symbol])
                 };
@@ -437,7 +419,9 @@ impl ReductionTree {
                                 has_changed = true;
                                 vec
                             }
-                            ReductionNode::Rule(_) => { unreachable!() }
+                            ReductionNode::Rule(_) => {
+                                unreachable!()
+                            }
                         }
                     } else {
                         current
@@ -448,7 +432,7 @@ impl ReductionTree {
                 }
             }
 
-            for (i, exiting_node) in current.iter().enumerate() {
+            for (_i, exiting_node) in current.iter().enumerate() {
                 match exiting_node {
                     ReductionNode::Rule(r) => {
                         debug!("Found : {:?}", r);
@@ -562,7 +546,7 @@ impl ReductionTree {
             };
         }
 
-        for (i, exiting_node) in current.iter().enumerate() {
+        for (_i, exiting_node) in current.iter().enumerate() {
             match exiting_node {
                 ReductionNode::Rule(r) => {
                     debug!("Found : {:?}", r);
@@ -594,7 +578,7 @@ impl ReductionTree {
             let mut found_node: Option<usize> = None;
             for (i, exiting_node) in current.iter().enumerate() {
                 match exiting_node {
-                    ReductionNode::Node(n, vec) => {
+                    ReductionNode::Node(n, _vec) => {
                         if *n == *t {
                             found_node = Some(i);
                             break;

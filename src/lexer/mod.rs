@@ -1,7 +1,7 @@
-use crossbeam_deque::{Injector, Worker};
-use crossbeam_skiplist::SkipMap;
 use crossbeam::sync::Parker;
 use crossbeam::sync::Unparker;
+use crossbeam_deque::{Injector, Worker};
+use crossbeam_skiplist::SkipMap;
 use log::trace;
 use memmap::{Mmap, MmapOptions};
 use std::collections::{HashMap, LinkedList};
@@ -25,10 +25,10 @@ pub mod json;
 pub mod lua;
 
 use crate::grammar::{OpGrammar, Token};
-use crossbeam_queue::SegQueue;
 use crate::lexer::error::LexerError;
 use crate::lexer::json::{JsonData, JsonLexer, JsonLexerState, JsonTokens};
 use crate::lexer::lua::{LuaLexer, LuaLexerState};
+use crossbeam_queue::SegQueue;
 
 pub struct LexerOutput<T, Data> {
     lists: Option<HashMap<T, LexerPartialOutput<T, Data>>>,
@@ -69,13 +69,7 @@ where
     Data: Send + Sync + 'static + Eq + PartialEq + Hash + Debug,
     Lexer: LexerInterface<T, Data>,
 {
-    pub fn new(
-        grammar: &OpGrammar,
-        scope: &'a Scope<'a, '_>,
-        threads: usize,
-        possible_start_states: &[T],
-        initial_state: T,
-    ) -> Self {
+    pub fn new(grammar: &OpGrammar, scope: &'a Scope<'a, '_>, threads: usize, possible_start_states: &[T], initial_state: T) -> Self {
         let new_queue: Arc<SegQueue<WorkUnit<T, Data>>> = Arc::new(SegQueue::new());
         let (send, recv) = crossbeam_channel::bounded(threads);
         let outputs: HashMap<String, Batch<T, Data>> = HashMap::new();
@@ -83,64 +77,67 @@ where
         let mut handles = vec![];
         for _ in 0..threads {
             let reciever = recv.clone();
-            let new_queue= new_queue.clone();
+            let new_queue = new_queue.clone();
             let grammar = grammar.clone();
             let start_states: Vec<T> = Vec::from(possible_start_states);
             let parker = Parker::new();
             let unparker = parker.unparker().clone();
 
-            handles.push((scope.spawn(move || {
-                let mut should_run = true;
-                while should_run {
-                    let task = new_queue.pop();
-                    if let Some(task) = task {
-                        let mut lexers: Vec<(Lexer, T, bool)> = Vec::new();
-                        for state in &start_states {
-                            lexers.push((Lexer::new(grammar.clone(), *state), *state, true));
-                        }
+            handles.push((
+                scope.spawn(move || {
+                    let mut should_run = true;
+                    while should_run {
+                        let task = new_queue.pop();
+                        if let Some(task) = task {
+                            let mut lexers: Vec<(Lexer, T, bool)> = Vec::new();
+                            for state in &start_states {
+                                lexers.push((Lexer::new(grammar.clone(), *state), *state, true));
+                            }
 
-                        for c in task.1 {
+                            for c in task.1 {
+                                for (lexer, _, is_successful) in &mut lexers {
+                                    if *is_successful {
+                                        if let Err(_) = lexer.consume(c) {
+                                            *is_successful = false;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Send whitespace to make sure any tokens at then end of the chunk
+                            // so that any remaining tokens in the buffer actually get created.
+                            // This is okay because we split up the input string on word boundaries so
+                            // adding whitespace should make no difference.
                             for (lexer, _, is_successful) in &mut lexers {
                                 if *is_successful {
-                                    if let Err(_) = lexer.consume(c) {
+                                    if let Err(_) = lexer.consume(&(' ' as u8)) {
                                         *is_successful = false;
                                     }
                                 }
                             }
-                        }
 
-                        // Send whitespace to make sure any tokens at then end of the chunk
-                        // so that any remaining tokens in the buffer actually get created.
-                        // This is okay because we split up the input string on word boundaries so
-                        // adding whitespace should make no difference.
-                        for (lexer, _, is_successful) in &mut lexers {
-                            if *is_successful {
-                                if let Err(_) = lexer.consume(&(' ' as u8)) {
-                                    *is_successful = false;
-                                }
+                            let mut map: HashMap<T, LexerPartialOutput<T, Data>> = HashMap::new();
+                            for (lexer, start_state, is_successful) in lexers {
+                                let (finish_state, tokens) = lexer.take();
+                                map.insert(
+                                    start_state,
+                                    LexerPartialOutput {
+                                        success: is_successful,
+                                        finish_state,
+                                        list: tokens,
+                                    },
+                                );
                             }
+                            task.2.insert(task.0, RwLock::new(LexerOutput { lists: Some(map) }));
+                        } else if let Ok(_) = reciever.try_recv() {
+                            should_run = false;
+                        } else {
+                            parker.park();
                         }
-
-                        let mut map: HashMap<T, LexerPartialOutput<T, Data>> = HashMap::new();
-                        for (lexer, start_state, is_successful) in lexers {
-                            let (finish_state, tokens) = lexer.take();
-                            map.insert(
-                                start_state,
-                                LexerPartialOutput {
-                                    success: is_successful,
-                                    finish_state: finish_state,
-                                    list: tokens,
-                                },
-                            );
-                        }
-                        task.2.insert(task.0, RwLock::new(LexerOutput { lists: Some(map) }));
-                    } else if let Ok(_) = reciever.try_recv() {
-                        should_run = false;
-                    } else {
-                        parker.park();
                     }
-                }
-            }), unparker));
+                }),
+                unparker,
+            ));
         }
         return Self {
             connection: send,
@@ -185,7 +182,7 @@ where
     }
 
     pub fn add_to_batch(&mut self, id: &String, input: &'a [u8], order: usize) {
-        let mut batch = self.outputs.get_mut(id).unwrap();
+        let batch = self.outputs.get_mut(id).unwrap();
         batch.size += 1;
         self.new_queue.push(WorkUnit(order, input, (*batch).output.clone()));
         for (_, unparker) in &mut self.handles {
@@ -266,7 +263,7 @@ where
             if !self.handles.is_empty() {
                 for i in 0..self.handles.len() {
                     if let Some(t) = self.handles.get_mut(i) {
-                        if t.0.is_finished()  {
+                        if t.0.is_finished() {
                             self.handles.remove(i);
                         }
                     }
@@ -309,13 +306,8 @@ pub fn lex(input: &str, grammar: &OpGrammar, threads: usize) -> Result<LinkedLis
     let mut tokens: LinkedList<Vec<(Token, JsonData)>> = LinkedList::new();
     {
         thread::scope(|s| {
-            let mut lexer: ParallelLexer<JsonLexerState, JsonLexer, JsonData> = ParallelLexer::new(
-                &grammar,
-                s,
-                threads,
-                &[JsonLexerState::Start, JsonLexerState::InString],
-                JsonLexerState::Start,
-            );
+            let mut lexer: ParallelLexer<JsonLexerState, JsonLexer, JsonData> =
+                ParallelLexer::new(&grammar, s, threads, &[JsonLexerState::Start, JsonLexerState::InString], JsonLexerState::Start);
             let batch = lexer.new_batch();
             lexer.add_to_batch(&batch, input.as_bytes(), 0);
             tokens = lexer.collect_batch(batch);

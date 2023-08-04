@@ -3,6 +3,7 @@ use crate::grammar::printing::print_op_table;
 use crate::grammar::reader::TokenTypes::{NonTerminal, Terminal};
 pub use crate::grammar::reader::{RawGrammar, TokenTypes};
 use crate::grammar::Associativity::{Equal, Left, Right};
+use crate::reader::ReductionTree;
 use log::{debug, info, trace};
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::HashMap;
@@ -13,7 +14,6 @@ use std::fs;
 use std::fs::File;
 use std::hash::Hash;
 use std::io::{Read, Seek, Write};
-use crate::reader::ReductionTree;
 
 mod error;
 pub mod printing;
@@ -34,7 +34,7 @@ impl Rule {
         Self {
             left: 0,
             right: Vec::new(),
-            nesting_rules: Vec::new()
+            nesting_rules: Vec::new(),
         }
     }
     pub fn from(left: Token) -> Self {
@@ -69,7 +69,7 @@ pub struct OpGrammar {
     pub token_reverse: HashMap<String, (Token, TokenTypes)>,
     pub ast_rules: Vec<Rule>,
     pub new_non_terminals_subset: Vec<Token>,
-    pub new_non_terminal_reverse : HashMap<Token, BTreeSet<Token>>,
+    pub new_non_terminal_reverse: HashMap<Token, BTreeSet<Token>>,
     pub reduction_tree: ReductionTree,
     pub new_reduction_tree: ReductionTree,
     pub foobar: HashMap<Token, ReductionTree>,
@@ -96,7 +96,9 @@ impl OpGrammar {
         // Validate that the grammar is in OPG form
         let repeated_rules = g.get_repeated_rhs();
         if let Some(repeated_rules) = repeated_rules {
-            return Err(GrammarError::from("Cannot build OP Grammar from grammar with repeated right hand side.".to_string()));
+            return Err(GrammarError::from(
+                "Cannot build OP Grammar from grammar with repeated right hand side.".to_string(),
+            ));
         }
 
         let mut rewrite_rules: HashMap<Token, Vec<Token>> = HashMap::new();
@@ -138,11 +140,7 @@ impl OpGrammar {
         for row in inverse_rewrite_rules.keys() {
             let mut row_full_raw = String::new();
             row_full_raw.push_str(Self::list_to_string(inverse_rewrite_rules.get(row).unwrap(), &g.token_raw).as_str());
-            debug!(
-                "{:?} -> {:?}",
-                g.token_raw.get(row).unwrap(),
-                row_full_raw,
-            );
+            debug!("{:?} -> {:?}", g.token_raw.get(row).unwrap(), row_full_raw,);
         }
 
         let mut first_ops: HashMap<Token, HashSet<Token>> = HashMap::new();
@@ -231,18 +229,8 @@ impl OpGrammar {
             }
         });
         for row in first_ops.keys() {
-            let row_full_raw: Vec<&String> = first_ops
-                .get(row)
-                .unwrap()
-                .iter()
-                .map(|row_item| g.token_raw.get(row_item).unwrap())
-                .collect();
-            debug!(
-                "{:s_len$} : {:?}",
-                g.token_raw.get(row).unwrap(),
-                row_full_raw,
-                s_len = largest
-            );
+            let row_full_raw: Vec<&String> = first_ops.get(row).unwrap().iter().map(|row_item| g.token_raw.get(row_item).unwrap()).collect();
+            debug!("{:s_len$} : {:?}", g.token_raw.get(row).unwrap(), row_full_raw, s_len = largest);
         }
 
         debug!("LAST OP");
@@ -254,18 +242,8 @@ impl OpGrammar {
             }
         });
         for row in last_ops.keys() {
-            let row_full_raw: Vec<&String> = last_ops
-                .get(row)
-                .unwrap()
-                .iter()
-                .map(|row_item| g.token_raw.get(row_item).unwrap())
-                .collect();
-            debug!(
-                "{:s_len$} : {:?}",
-                g.token_raw.get(row).unwrap(),
-                row_full_raw,
-                s_len = largest
-            );
+            let row_full_raw: Vec<&String> = last_ops.get(row).unwrap().iter().map(|row_item| g.token_raw.get(row_item).unwrap()).collect();
+            debug!("{:s_len$} : {:?}", g.token_raw.get(row).unwrap(), row_full_raw, s_len = largest);
         }
 
         let mut template: HashMap<Token, Associativity> = HashMap::new();
@@ -280,17 +258,10 @@ impl OpGrammar {
         for r in &g.rules {
             for i in 0..r.right.len() {
                 if i + 1 < r.right.len() {
-                    if g.terminals.contains(r.right.get(i).unwrap())
-                        && g.terminals.contains(r.right.get(i + 1).unwrap())
-                    {
-                        op_table
-                            .get_mut(r.right.get(i).unwrap())
-                            .unwrap()
-                            .insert(*r.right.get(i + 1).unwrap(), Equal);
+                    if g.terminals.contains(r.right.get(i).unwrap()) && g.terminals.contains(r.right.get(i + 1).unwrap()) {
+                        op_table.get_mut(r.right.get(i).unwrap()).unwrap().insert(*r.right.get(i + 1).unwrap(), Equal);
                     }
-                    if g.terminals.contains(r.right.get(i).unwrap())
-                        && g.non_terminals.contains(r.right.get(i + 1).unwrap())
-                    {
+                    if g.terminals.contains(r.right.get(i).unwrap()) && g.non_terminals.contains(r.right.get(i + 1).unwrap()) {
                         if first_ops.contains_key(r.right.get(i + 1).unwrap()) {
                             let first_op_a = first_ops.get(r.right.get(i + 1).unwrap()).unwrap();
                             for q2 in first_op_a {
@@ -298,16 +269,11 @@ impl OpGrammar {
                             }
                         }
                     }
-                    if g.non_terminals.contains(r.right.get(i).unwrap())
-                        && g.terminals.contains(r.right.get(i + 1).unwrap())
-                    {
+                    if g.non_terminals.contains(r.right.get(i).unwrap()) && g.terminals.contains(r.right.get(i + 1).unwrap()) {
                         if last_ops.contains_key(r.right.get(i).unwrap()) {
                             let last_op_a = last_ops.get(r.right.get(i).unwrap()).unwrap();
                             for q2 in last_op_a {
-                                op_table
-                                    .get_mut(q2)
-                                    .unwrap()
-                                    .insert(*r.right.get(i + 1).unwrap(), Right);
+                                op_table.get_mut(q2).unwrap().insert(*r.right.get(i + 1).unwrap(), Right);
                             }
                         }
                     }
@@ -316,17 +282,23 @@ impl OpGrammar {
                             && g.non_terminals.contains(r.right.get(i + 1).unwrap())
                             && g.terminals.contains(r.right.get(i + 2).unwrap())
                         {
-                            op_table
-                                .get_mut(r.right.get(i).unwrap())
-                                .unwrap()
-                                .insert(*r.right.get(i + 2).unwrap(), Equal);
+                            op_table.get_mut(r.right.get(i).unwrap()).unwrap().insert(*r.right.get(i + 2).unwrap(), Equal);
                         }
                     }
                 }
             }
         }
 
-        op_table.insert(delim, template.clone().into_iter().map(|(t, a)| -> (Token, Associativity) {return (t, Associativity::Right);}).collect());
+        op_table.insert(
+            delim,
+            template
+                .clone()
+                .into_iter()
+                .map(|(t, a)| -> (Token, Associativity) {
+                    return (t, Associativity::Right);
+                })
+                .collect(),
+        );
         for x in op_table.values_mut() {
             x.insert(delim, Associativity::Right);
         }
@@ -334,13 +306,11 @@ impl OpGrammar {
         g.terminals.push(delim);
 
         print_op_table(&g.token_raw, &g.token_reverse, &g.terminals, &op_table);
-        
+
         let mut tree = ReductionTree::new();
         for r in &g.rules {
             tree.add_rule(r);
         }
-
-
 
         Ok(OpGrammar {
             token_raw: g.token_raw,
@@ -354,7 +324,7 @@ impl OpGrammar {
             op_table,
             ast_rules: g.ast_rules,
             token_reverse: g.token_reverse,
-            new_non_terminal_reverse : g.new_non_terminal_reverse,
+            new_non_terminal_reverse: g.new_non_terminal_reverse,
             new_non_terminals_subset: g.new_non_terminals_subset,
             reduction_tree: g.reduction_tree,
             new_reduction_tree: tree,

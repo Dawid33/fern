@@ -1,12 +1,11 @@
 use crate::grammar::reader::TokenTypes;
 use crate::grammar::{OpGrammar, Token};
 use crate::lexer::error::LexerError;
+use crate::lexer::fern::FernLexer;
+use crate::lexer::json::JsonData::NoData;
 use crate::lexer::LexerInterface;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use crate::lexer::fern::FernLexer;
-use crate::lexer::json::JsonData::NoData;
-use crate::lua::LuaData;
 
 #[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
 pub enum JsonLexerState {
@@ -56,7 +55,7 @@ pub struct JsonLexer {
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum JsonData {
-    NoData
+    NoData,
 }
 
 impl Default for JsonData {

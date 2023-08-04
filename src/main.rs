@@ -1,4 +1,5 @@
 #![cfg_attr(debug_assertions, allow(dead_code, unused_imports))]
+#![allow(ambiguous_glob_reexports)]
 extern crate core;
 
 use core::print::{render, render_block};
@@ -29,7 +30,7 @@ use flexi_logger::Logger;
 use memmap::MmapOptions;
 use std::ops::Deref;
 use std::thread::{current, park};
-use tungstenite::protocol::frame::coding::Data;
+// use tungstenite::protocol::frame::coding::Data;
 
 fn json() -> Result<(), Box<dyn Error>> {
     let mut now = Instant::now();
@@ -74,7 +75,7 @@ fn json() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn rust() -> Result<(), Box<dyn Error>> {
+fn fern() -> Result<(), Box<dyn Error>> {
     let mut now = Instant::now();
     let mut raw = RawGrammar::from("data/grammar/fern.g")?;
     raw.delete_repeated_rhs()?;
@@ -131,6 +132,6 @@ fn rust() -> Result<(), Box<dyn Error>> {
 
 fn main() -> Result<(), Box<dyn Error>> {
     Logger::try_with_str("trace, core::grammar = info")?.start_with_specfile("log.toml")?;
-    rust()?;
+    fern()?;
     Ok(())
 }

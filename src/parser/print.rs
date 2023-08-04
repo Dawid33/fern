@@ -1,7 +1,6 @@
 use crate::grammar::{Associativity, OpGrammar, Rule, Token};
-use crate::ir::{Block, BlockType};
+use crate::ir::{Block, BlockType, Statement};
 use crate::lexer::fern::FernData;
-use crate::lua::LuaData::NoData;
 use crate::parser::fern_ast::Operator::{Add, Divide, Equal, GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Modulo, Multiply, NotEqual, Subtract};
 use crate::parser::{Node, ParseTree};
 use log::info;
@@ -26,7 +25,7 @@ use std::sync;
 use std::sync::mpsc::channel;
 use std::thread::current;
 use std::time::Duration;
-use tokio::time::Instant;
+// use tokio::time::Instant;
 
 use super::fern_ast::{AstNode, FernParseTree, Operator};
 
@@ -51,12 +50,13 @@ impl Debug for Operator {
 impl Debug for AstNode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            AstNode::Binary(l, o, r) => write!(f, "Binary<BR/>{:?}", o),
-            AstNode::Unary(o, e) => write!(f, "Unary<BR/>{:?}", o),
+            AstNode::Binary(_l, o, _r) => write!(f, "Binary<BR/>{:?}", o),
+            AstNode::Unary(o, _e) => write!(f, "Unary<BR/>{:?}", o),
             AstNode::Number(n) => write!(f, "{}", n),
             AstNode::String(s) => {
                 write!(f, "\"{}\"", s)
             }
+            AstNode::FunctionCall(_, _) => write!(f, "Function Call"),
             AstNode::Name(n) => write!(f, "{}", n),
             AstNode::ExprList(_) => write!(f, "Expr List"),
             AstNode::Assign(_, _) => write!(f, "="),
@@ -160,7 +160,7 @@ impl<'a> dot::Labeller<'a, Nd, Ed> for Graph {
 
 impl<'a> dot::GraphWalk<'a, Nd, Ed> for Graph {
     fn nodes(&'a self) -> dot::Nodes<'a, Nd> {
-        let mut new_nodes = self.nodes.clone().into_iter().enumerate().collect();
+        let new_nodes = self.nodes.clone().into_iter().enumerate().collect();
         Cow::Owned(new_nodes)
     }
     fn edges(&'a self) -> dot::Edges<'a, Ed> {
@@ -193,11 +193,11 @@ pub fn render<W: Write>(ast: Box<AstNode>, output: &mut W) {
         };
 
         match *current {
-            AstNode::Binary(left, op, right) => {
+            AstNode::Binary(left, _, right) => {
                 push_node(id, format!("{:?}", &left), left);
                 push_node(id, format!("{:?}", &right), right);
             }
-            AstNode::Unary(op, expr) => {
+            AstNode::Unary(_, expr) => {
                 push_node(id, format!("{:?}", &expr), expr);
             }
             AstNode::Number(_) => {}
@@ -227,6 +227,12 @@ pub fn render<W: Write>(ast: Box<AstNode>, output: &mut W) {
                 }
                 if let Some(stmts) = stmts {
                     push_node(id, format!("{:?}", stmts), stmts);
+                }
+            }
+            AstNode::FunctionCall(expr, args) => {
+                push_node(id, format!("{:?}", expr), expr);
+                if let Some(args) = args {
+                    push_node(id, format!("{:?}", args), args);
                 }
             }
             AstNode::If(expr, stmts, else_or_elseif) => {
@@ -280,7 +286,7 @@ pub fn render<W: Write>(ast: Box<AstNode>, output: &mut W) {
         }
     }
 
-    let graph = Graph { nodes: nodes, edges: edges };
+    let graph = Graph { nodes, edges };
     dot::render(&graph, output).unwrap()
 }
 
@@ -297,6 +303,7 @@ digraph g {
     node [
         fontsize = "16"
         shape = "ellipse"
+        rankjustify=min
     ];
     edge [
     ];
@@ -311,8 +318,50 @@ digraph g {
     let mut stack = VecDeque::new();
     stack.push_front(&ir);
     let print_b = |b: &Block, w: &mut W| {
-        let test = "test".to_string();
-        let label = if let BlockType::Code = b.block_type { &test } else { &b.prefix };
+        let mut builder = String::new();
+        let label = match &b.block_type {
+            BlockType::Code(ref stmts) => {
+                let mut stmt_to_string = |x: &Statement, first: bool| {
+                    let mut prefix = "| ";
+                    if first {
+                        prefix = "";
+                    }
+                    match x {
+                        crate::ir::Statement::Return(val) => {
+                            if let Some(ref val) = val {
+                                builder.push_str(format!("{}return {}\\l", prefix, val).as_str())
+                            } else {
+                                builder.push_str(format!("{}return\\l", prefix).as_str())
+                            }
+                        }
+                        crate::ir::Statement::Let(l) => {
+                            if let Some(ref val) = l.val {
+                                builder.push_str(format!("{}{} = {} \\l", prefix, l.ident.name, val).as_str())
+                            } else {
+                                builder.push_str(format!("{}{}; \\l", prefix, l.ident.name).as_str())
+                            }
+                        }
+                        _ => builder.push_str("?"),
+                    }
+                };
+                let mut stmts = stmts.iter();
+                if let Some(x) = stmts.next() {
+                    stmt_to_string(&x, true);
+                };
+                while let Some(x) = stmts.next() {
+                    stmt_to_string(&x, false);
+                }
+                &builder
+            }
+            BlockType::If(cond) => {
+                builder = format!("{} ({})", &b.prefix, cond);
+                &builder
+            }
+            _ => {
+                println!("{}", &b.prefix);
+                &b.prefix
+            }
+        };
 
         w.write(format!("\"{}\" [label = \"{}\"\n shape = \"record\"];\n", b.prefix, label).as_bytes())
             .unwrap();

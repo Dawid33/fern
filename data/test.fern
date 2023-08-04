@@ -1,4 +1,15 @@
+
 fn main (argc, argv) {
-    let x = 3;
+    let x = 3 * 3 + 4;
+    if x > 30 < y {
+        let x = 0;
+        let y = x / 30 + 3;
+    }
+    return x / 100;
+}
+
+
+
+fn other() {
     return x;
 }

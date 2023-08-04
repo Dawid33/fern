@@ -109,7 +109,7 @@ statList : stat
 	| statList SEMI
 	;
 
-stat :  baseExp EQ expr
+stat : baseExp EQ expr
 	| functionCall
 	| retStat
 	| LBRACE statList RBRACE
@@ -119,8 +119,8 @@ stat :  baseExp EQ expr
 	| FUNCTION funcName LBRACK nameList RBRACK LBRACE statList RBRACE
 	| IF exprThen RBRACE
 	| IF exprThen RBRACE elseIfBlock
-	| STRUCT name LBRACE RBRACE
-	| STRUCT name LBRACE fieldList RBRACE
+	| STRUCT baseExp LBRACE RBRACE
+	| STRUCT baseExp LBRACE fieldList RBRACE
 	| FUNCTION baseExp LPARENFUNC RPARENFUNC LBRACE statList RBRACE
 	| FUNCTION baseExp LPARENFUNC exprList RPARENFUNC LBRACE statList RBRACE
 	| FUNCTION baseExp LPARENFUNC exprList RPARENFUNC LBRACE RBRACE
@@ -133,9 +133,9 @@ stat :  baseExp EQ expr
 	| LET baseExp
 	;
 
-functionCall : prefixExp LPAREN exprList RPAREN
-	| prefixExp LPAREN expr RPAREN
-	| prefixExp LPAREN RPAREN
+functionCall : baseExp LPAREN exprList RPAREN
+	| baseExp LPAREN expr RPAREN
+	| baseExp LPAREN RPAREN
 	;
 
 retStat : RETURN SEMI
@@ -230,7 +230,7 @@ fieldListBody : field
 	| fieldListBody COMMA field
 	;
 
-field : baseExp COLON typeExpr
+field : baseExp COLON baseExp
 	;
 
 var : prefixExp DOT baseExp
