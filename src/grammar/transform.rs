@@ -1,3 +1,5 @@
+use crate::grammar::error::GrammarError;
+use crate::grammar::printing::print_dict;
 use crate::grammar::reader::TokenTypes::NonTerminal;
 use crate::grammar::reader::{RawGrammar, TokenTypes};
 use crate::grammar::{OpGrammar, Rule, Token};
@@ -6,8 +8,6 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::error::Error;
 use std::fs::File;
 use std::io::Write;
-use crate::grammar::error::GrammarError;
-use crate::grammar::printing::print_dict;
 
 impl RawGrammar {
     pub fn delete_repeated_rhs(&mut self) -> Result<(), GrammarError> {
@@ -45,14 +45,14 @@ impl RawGrammar {
 
         for (rhs, left) in &dict_rules {
             trace!(
-            "dict_rules : {} -> {:?}",
-            self.token_raw.get(left.iter().next().unwrap()).unwrap(),
-            super::OpGrammar::token_list_to_string(rhs, &self.token_raw)
-        );
+                "dict_rules : {} -> {:?}",
+                self.token_raw.get(left.iter().next().unwrap()).unwrap(),
+                super::OpGrammar::token_list_to_string(rhs, &self.token_raw)
+            );
         }
 
         info!("Direct ambiguities :");
-        for (rhs, lhs)in &dict_rules {
+        for (rhs, lhs) in &dict_rules {
             if lhs.len() > 1 {
                 let mut b = String::new();
                 for t in rhs {
@@ -79,17 +79,25 @@ impl RawGrammar {
                 // Update the copy set of rule.left
                 let old = copy.get_mut(&r.left).unwrap().clone(); // Unused
                 copy.get_mut(&r.left).unwrap().insert(r.right.get(0).unwrap().clone());
-                trace!( "Update: {:?} -> {:?}", super::OpGrammar::token_list_to_string(&old.into_iter().collect(), &self.token_raw), super::OpGrammar::token_list_to_string( &copy.get(&r.left).unwrap().clone().into_iter().collect(), &self.token_raw ) );
+                trace!(
+                    "Update: {:?} -> {:?}",
+                    super::OpGrammar::token_list_to_string(&old.into_iter().collect(), &self.token_raw),
+                    super::OpGrammar::token_list_to_string(&copy.get(&r.left).unwrap().clone().into_iter().collect(), &self.token_raw)
+                );
                 if dict_rules.contains_key(&r.right) {
-                    trace!( "Removing : {:?}", super::OpGrammar::token_list_to_string(&r.right, &self.token_raw) );
+                    trace!("Removing : {:?}", super::OpGrammar::token_list_to_string(&r.right, &self.token_raw));
                     dict_rules.remove(&r.right).unwrap();
                 }
             } else {
                 if rhs_dict.contains_key(&r.left) {
-                    trace!( "Pushing: {:?}", super::OpGrammar::token_list_to_string(&r.right, &self.token_raw) );
+                    trace!("Pushing: {:?}", super::OpGrammar::token_list_to_string(&r.right, &self.token_raw));
                     rhs_dict.get_mut(&r.left).unwrap().push(r.right.clone());
                 } else {
-                    trace!( "Inserting : {:?} -> {:?}", self.token_raw.get(&r.left).unwrap(), super::OpGrammar::token_list_to_string(&r.right, &self.token_raw) );
+                    trace!(
+                        "Inserting : {:?} -> {:?}",
+                        self.token_raw.get(&r.left).unwrap(),
+                        super::OpGrammar::token_list_to_string(&r.right, &self.token_raw)
+                    );
                     rhs_dict.insert(r.left, Vec::from([r.right.clone()]));
                 }
             }
@@ -147,7 +155,7 @@ impl RawGrammar {
         }
 
         // Initialize the new nonterminal set V
-        print_dict("should_be_concated.txt", &dict_rules, &self.token_raw);
+        // print_dict("should_be_concated.txt", &dict_rules, &self.token_raw);
         let temp = dict_rules.clone().into_values();
         let mut v: BTreeSet<BTreeSet<Token>> = BTreeSet::new();
         for x in temp {
@@ -176,23 +184,23 @@ impl RawGrammar {
         }
         let dict_rules = copied_dict;
 
-       // let mut f = File::create("V.txt").unwrap();
-       //  for val in &v {
-       //      let mut builder = String::new();
-       //      builder.push_str("[");
-       //
-       //      let mut val_iter = val.iter();
-       //      if let Some(t) = val_iter.next() {
-       //          builder.push_str(format!("\'{}\'", self.token_raw.get(t).unwrap()).as_str());
-       //      }
-       //      while let Some(t) = val_iter.next() {
-       //          builder.push_str(", ");
-       //          builder.push_str(format!("\'{}\'", self.token_raw.get(t).unwrap()).as_str());
-       //      }
-       //      builder.push_str("]\n");
-       //      f.write(builder.as_bytes());
-       //  }
-        let mut non_terms_chunked : HashMap<BTreeSet<Token>, Vec<BTreeSet<Token>>> = HashMap::new();
+        // let mut f = File::create("V.txt").unwrap();
+        //  for val in &v {
+        //      let mut builder = String::new();
+        //      builder.push_str("[");
+        //
+        //      let mut val_iter = val.iter();
+        //      if let Some(t) = val_iter.next() {
+        //          builder.push_str(format!("\'{}\'", self.token_raw.get(t).unwrap()).as_str());
+        //      }
+        //      while let Some(t) = val_iter.next() {
+        //          builder.push_str(", ");
+        //          builder.push_str(format!("\'{}\'", self.token_raw.get(t).unwrap()).as_str());
+        //      }
+        //      builder.push_str("]\n");
+        //      f.write(builder.as_bytes());
+        //  }
+        let mut non_terms_chunked: HashMap<BTreeSet<Token>, Vec<BTreeSet<Token>>> = HashMap::new();
         // for x in &v {
         //     non_terms_chunked.insert(x.clone(), vec![x.clone()]);
         // }
@@ -217,12 +225,15 @@ impl RawGrammar {
             let temp = BTreeSet::from_iter(dict_rules_for_iteration.values().clone().into_iter());
             let mut difference = BTreeSet::new();
             for new_non_term_chunked in temp {
-                let mut non_term= BTreeSet::new();
+                let mut non_term = BTreeSet::new();
                 for x in new_non_term_chunked {
                     non_term.extend(x);
                 }
                 if !v.contains(&non_term) {
-                    non_terms_chunked.insert(non_term.clone(), Vec::from(new_non_term_chunked.clone().into_iter().collect::<Vec<BTreeSet<Token>>>()));
+                    non_terms_chunked.insert(
+                        non_term.clone(),
+                        Vec::from(new_non_term_chunked.clone().into_iter().collect::<Vec<BTreeSet<Token>>>()),
+                    );
                     difference.insert(non_term);
                 }
             }
@@ -234,7 +245,7 @@ impl RawGrammar {
                     result.push(set.clone().into_iter().collect());
                 }
 
-                let mut non_term= BTreeSet::new();
+                let mut non_term = BTreeSet::new();
                 for x in val {
                     non_term.extend(x);
                 }
@@ -418,10 +429,7 @@ impl RawGrammar {
     ) {
         if key_rhs.len() == 0 {
             if dict_rules_for_iteration.contains_key(new_rule_rhs) {
-                dict_rules_for_iteration
-                    .get_mut(new_rule_rhs)
-                    .unwrap()
-                    .insert(value_lhs.clone());
+                dict_rules_for_iteration.get_mut(new_rule_rhs).unwrap().insert(value_lhs.clone());
             } else {
                 dict_rules_for_iteration.insert(new_rule_rhs.clone(), BTreeSet::from([value_lhs.clone()]));
             }
