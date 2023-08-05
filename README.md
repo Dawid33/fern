@@ -3,7 +3,7 @@
 A parallel compiler implementation. Name is wip.
 
 > Papageno sounds like an italian chippers - Jim Ryan, 2023
-V
+
 *README updated 4th August 2023*
 
 ## Intro  
