@@ -1,6 +1,7 @@
 
 ## Lexer / Parser
 Make lexer lex ==, <= and >=
+Add type expressions to parser 
 Made AstNode correctly parse expression with brackets.
 Write while and for loop parsing in AstNode
 

@@ -1,10 +1,6 @@
 
 fn main (argc, argv) {
-    let x = 3 + 4 / 10 * 30 - 100;
-    let y = 300;
-    if y > 100 {
-        let z = 30 - 40 + 30;
-    }
-    return y + 3;
+    let x = 0;
+    return y;
 }
 
