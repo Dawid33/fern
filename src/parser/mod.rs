@@ -4,7 +4,7 @@ pub mod print;
 
 use crate::grammar::{Associativity, OpGrammar, Rule, Token};
 use crate::lexer::fern::FernData;
-use log::{debug, error, info, warn};
+use log::{debug, error, info, trace, warn};
 use std::any::Any;
 use std::collections::{BTreeSet, HashMap, LinkedList, VecDeque};
 use std::error::Error;
@@ -309,7 +309,7 @@ where
     }
 
     fn expand(n: &mut Node<T>, p: &ParallelParser<T>) {
-        info!("Expanding: {}", p.g.token_raw.get(&n.symbol).unwrap());
+        trace!("Expanding: {}", p.g.token_raw.get(&n.symbol).unwrap());
         let term_list = p.g.new_non_terminal_reverse.get(&n.symbol);
         let term_list = if let Some(list) = term_list {
             list.iter().map(|x| *x).collect()

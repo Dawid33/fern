@@ -1,4 +1,3 @@
-use memmap;
 use std::marker::PhantomData;
 
 struct SlabAllocator<T> {

@@ -1,0 +1,90 @@
+<html>
+
+<head>
+    <style>
+        body {
+            opacity: 0;
+            /* display: grid; */
+            /* grid-template-columns: 1fr;
+            grid-template-rows: min-content 1fr; */
+        }
+
+        nav {
+            /* grid-row: 2;
+            grid-column: 1; */
+        }
+
+        article {
+            /* grid-row: 1;
+            grid-column: 2; */
+        }
+
+        body.ready {
+            opacity: 1;
+            transition: .1s opacity;
+        }
+    </style>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.8.0/cdn/themes/light.css" />
+    <script type="module"
+        src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.8.0/cdn/shoelace-autoloader.js"></script>
+
+    <script type="module">
+        await Promise.allSettled([
+            customElements.whenDefined('sl-tab-panel'),
+            customElements.whenDefined('sl-tab-group'),
+            customElements.whenDefined('sl-tab'),
+        ]);
+
+        // Button, card, and rating are registered now! Add
+        // the `ready` class so the UI fades in.
+        document.body.classList.add('ready');
+    </script>
+
+</head>
+
+<body>
+    <sl-tab-group>
+        <sl-tab slot="nav" panel="grammar-generator">Grammar Generator</sl-tab>
+        <sl-tab slot="nav" panel="compiler">Compiler</sl-tab>
+
+        <sl-tab-panel name="grammar-generator">
+
+            <nav>
+                <sl-tree>
+                    <sl-tree-item>
+                        Deciduous
+                        <sl-tree-item>Birch</sl-tree-item>
+                        <sl-tree-item>
+                            Maple
+                            <sl-tree-item>Field maple</sl-tree-item>
+                            <sl-tree-item>Red maple</sl-tree-item>
+                            <sl-tree-item>Sugar maple</sl-tree-item>
+                        </sl-tree-item>
+                        <sl-tree-item>Oak</sl-tree-item>
+                    </sl-tree-item>
+
+                    <sl-tree-item>
+                        Coniferous
+                        <sl-tree-item>Cedar</sl-tree-item>
+                        <sl-tree-item>Pine</sl-tree-item>
+                        <sl-tree-item>Spruce</sl-tree-item>
+                    </sl-tree-item>
+
+                    <sl-tree-item>
+                        Non-trees
+                        <sl-tree-item>Bamboo</sl-tree-item>
+                        <sl-tree-item>Cactus</sl-tree-item>
+                        <sl-tree-item>Fern</sl-tree-item>
+                    </sl-tree-item>
+                </sl-tree>
+
+            </nav>
+        </sl-tab-panel>
+        <sl-tab-panel name="compiler">This is the custom tab panel.</sl-tab-panel>
+    </sl-tab-group>
+</body>
+
+<script type="module" src="index.js"></script>
+
+</html>

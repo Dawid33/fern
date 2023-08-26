@@ -2,12 +2,12 @@
 #![allow(ambiguous_glob_reexports)]
 extern crate core;
 
-use core::print::{render, render_block};
-pub use core::*;
+use ferncore::print::{render, render_block};
+pub use ferncore::*;
 use std::borrow::Cow;
 
-use core::lexer::fern::FernData;
 use crossbeam_queue::SegQueue;
+use ferncore::lexer::fern::FernData;
 use log::{info, LevelFilter};
 use std::collections::LinkedList;
 use std::error::Error;
@@ -19,18 +19,47 @@ use std::time::{Duration, Instant};
 use crate::cfg::ControlFlowGraph;
 use crate::parser::fern_ast::AstNode;
 use crate::parser::json::JsonParseTree;
-use core::grammar::OpGrammar;
-use core::grammar::RawGrammar;
-use core::grammar::Token;
-use core::lexer::*;
-use core::lexer::{fern::*, json::*, lua::*};
-use core::parser::fern_ast::FernParseTree;
-use core::parser::ParallelParser;
+use ferncore::grammar::OpGrammar;
+use ferncore::grammar::RawGrammar;
+use ferncore::grammar::Token;
+use ferncore::lexer::*;
+use ferncore::lexer::{fern::*, json::*, lua::*};
+use ferncore::parser::fern_ast::FernParseTree;
+use ferncore::parser::ParallelParser;
 use flexi_logger::Logger;
+use memmap::Mmap;
 use memmap::MmapOptions;
 use std::ops::Deref;
 use std::thread::{current, park};
 // use tungstenite::protocol::frame::coding::Data;
+
+pub fn split_mmap_into_chunks<'a>(mmap: &'a mut Mmap, step: usize) -> Result<Vec<&'a [u8]>, Box<dyn Error>> {
+    let mut indices = vec![];
+    let mut i = 0;
+    let mut prev = 0;
+
+    while i < mmap.len() {
+        if mmap[i] as char != ' ' && mmap[i] as char != '\n' {
+            i += 1;
+        } else {
+            if i + 1 <= mmap.len() {
+                i += 1;
+            }
+            indices.push((prev, i));
+            prev = i;
+            i += step;
+        }
+    }
+    if prev < mmap.len() {
+        indices.push((prev, mmap.len()));
+    }
+
+    let mut units = vec![];
+    for i in indices {
+        units.push(&mmap[i.0..i.1]);
+    }
+    return Ok(units);
+}
 
 fn json() -> Result<(), Box<dyn Error>> {
     let mut now = Instant::now();

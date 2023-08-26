@@ -51,7 +51,7 @@ impl RawGrammar {
             );
         }
 
-        info!("Direct ambiguities :");
+        trace!("Direct ambiguities :");
         for (rhs, lhs) in &dict_rules {
             if lhs.len() > 1 {
                 let mut b = String::new();
@@ -62,11 +62,12 @@ impl RawGrammar {
                 for t in lhs {
                     b.push_str(format!("{} ", self.token_raw.get(&t).unwrap()).as_str());
                 }
-                info!("{})", b);
+                trace!("{})", b);
             }
         }
 
         // Delete copy rules
+        trace!("Deleting copy rules");
         let mut copy: HashMap<Token, HashSet<Token>> = HashMap::new();
         let mut rhs_dict: HashMap<Token, Vec<Vec<Token>>> = HashMap::new();
         for n in &self.non_terminals {
@@ -156,6 +157,7 @@ impl RawGrammar {
 
         // Initialize the new nonterminal set V
         // print_dict("should_be_concated.txt", &dict_rules, &self.token_raw);
+        trace!("Init new nonterminal set V");
         let temp = dict_rules.clone().into_values();
         let mut v: BTreeSet<BTreeSet<Token>> = BTreeSet::new();
         for x in temp {
@@ -206,55 +208,60 @@ impl RawGrammar {
         // }
 
         // Add the new rules by expanding nonterminals in the rhs
+        trace!("big scary dict recursive part");
         let mut dict_rules_for_iteration: HashMap<Vec<Vec<Token>>, BTreeSet<BTreeSet<Token>>> = HashMap::new();
-        let mut should_continue: bool = true;
-        while should_continue {
-            for (key_rhs, value_lhs) in dict_rules.iter() {
-                let mut new_rule_rhs: Vec<Vec<Token>> = Vec::new();
-                Self::add_new_rules(
-                    &mut dict_rules_for_iteration,
-                    key_rhs,
-                    value_lhs,
-                    &self.non_terminals,
-                    &mut v,
-                    &mut new_rule_rhs,
-                    &self.token_raw,
-                    &self.token_reverse,
-                );
-            }
-            let temp = BTreeSet::from_iter(dict_rules_for_iteration.values().clone().into_iter());
-            let mut difference = BTreeSet::new();
-            for new_non_term_chunked in temp {
-                let mut non_term = BTreeSet::new();
-                for x in new_non_term_chunked {
-                    non_term.extend(x);
-                }
-                if !v.contains(&non_term) {
-                    non_terms_chunked.insert(
-                        non_term.clone(),
-                        Vec::from(new_non_term_chunked.clone().into_iter().collect::<Vec<BTreeSet<Token>>>()),
+        let mut recursive_part = || {
+            let mut should_continue: bool = true;
+            while should_continue {
+                for (key_rhs, value_lhs) in dict_rules.iter() {
+                    let mut new_rule_rhs: Vec<Vec<Token>> = Vec::new();
+                    Self::add_new_rules(
+                        &mut dict_rules_for_iteration,
+                        key_rhs,
+                        value_lhs,
+                        &self.non_terminals,
+                        &mut v,
+                        &mut new_rule_rhs,
+                        &self.token_raw,
+                        &self.token_reverse,
                     );
-                    difference.insert(non_term);
                 }
-            }
+                let temp = BTreeSet::from_iter(dict_rules_for_iteration.values().clone().into_iter());
+                let mut difference = BTreeSet::new();
+                for new_non_term_chunked in temp {
+                    let mut non_term = BTreeSet::new();
+                    for x in new_non_term_chunked {
+                        non_term.extend(x);
+                    }
+                    if !v.contains(&non_term) {
+                        non_terms_chunked.insert(
+                            non_term.clone(),
+                            Vec::from(new_non_term_chunked.clone().into_iter().collect::<Vec<BTreeSet<Token>>>()),
+                        );
+                        difference.insert(non_term);
+                    }
+                }
 
-            v.extend(difference.clone().into_iter());
-            for (key, val) in &dict_rules_for_iteration {
-                let mut result = Vec::new();
-                for set in key {
-                    result.push(set.clone().into_iter().collect());
-                }
+                v.extend(difference.clone().into_iter());
+                for (key, val) in &dict_rules_for_iteration {
+                    let mut result = Vec::new();
+                    for set in key {
+                        result.push(set.clone().into_iter().collect());
+                    }
 
-                let mut non_term = BTreeSet::new();
-                for x in val {
-                    non_term.extend(x);
+                    let mut non_term = BTreeSet::new();
+                    for x in val {
+                        non_term.extend(x);
+                    }
+                    new_dict_rules.insert(result, non_term);
                 }
-                new_dict_rules.insert(result, non_term);
+                if difference.len() == 0 {
+                    should_continue = false;
+                }
             }
-            if difference.len() == 0 {
-                should_continue = false;
-            }
-        }
+        };
+
+        recursive_part();
 
         // List of nonterminals of the invertible grammar G
         let mut v: BTreeSet<BTreeSet<Token>> = new_dict_rules.clone().into_values().collect();
@@ -265,6 +272,7 @@ impl RawGrammar {
         //TODO: a bit slightly more efficient version can store beforehand the list of rhs of every
         // nonterminal and then delete the nonterminals whose rhs are all deleted.
         let mut deleted = true;
+        trace!("finished big scary part");
         while deleted {
             deleted = false;
             new_dict_rules.retain(|key_rhs, _| {

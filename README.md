@@ -6,6 +6,8 @@ A parallel compiler implementation. Name is wip.
 
 *README updated 4th August 2023*
 
+Use rust nightly-2023-06-28 
+
 ## Intro  
 Lexer / parser is based on [this paper](https://doi.org/10.1016/j.scico.2015.09.002). Ir code and code gen is much more wip and ad hoc as I'm going by trial and error. If I find some decent research for ir or code gen then I'll implement it instead.
 

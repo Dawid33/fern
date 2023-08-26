@@ -10,7 +10,6 @@ use std::collections::{HashMap, VecDeque};
 use std::error::Error;
 use std::fmt::{Debug, Formatter};
 use std::io::Write;
-use std::os::unix::fs::symlink;
 use std::sync;
 
 pub struct FernParseTree {

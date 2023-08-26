@@ -4,31 +4,37 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "core"
+name = "ferncore"
 path = "src/lib.rs"
 crate-type = ["cdylib", "rlib"]
+
+[features]
+build-binary = ["memmap"]
 
 [[bin]]
 name = "fern"
 path = "src/main.rs"
+required-features = ["build-binary"]
 
 [dependencies]
-tinyrand = { version = "0.5.0", optional = false }
+tinyrand = { version = "*", optional = false }
 crossbeam = { version = "*", optional = false }
-crossbeam-deque = { version = "0.8.3", optional = false }
+crossbeam-deque = { version = "*", optional = false }
 crossbeam-queue = { version = "*", optional = false }
-crossbeam-channel = { version = "0.5.7", optional = false }
-crossbeam-skiplist = { version = "0.1", optional = false }
-memmap = { version = "0.7.0", optional = false }
-serde = { version = "1.0", features = ["derive"] }
-flexi_logger = { version = "0.25", features = ["specfile_without_notification", "colors"] }
-log = "0.4"
-ciborium = "0.2.0"
-futures = { version = "0.3" }
-linked_hash_set = "0.1.4"
-simple-error = "0.3.0"
-dot = "0.1.4"
-bittyset = "0.1.0"
+crossbeam-channel = { version = "*", optional = false }
+crossbeam-skiplist = { version = "*", optional = false }
+memmap = { version = "*", optional = true }
+wasm-bindgen = { version = "*" }
+serde = { version = "*", features = ["derive"] }
+flexi_logger = { version = "*", features = ["specfile_without_notification", "colors"] }
+log = "*"
+ciborium = "*"
+futures = { version = "*" }
+linked_hash_set = "*"
+simple-error = "*"
+dot = "*"
+wasm-logger = "0.2.0"
+bittyset = "*"
 
 [dev-dependencies]
 criterion = { version = "0.4", features = ["html_reports"] }

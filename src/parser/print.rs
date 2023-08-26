@@ -18,7 +18,6 @@ use std::io::ErrorKind::AlreadyExists;
 use std::io::Read;
 use std::io::Write;
 use std::marker::PhantomData;
-use std::os::unix::fs::symlink;
 use std::panic::{resume_unwind, set_hook};
 use std::slice::Iter;
 use std::sync;
