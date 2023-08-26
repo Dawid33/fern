@@ -1,88 +1,96 @@
 <html>
 
 <head>
-    <style>
-        body {
-            opacity: 0;
-            /* display: grid; */
-            /* grid-template-columns: 1fr;
-            grid-template-rows: min-content 1fr; */
-        }
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.8.0/cdn/themes/light.css" />
+  <style>
+    body {
+      opacity: 0;
+      font-family: var(--sl-font-sans);
+    }
 
-        nav {
-            /* grid-row: 2;
-            grid-column: 1; */
-        }
+    #home-panel>div {
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      grid-template-rows: masonry;
+    }
 
-        article {
-            /* grid-row: 1;
-            grid-column: 2; */
-        }
+    body.ready {
+      opacity: 1;
+      transition: .1s opacity;
+    }
+  </style>
 
-        body.ready {
-            opacity: 1;
-            transition: .1s opacity;
-        }
-    </style>
+  <script type="module"
+    src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.8.0/cdn/shoelace-autoloader.js"></script>
 
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.8.0/cdn/themes/light.css" />
-    <script type="module"
-        src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.8.0/cdn/shoelace-autoloader.js"></script>
+  <script type="module">
+    await Promise.allSettled([
+      customElements.whenDefined('sl-tab-panel'),
+      customElements.whenDefined('sl-tab-group'),
+      customElements.whenDefined('sl-tab'),
+      customElements.whenDefined('sl-card'),
+    ]);
 
-    <script type="module">
-        await Promise.allSettled([
-            customElements.whenDefined('sl-tab-panel'),
-            customElements.whenDefined('sl-tab-group'),
-            customElements.whenDefined('sl-tab'),
-        ]);
-
-        // Button, card, and rating are registered now! Add
-        // the `ready` class so the UI fades in.
-        document.body.classList.add('ready');
-    </script>
+    // Button, card, and rating are registered now! Add
+    // the `ready` class so the UI fades in.
+    document.body.classList.add('ready');
+  </script>
 
 </head>
 
 <body>
-    <sl-tab-group>
-        <sl-tab slot="nav" panel="grammar-generator">Grammar Generator</sl-tab>
-        <sl-tab slot="nav" panel="compiler">Compiler</sl-tab>
+  <sl-tab-group>
+    <sl-tab slot="nav" panel="home">Home</sl-tab>
+    <sl-tab slot="nav" panel="grammar-generator">Grammar Generator</sl-tab>
+    <sl-tab slot="nav" panel="compiler">Compiler</sl-tab>
 
-        <sl-tab-panel name="grammar-generator">
+    <sl-tab-panel name="home" id="home-panel">
+      <h1>
+        <center>
+          Fern Lang
+        </center>
+      </h1>
+      <div>
+        <sl-card class="card-header">
+          <div slot="header">
+            Introduction
+          </div>
+          This is just a basic card. No image, no header, and no footer. Just your content.
+          This website hosts my experimenal parallel compiler (<a href="https://github.com/Dawid33/fern">git</a>)
+          compiled
+          into wasm so that it can run in the browser.
+        </sl-card>
+      </div>
+    </sl-tab-panel>
+    <sl-tab-panel name="compiler">
+      <sl-tree>
+        <sl-tree-item>
+          Deciduous
+          <sl-tree-item>Birch</sl-tree-item>
+          <sl-tree-item>
+            Maple
+            <sl-tree-item>Field maple</sl-tree-item>
+            <sl-tree-item>Red maple</sl-tree-item>
+            <sl-tree-item>Sugar maple</sl-tree-item>
+          </sl-tree-item>
+          <sl-tree-item>Oak</sl-tree-item>
+        </sl-tree-item>
 
-            <nav>
-                <sl-tree>
-                    <sl-tree-item>
-                        Deciduous
-                        <sl-tree-item>Birch</sl-tree-item>
-                        <sl-tree-item>
-                            Maple
-                            <sl-tree-item>Field maple</sl-tree-item>
-                            <sl-tree-item>Red maple</sl-tree-item>
-                            <sl-tree-item>Sugar maple</sl-tree-item>
-                        </sl-tree-item>
-                        <sl-tree-item>Oak</sl-tree-item>
-                    </sl-tree-item>
+        <sl-tree-item>
+          Coniferous
+          <sl-tree-item>Cedar</sl-tree-item>
+          <sl-tree-item>Pine</sl-tree-item>
+          <sl-tree-item>Spruce</sl-tree-item>
+        </sl-tree-item>
 
-                    <sl-tree-item>
-                        Coniferous
-                        <sl-tree-item>Cedar</sl-tree-item>
-                        <sl-tree-item>Pine</sl-tree-item>
-                        <sl-tree-item>Spruce</sl-tree-item>
-                    </sl-tree-item>
-
-                    <sl-tree-item>
-                        Non-trees
-                        <sl-tree-item>Bamboo</sl-tree-item>
-                        <sl-tree-item>Cactus</sl-tree-item>
-                        <sl-tree-item>Fern</sl-tree-item>
-                    </sl-tree-item>
-                </sl-tree>
-
-            </nav>
-        </sl-tab-panel>
-        <sl-tab-panel name="compiler">This is the custom tab panel.</sl-tab-panel>
-    </sl-tab-group>
+        <sl-tree-item>
+          Non-trees
+          <sl-tree-item>Bamboo</sl-tree-item>
+          <sl-tree-item>Cactus</sl-tree-item>
+          <sl-tree-item>Fern</sl-tree-item>
+        </sl-tree-item>
+      </sl-tree>
+    </sl-tab-panel>
+  </sl-tab-group>
 </body>
 
 <script type="module" src="index.js"></script>

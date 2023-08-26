@@ -78,6 +78,8 @@ Run the compiler (compile [data/test.fern](data/test.fern))
 cargo run
 ```
 
+run the script in './scripts/webdev.sh' to host the static website with live reload (requires `cargo install penguin-app`)
+
 Perf script 
 ```bash
 perf script record -F997 --call-graph dwarf,16384 -e cpu-clock 
