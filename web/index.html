@@ -8,8 +8,15 @@
       font-family: var(--sl-font-sans);
     }
 
+    #home-panel {
+      max-width: 1000px;
+      margin: auto;
+    }
+
     #home-panel>div {
-      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      display: grid;
+      column-gap: 5rem;
+      grid-template-columns: repeat(2, 1fr);
       grid-template-rows: masonry;
     }
 
@@ -27,7 +34,6 @@
       customElements.whenDefined('sl-tab-panel'),
       customElements.whenDefined('sl-tab-group'),
       customElements.whenDefined('sl-tab'),
-      customElements.whenDefined('sl-card'),
     ]);
 
     // Button, card, and rating are registered now! Add
@@ -50,14 +56,22 @@
         </center>
       </h1>
       <div>
+        <div style="grid-column: 1;">
+          <h3>
+            Introduction
+          </h3>
+          <p>
+            This website hosts my experimenal parallel compiler (<a href="https://github.com/Dawid33/fern">git</a>)
+            compiled into wasm so that it can run in the browser.
+          </p>
+        </div>
         <sl-card class="card-header">
           <div slot="header">
-            Introduction
+            Code Example
           </div>
-          This is just a basic card. No image, no header, and no footer. Just your content.
-          This website hosts my experimenal parallel compiler (<a href="https://github.com/Dawid33/fern">git</a>)
-          compiled
-          into wasm so that it can run in the browser.
+          <code>
+            This is my code
+          </code>
         </sl-card>
       </div>
     </sl-tab-panel>
