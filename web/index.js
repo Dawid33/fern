@@ -6,7 +6,15 @@ import {javascript} from "@codemirror/lang-javascript"
 
 var parent = document.getElementById('editor');
 let editor = new EditorView({
-  doc: "console.log('hello')\n",
+  doc: `fn main() {
+  let x = 0;
+  if x > 0 {
+    return 0;
+  } else {
+    return 1
+  }
+}
+    `,
   extensions: [basicSetup, javascript()],
   parent: parent
 })
