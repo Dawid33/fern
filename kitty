@@ -6,6 +6,10 @@ new_tab terminal
 layout horizontal 
 launch bash
 
+new_tab webdev
+layout horizontal 
+launch bash
+
 new_tab ranger
 enabled_layouts horizontal,stack
 layout horizontal 

@@ -2,6 +2,7 @@ use crossbeam::sync::Parker;
 use crossbeam::sync::Unparker;
 use crossbeam_deque::{Injector, Worker};
 use crossbeam_skiplist::SkipMap;
+use log::info;
 use log::trace;
 use std::collections::{HashMap, LinkedList};
 use std::error::Error;
@@ -82,8 +83,10 @@ where
             let parker = Parker::new();
             let unparker = parker.unparker().clone();
 
+            info!("Before spawning thread");
             handles.push((
                 scope.spawn(move || {
+                    info!("Inside thread");
                     let mut should_run = true;
                     while should_run {
                         let task = new_queue.pop();
@@ -137,6 +140,7 @@ where
                 }),
                 unparker,
             ));
+            info!("After spawned thread");
         }
         return Self {
             connection: send,

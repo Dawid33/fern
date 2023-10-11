@@ -1,0 +1,20 @@
+{
+  "name": "fern",
+  "version": "0.1.0",
+  "files": [
+    "fern_bg.wasm",
+    "fern.js",
+    "fern.d.ts"
+  ],
+  "scripts": {
+    "build": "bun --watch run build.ts"
+  },
+  "module": "fern.js",
+  "types": "fern.d.ts",
+  "dependencies": {
+    "@codemirror/lang-javascript": "^6.2.1",
+    "@codemirror/state": "^6.2.1",
+    "@viz-js/viz": "^3.2.1",
+    "codemirror": "^6.0.1"
+  }
+}

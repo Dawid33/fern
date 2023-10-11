@@ -3,3 +3,6 @@ rustflags = ["-C", "target-feature=+atomics,+bulk-memory,+mutable-globals"]
 
 [unstable]
 build-std = ["panic_abort", "std"]
+
+[target.wasm32-wasi-preview1-threads]
+wasi-root = ".../wasi-libc/sysroot"

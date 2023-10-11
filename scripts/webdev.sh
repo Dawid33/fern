@@ -1,3 +1,3 @@
 #!/bin/sh
 
-penguin serve web
+penguin serve web/public

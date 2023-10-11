@@ -350,7 +350,7 @@ impl Block {
         mut stable: BTreeMap<Identifier, SymbolData>,
         condition: Value,
         body: Option<Box<AstNode>>,
-        elseif: Option<Box<AstNode>>,
+        _elseif: Option<Box<AstNode>>,
     ) -> Block {
         let mut blocks: Vec<Block> = Vec::new();
 

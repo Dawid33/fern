@@ -256,14 +256,14 @@ where
         let apply_rewrites: HashMap<Token, Token> = HashMap::new();
         // let longest: i32 = 0;
 
-        let now = Instant::now();
+        // let now = Instant::now();
         // TODO: Make this into a slice without collecting into vec, probably implement custom iter.
         let iter: Vec<&Token> = (&self.stack[(i + offset) as usize..]).iter().map(|x| -> &Token { &x.token }).collect();
         let rule: Option<&Rule> = self.g.new_reduction_tree.match_rule(&iter[..], &self.g.token_raw);
 
-        let time = now.elapsed();
-        debug!("Time spend searching: {:?}", &time);
-        self.time_spent_rule_searching = self.time_spent_rule_searching.add(time);
+        // let time = now.elapsed();
+        // debug!("Time spend searching: {:?}", &time);
+        // self.time_spent_rule_searching = self.time_spent_rule_searching.add(time);
 
         if let Some(rule) = rule {
             if !apply_rewrites.is_empty() {

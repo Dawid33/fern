@@ -1,0 +1,6 @@
+target
+web/node_modules
+web/public
+!web/public/index.html
+.git
+Dockerfile

@@ -1,6 +1,1 @@
-
-#!/bin/sh
-
-cargo build --target=wasm32-unknown-unknown --color=always --release
-
-# wasm-pack build --out-dir web/fern --target web --out-name fern
+RUSTFLAGS="-C codegen-units=1 -C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=--export=__stack_pointer -C opt-level=z" cargo +nightly build --target=wasm32-unknown-unknown --release -Z build-std=panic_abort,std
