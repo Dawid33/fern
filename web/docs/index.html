@@ -2,13 +2,16 @@
 
 <head>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.8.0/cdn/themes/light.css" />
+  <script src="https://unpkg.com/htmx.org@1.9.6"
+    integrity="sha384-FhXw7b6AlE/jyjlZH5iHa/tTe9EpJ1Y55RjcgPbjeWMskSxZt1v9qkxLJWNJaGni"
+    crossorigin="anonymous"></script>
   <style>
     body {
       opacity: 0;
       font-family: var(--sl-font-sans);
     }
 
-   #home-panel {
+    #home-panel {
       max-width: 1000px;
       margin: auto;
     }
@@ -55,9 +58,9 @@
 
 <body>
   <sl-tab-group>
+    <sl-tab slot="nav" panel="docs">Docs</sl-tab>
     <sl-tab slot="nav" panel="home">Home</sl-tab>
     <sl-tab slot="nav" panel="compiler">Compiler</sl-tab>
-
     <sl-tab-panel name="home" id="home-panel">
       <h1>
         <center>
@@ -83,6 +86,10 @@
           </code>
         </sl-card>
       </div>
+    </sl-tab-panel>
+    <sl-tab-panel name="docs" id="docs-tab">
+      <a href="#" hx-get="/sample/index.html" hx-target='#doc-content'>Link</a>
+      <div id="doc-content">Doc</div>
     </sl-tab-panel>
     <sl-tab-panel name="compiler" id="compiler-tab">
       <div>

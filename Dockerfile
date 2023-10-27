@@ -32,5 +32,14 @@ RUN bun install
 run cat /app/package.json
 RUN bun build index.js --outdir=public
 
+FROM jekyll/jekyll as third
+
+COPY --from=second /app /app
+WORKDIR /app
+
+RUN bundle 
+RUN chown -R 1000:1000 * 
+RUN jekyll build --trace 
+
 FROM nginx
-COPY --from=second /app/public /usr/share/nginx/html
+COPY --from=third /app/public /usr/share/nginx/html

@@ -1,10 +1,12 @@
-= The Dangers of Wolpertingers
-:url-wolpertinger: https://en.wikipedia.org/wiki/Wolpertinger
+---
+layout: info
+permalink: /sample/
+---
+= Sample Page
+:url-asciidoctor: http://asciidoctor.org
 
-Don't worry about gumberoos or splintercats.
-Something far more fearsome plagues the days, nights, and inbetweens.
-Wolpertingers.
+This is a sample page composed in AsciiDoc.
+Jekyll converts it to HTML using {url-asciidoctor}[Asciidoctor].
 
-== Origins
-
-Wolpertingers are {url-wolpertinger}[ravenous beasts].
+[source,ruby]
+puts "Hello, World!"

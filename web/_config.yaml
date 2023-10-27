@@ -1,0 +1,4 @@
+
+source: 'docs'
+destination: 'public'
+keep_files: ['.gitignore', 'index.html', 'index.js', 'fern_bg.wasm', 'fern_bg.wasm.d.ts', 'fern.d.ts', 'fern.js']
