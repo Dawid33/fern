@@ -1,12 +1,8 @@
 ---
 layout: info
-permalink: /sample/
+permalink: /test
+doc: true
 ---
-= Sample Page
-:url-asciidoctor: http://asciidoctor.org
+= Test
 
-This is a sample page composed in AsciiDoc.
-Jekyll converts it to HTML using {url-asciidoctor}[Asciidoctor].
-
-[source,ruby]
-puts "Hello, World!"
+This is a test page

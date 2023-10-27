@@ -1,3 +1,6 @@
+---
+---
+
 <html>
 
 <head>
@@ -88,8 +91,15 @@
       </div>
     </sl-tab-panel>
     <sl-tab-panel name="docs" id="docs-tab">
-      <a href="#" hx-get="/sample/index.html" hx-target='#doc-content'>Link</a>
-      <div id="doc-content">Doc</div>
+      {% for page in site.pages %}
+      {% if page.doc == true %}
+      <sl-tree-item><a href="#" hx-get="{{ page.url }}" hx-target='#doc-content'>{{ page.title
+          }}</a></sl-tree-item>
+      {% endif %} <!-- resource-p -->
+      {% endfor %} <!-- page -->
+      <sl-tree>
+      </sl-tree>
+      <div id="doc-content"></div>
     </sl-tab-panel>
     <sl-tab-panel name="compiler" id="compiler-tab">
       <div>

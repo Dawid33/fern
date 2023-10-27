@@ -1,0 +1,9 @@
+---
+layout: info
+permalink: /home
+doc: true
+---
+= Home
+
+This is the docs home page
+
