@@ -1,5 +1,4 @@
 
-source: 'docs'
+source: 'src'
 destination: 'public'
-keep_files: ['.gitignore', 'index.html', 'index.js', 'fern_bg.wasm', 'fern_bg.wasm.d.ts', 'fern.d.ts', 'fern.js']
-category-list: [code, editors, math, unix]
+keep_files: ['favicon.ico', '.gitignore', 'index.html', 'compiler.js', 'fern_bg.wasm', 'fern_bg.wasm.d.ts', 'fern.d.ts', 'fern.js']

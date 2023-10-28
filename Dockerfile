@@ -30,7 +30,7 @@ WORKDIR /app
 ADD web/package.json /app/package.json
 RUN bun install
 run cat /app/package.json
-RUN bun build index.js --outdir=public
+RUN bun build compiler.js --outdir=public
 
 FROM jekyll/jekyll as third
 

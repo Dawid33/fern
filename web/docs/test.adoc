@@ -1,8 +1,0 @@
----
-layout: info
-permalink: /test
-doc: true
----
-= Test
-
-This is a test page

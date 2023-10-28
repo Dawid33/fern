@@ -1,0 +1,7 @@
+---
+layout: doc
+is_doc: true
+---
+= Docs Home
+
+Docs home page

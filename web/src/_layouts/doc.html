@@ -1,0 +1,17 @@
+---
+layout: default
+---
+
+<nav>
+  <ul>
+    {% for doc in site.pages %}
+    {% if doc.is_doc %}
+    <li>
+      <a href="{{ doc.url }}">{{ doc.title }}</a>
+    </li>
+    {% endif %}
+    {% endfor %}
+  </ul>
+</nav>
+
+{{ content }}

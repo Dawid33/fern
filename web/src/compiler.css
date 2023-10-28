@@ -1,0 +1,9 @@
+body>div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+#editor {
+  height: 80vh;
+  border: 1px solid black
+}

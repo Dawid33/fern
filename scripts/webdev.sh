@@ -1,3 +1,3 @@
 #!/bin/sh
 
-penguin serve web/public
+cd web && bundle exec jekyll serve --livereload

@@ -2,6 +2,7 @@
 gem "jekyll"
 group :jekyll_plugins do
   gem 'jekyll-asciidoc'
+  gem 'asciidoctor-bibtex'
 end
 
 source "https://rubygems.org"

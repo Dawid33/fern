@@ -1,7 +1,7 @@
 
 await Bun.build({
   entrypoints: [
-    './index.js', 
+    './compiler.js', 
   ],
   outdir: './public',
 })
