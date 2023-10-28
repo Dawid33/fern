@@ -1,0 +1,41 @@
+#content-holder {
+  max-width: 1300px;
+  margin: auto;
+  display: grid;
+  grid-template-columns: 1fr 85ch 1fr;
+  position: relative;
+}
+
+#content-holder>nav {
+  height: calc(100vh - 6rem);
+  overflow-y: scroll;
+  position: sticky;
+  overscroll-behavior: containe;
+  padding-bottom: 2em;
+  padding-top: 1em;
+  top: 6rem;
+  scrollbar-gutter: stable;
+}
+
+#docs-nav {
+  padding-right: 2em;
+  justify-self: end;
+}
+
+#content-nav {}
+
+#content-nav ul {
+  height: calc(minmax(calc(100vh), max-content));
+  margin: 0;
+  padding: 0;
+  list-style-type: none;
+}
+
+#content {
+  padding-top: 1em;
+  z-index: 5;
+}
+
+#content code {
+  font-family: monospace;
+}

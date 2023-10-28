@@ -1,21 +1,31 @@
 ---
-layout: default
-title: Fern Home
-css: compiler.css
 ---
+<!doctype html>
+<html>
 
-<div id="compiler-tab">
-  <div style="grid-column: 1;">
-    <div id='editor'></div>
-    <button id="gen-graph" name="ggen">generate graph</button>
-    <p id="err"></p>
+<head>
+  <title>Fern Home</title>
+  {% include default-head.html %}
+  <link rel="stylesheet" href="/compiler.css">
+</head>
+
+<body>
+  {% include header.html %}
+  <div id="compiler-tab">
+    <div style="grid-column: 1;">
+      <div id='editor'></div>
+      <button id="gen-graph" name="ggen">generate graph</button>
+      <p id="err"></p>
+    </div>
+    <sl-card class="card-header">
+      <div slot="header">
+        Graph
+      </div>
+      <div id="graph">
+      </div>
+    </sl-card>
   </div>
-  <sl-card class="card-header">
-    <div slot="header">
-      Graph
-    </div>
-    <div id="graph">
-    </div>
-  </sl-card>
-</div>
-<script type="module" src="compiler.js"></script>
+  <script type="module" src="compiler.js"></script>
+</body>
+
+</html>

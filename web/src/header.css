@@ -1,0 +1,54 @@
+header {
+  position: sticky;
+  top: 0px;
+  max-height: 6rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background-color: white;
+  z-index: 10;
+}
+
+header * {
+  margin: 0;
+}
+
+header hr {
+
+  margin: 0 3em 0 3em;
+}
+
+#header-top h1 {
+  margin: 0.5em 0 0 0;
+}
+
+#header-top {
+  padding: 0 3em 0 3em;
+  display: grid;
+  grid-template-columns: max-content max-content 1fr;
+  grid-template-rows: min-content;
+  align-items: baseline;
+}
+
+#breadcrumbs {
+  display: flex;
+  flex-direction: row;
+}
+
+#breadcrumbs li {
+  margin-right: 0.5em;
+  list-style-type: none;
+}
+
+#breadcrumbs li:first-child::before {
+  content: "";
+  display: none;
+}
+
+#breadcrumbs li::before {
+  content: "";
+}
+
+#header-top>div {
+  justify-self: end;
+}

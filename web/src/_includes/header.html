@@ -1,0 +1,16 @@
+<header>
+  <div id="header-top">
+    <h1>Fern</h1>
+    <ul id="breadcrumbs">
+      <li><a href="/">Home</a></li>
+      <li><a href="/docs">Docs</a></li>
+      <li><a href="/compiler.html">Online Compiler</a></li>
+    </ul>
+    {% if page.is_doc %}
+    <div>
+      <input type="range" id="margin-slider" name="margin" min="0" max="1900" />
+    </div>
+    {% endif %}
+  </div>
+  <hr />
+</header>

@@ -1,17 +1,35 @@
 ---
-layout: default
 ---
 
-<nav>
-  <ul>
-    {% for doc in site.pages %}
-    {% if doc.is_doc %}
-    <li>
-      <a href="{{ doc.url }}">{{ doc.title }}</a>
-    </li>
-    {% endif %}
-    {% endfor %}
-  </ul>
-</nav>
+<!doctype html>
+<html>
 
-{{ content }}
+<head>
+  <title>{{ page.title }}</title>
+  {% include default-head.html %}
+  <link rel="stylesheet" href="/doc.css">
+</head>
+
+<body>
+  {% include header.html %}
+
+  <div id="content-holder">
+    <nav id="docs-nav">
+      <ul>
+        {% for doc in site.pages %}
+        {% if doc.is_doc %}
+        <li>
+          <a href="{{ doc.url }}">{{ doc.title }}</a>
+        </li>
+        {% endif %}
+        {% endfor %}
+      </ul>
+    </nav>
+    <article id="content"> {{ content }} </article>
+    <nav id="content-nav"> {{ page.document | tocify_asciidoc }} </nav>
+  </div>
+  <script>
+  </script>
+</body>
+
+</html>
