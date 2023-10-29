@@ -25,7 +25,9 @@
         {% endfor %}
       </ul>
     </nav>
-    <article id="content"> {{ content }} </article>
+    <article id="content">
+      {{ content }}
+    </article>
     <nav id="content-nav"> {{ page.document | tocify_asciidoc }} </nav>
   </div>
   <script>

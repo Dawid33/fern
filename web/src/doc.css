@@ -1,6 +1,6 @@
 #content-holder {
   display: grid;
-  grid-template-columns: 1fr 40vw 1fr;
+  grid-template-columns: 1fr minmax(min-content, 40vw) 1fr;
   grid-template-rows: 6rem max-content max-content;
   position: relative;
 }
@@ -54,3 +54,36 @@ footer {
   grid-column: 1 / span 3;
   padding: 5rem;
 }
+
+@media(max-width:767px) {
+
+  #content-nav,
+  #margin-slider,
+  #font-slider {
+    display: none;
+  }
+
+  #docs-nav {
+    grid-column: 1 / span 3;
+    grid-row: 2;
+    justify-self: start;
+    position: relative;
+    top: auto;
+    height: auto;
+    padding-bottom: 1rem;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  #content {
+    grid-column: 1 / span 3;
+    grid-row: 3;
+    padding: 0 1rem 0 1rem;
+  }
+}
+
+@media(min-width:768px) {}
+
+@media(min-width:992px) {}
+
+@media(min-width:1200px) {}
