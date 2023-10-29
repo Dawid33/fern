@@ -7,9 +7,9 @@
 }
 
 #content-holder>nav {
-  height: calc(100vh - 6rem);
   overflow-y: scroll;
   position: sticky;
+  height: calc(100vh - 6rem);
   overscroll-behavior: containe;
   padding-bottom: 2em;
   padding-top: 1em;
@@ -25,7 +25,6 @@
 #content-nav {}
 
 #content-nav ul {
-  height: calc(minmax(calc(100vh), max-content));
   margin: 0;
   padding: 0;
   list-style-type: none;
