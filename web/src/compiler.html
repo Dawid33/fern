@@ -10,20 +10,22 @@
 </head>
 
 <body>
-  {% include header.html %}
-  <div id="compiler-tab">
-    <div style="grid-column: 1;">
-      <div id='editor'></div>
-      <button id="gen-graph" name="ggen">generate graph</button>
-      <p id="err"></p>
+  <div id="content-holder">
+    {% include header.html %}
+    <div id="compiler-tab">
+      <div style="grid-column: 1;">
+        <div id='editor'></div>
+        <button id="gen-graph" name="ggen">generate graph</button>
+        <p id="err"></p>
+      </div>
+      <sl-card class="card-header">
+        <div slot="header">
+          Graph
+        </div>
+        <div id="graph">
+        </div>
+      </sl-card>
     </div>
-    <sl-card class="card-header">
-      <div slot="header">
-        Graph
-      </div>
-      <div id="graph">
-      </div>
-    </sl-card>
   </div>
   <script type="module" src="compiler.js"></script>
 </body>
