@@ -10,8 +10,6 @@ nav {
   position: sticky;
   height: calc(100vh - 6rem);
   overscroll-behavior: contain;
-  padding-bottom: 2em;
-  padding-top: 1em;
   top: 6rem;
   scrollbar-gutter: stable;
 }
