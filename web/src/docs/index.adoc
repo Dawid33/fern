@@ -4,4 +4,4 @@ is_doc: true
 ---
 = Docs Home
 
-== section
+This is sample text.

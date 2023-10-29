@@ -27,11 +27,24 @@
     </nav>
     <article id="content"> {{ content }} </article>
     <nav id="content-nav"> {{ page.document | tocify_asciidoc }} </nav>
-    <footer>
-      email: dawidblogcontact@fastmail.com
-    </footer>
   </div>
   <script>
+    let content_holder = document.getElementById("content-holder");
+    let content = document.getElementById("content");
+    let font_slider = document.getElementById("font-slider");
+    let margin_slider = document.getElementById("margin-slider");
+
+    font_slider.value = 16;
+    margin_slider.value = 40;
+    console.log(content_holder.style.gridTemplateColumns);
+
+    margin_slider.onchange = function () {
+      content_holder.style.gridTemplateColumns = `1fr ${margin_slider.value}vw 1fr`;
+    }
+
+    font_slider.onchange = function () {
+      content.style.fontSize = `${font_slider.value}px`;
+    }
   </script>
 </body>
 

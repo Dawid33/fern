@@ -1,6 +1,6 @@
 #content-holder {
   display: grid;
-  grid-template-columns: 1fr 70ch 1fr;
+  grid-template-columns: 1fr 40vw 1fr;
   grid-template-rows: 6rem max-content max-content;
   position: relative;
 }
@@ -14,7 +14,6 @@ nav {
   padding-top: 1em;
   top: 6rem;
   scrollbar-gutter: stable;
-  opacity: 50%;
 }
 
 header {
@@ -45,6 +44,7 @@ header {
   grid-column: 2;
   padding-top: 1em;
   z-index: 5;
+  font-size: 16px;
 }
 
 #content code {

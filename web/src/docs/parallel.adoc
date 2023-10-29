@@ -6,10 +6,6 @@ is_doc: true
 :bibtex-file: references.bib
 
 
-This is my inline citation citenp:[pai_t_systematic_2020]
-
-== References
-
 bibliography::references.bib[ieee]
 
 
