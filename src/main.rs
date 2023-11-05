@@ -4,6 +4,7 @@ extern crate core;
 
 use ferncore::print::{render, render_block};
 pub use ferncore::*;
+use regex_syntax::{hir::Hir, parse};
 use std::borrow::Cow;
 
 use crossbeam_queue::SegQueue;
@@ -152,15 +153,17 @@ fn fern() -> Result<(), Box<dyn Error>> {
     info!("Total Time to transform ParseTree -> AST: {:?}", now.elapsed());
     now = Instant::now();
 
-    let graph = ir::Block::from(ast).unwrap();
-    let mut f_ir = File::create("ir.dot").unwrap();
-    render_block(graph, &mut f_ir);
-    info!("Total Time to transform AST -> IR: {:?}", now.elapsed());
+    // let graph = ir::Block::from(ast).unwrap();
+    // let mut f_ir = File::create("ir.dot").unwrap();
+    // render_block(graph, &mut f_ir);
+    // info!("Total Time to transform AST -> IR: {:?}", now.elapsed());
     Ok(())
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     Logger::try_with_str("trace, core::grammar = info")?.start_with_specfile("log.toml")?;
-    fern()?;
+    // fern()?;
+    let hir = parse("a|b")?;
+    assert_eq!(hir, Hir::alternation(vec![Hir::literal("a".as_bytes()), Hir::literal("b".as_bytes()),]));
     Ok(())
 }

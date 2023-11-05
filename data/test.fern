@@ -1,9 +1,9 @@
 
 fn main (argc, argv) {
-    let x = 0 + 3 / 3;
-    if y > 3 {
-        x = "Hello";
-    }
-    return x;
+  if 0 < x < 10 {
+    return 0;
+  } else {
+
+  };
 }
 

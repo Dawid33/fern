@@ -1,11 +1,20 @@
 ---
 layout: doc
-is_doc: true
 ---
 = Parallel Compilation
 :bibtex-file: references.bib
+	
 
+Research into this niche has been historically of low priority. Traditional
+compiler architecture in the 70’s was focused on minimising memory use and
+optimising for single threaded performance. This was at a time when computers
+didn’t even have enough ram to store all the data necessary for compiling large
+amounts of source code. Times have since changed. The memory available in a
+computer is much more abundant than before and experts predict that single
+threaded processor speed will soon plateau.
 
+	
+---
 bibliography::references.bib[ieee]
 
 

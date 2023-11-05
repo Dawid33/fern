@@ -14,9 +14,13 @@ header * {
   margin: 0;
 }
 
-header hr {}
+#header-top h1 {
+  margin: 0;
+}
 
-#header-top h1 {}
+header hr {
+  margin: 0;
+}
 
 #header-top {
   display: grid;
@@ -29,6 +33,7 @@ header hr {}
   display: flex;
   flex-direction: row;
   padding-left: 0.5rem;
+  margin: 0 !important;
 }
 
 #breadcrumbs li {

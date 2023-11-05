@@ -1,6 +1,6 @@
 #content-holder {
   display: grid;
-  grid-template-columns: 1fr minmax(min-content, 40vw) 1fr;
+  grid-template-columns: 1fr minmax(min-content, 60vw) 1fr;
   grid-template-rows: 6rem max-content max-content;
   position: relative;
 }
@@ -26,6 +26,10 @@ header {
   justify-self: end;
 }
 
+#docs-nav ul {
+  list-style-type: none;
+}
+
 #content-nav {
   grid-row: 2;
   grid-column: 3;
@@ -40,9 +44,9 @@ header {
 #content {
   grid-row: 2;
   grid-column: 2;
-  padding-top: 1em;
   z-index: 5;
   font-size: 16px;
+  margin: 0;
 }
 
 #content code {
