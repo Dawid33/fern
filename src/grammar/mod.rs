@@ -16,6 +16,7 @@ use std::hash::Hash;
 use std::io::{Read, Seek, Write};
 
 mod error;
+pub mod lexical_grammar;
 pub mod printing;
 pub mod reader;
 pub mod transform;

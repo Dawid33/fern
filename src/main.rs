@@ -9,10 +9,11 @@ use std::borrow::Cow;
 
 use crossbeam_queue::SegQueue;
 use ferncore::lexer::fern::FernData;
-use log::{info, LevelFilter};
-use std::collections::LinkedList;
+use log::{debug, info, trace, LevelFilter};
+use std::collections::{HashMap, LinkedList};
 use std::error::Error;
-use std::fs::File;
+use std::fs::{self, File};
+use std::io::Read;
 use std::io::Write;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -114,7 +115,6 @@ fn fern() -> Result<(), Box<dyn Error>> {
 
     info!("Total Time to get grammar : {:?}", now.elapsed());
     now = Instant::now();
-
     let tokens: LinkedList<Vec<(Token, FernData)>> = {
         let file = File::open("data/test.fern")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
@@ -146,24 +146,33 @@ fn fern() -> Result<(), Box<dyn Error>> {
     now = Instant::now();
 
     let ast: Box<AstNode> = Box::from(tree.build_ast().unwrap());
-    use std::fs::File;
+    info!("Total Time to transform ParseTree -> AST: {:?}", now.elapsed());
     let mut f = File::create("ast.dot").unwrap();
     render(ast.clone(), &mut f);
 
-    info!("Total Time to transform ParseTree -> AST: {:?}", now.elapsed());
     now = Instant::now();
+    analysis::check_used_before_declared(ast);
+    info!("Total Time to Analyse AST : {:?}", now.elapsed());
 
-    // let graph = ir::Block::from(ast).unwrap();
-    // let mut f_ir = File::create("ir.dot").unwrap();
-    // render_block(graph, &mut f_ir);
-    // info!("Total Time to transform AST -> IR: {:?}", now.elapsed());
     Ok(())
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    Logger::try_with_str("trace, core::grammar = info")?
+        .format(flexi_logger::colored_default_format)
+        .start_with_specfile("log.toml")?;
+    fern()?;
+    Ok(())
+}
+
+fn tbl_driven_lexer() -> Result<(), Box<dyn Error>> {
     Logger::try_with_str("trace, core::grammar = info")?.start_with_specfile("log.toml")?;
-    // fern()?;
-    let hir = parse("a|b")?;
-    assert_eq!(hir, Hir::alternation(vec![Hir::literal("a".as_bytes()), Hir::literal("b".as_bytes()),]));
+
+    let mut file = fs::File::open("data/grammar/test.lg").unwrap();
+    let mut buf = String::new();
+    file.read_to_string(&mut buf).unwrap();
+    let g = grammar::lexical_grammar::LexicalGrammar::from(buf);
+    g.print();
+
     Ok(())
 }

@@ -1,3 +1,5 @@
+## After-break clarity
+Duplicate variable identifier checking
 
 ## Lexer / Parser
 Make lexer lex ==, <= and >=
@@ -13,7 +15,12 @@ Final codegen
 
 ### Nice to have's
 Write only global symbol table for constants
-duplicate variable identifier checking
 
 ## Stretch goals
 Basic type system
+VCS utilizing ast of language to resolve merges
+VCS based on patch theory ala pijul
+
+Testing
+- Using selectors (ala CSS selectors) as assertions in tests.
+- Binary level branch test coverage, metrics and location.

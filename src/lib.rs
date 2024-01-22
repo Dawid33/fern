@@ -6,6 +6,7 @@ use crate::lexer::lua::{LuaLexer, LuaLexerState};
 use crate::lexer::LexerInterface;
 use crate::lexer::ParallelLexer;
 use crate::print::{render, render_block};
+pub use grammar::reader;
 use std::collections::LinkedList;
 use std::error::Error;
 use std::fs::File;
@@ -23,7 +24,6 @@ pub mod server;
 pub mod slab;
 
 use crate::lexer::fern::{FernData, FernLexer, FernLexerState};
-pub use grammar::*;
 use log::{debug, info};
 pub use parser::*;
 

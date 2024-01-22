@@ -1,9 +1,15 @@
 
-fn main (argc, argv) {
-  if 0 < x < 10 {
-    return 0;
-  } else {
+let y = 0;
 
-  };
+fn main (argc, argv) {
+  let x = 0;
+  let y = 100;
+
+  if y {
+    z = 3;
+  }
+
+  three = 1 + 2;
 }
+
 

@@ -1,8 +1,8 @@
-[target.wasm32-unknown-unknown]
-rustflags = ["-C", "target-feature=+atomics,+bulk-memory,+mutable-globals"]
+# [target.wasm32-unknown-unknown]
+# rustflags = ["-C", "target-feature=+atomics,+bulk-memory,+mutable-globals"]
 
-[unstable]
-build-std = ["panic_abort", "std"]
+# [unstable]
+# build-std = ["panic_abort", "std"]
 
-[target.wasm32-wasi-preview1-threads]
-wasi-root = ".../wasi-libc/sysroot"
+# [target.wasm32-wasi-preview1-threads]
+# wasi-root = ".../wasi-libc/sysroot"

@@ -1,0 +1,6 @@
+
+
+SEMI = ";"
+IDENTIFIER = "abcd|other"
+TEST = "'abc'*|'bca'?"
+

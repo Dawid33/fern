@@ -272,7 +272,7 @@ pub fn render<W: Write>(ast: Box<AstNode>, output: &mut W) {
                 }
             }
             AstNode::StatList(stmts) => {
-                for x in stmts {
+                for x in stmts.into_iter().rev() {
                     push_node(id, format!("{:?}", x), Box::from(x));
                 }
             }
