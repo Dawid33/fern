@@ -7,7 +7,7 @@
     "fern.d.ts"
   ],
   "scripts": {
-    "build": "bun --watch run build.ts"
+    "build": "bun run build.ts"
   },
   "module": "fern.js",
   "types": "fern.d.ts",

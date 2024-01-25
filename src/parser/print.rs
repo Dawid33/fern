@@ -138,7 +138,7 @@ type Nd = (usize, String);
 type Ed = (Nd, Nd);
 struct Graph {
     nodes: Vec<String>,
-    edges: Vec<(usize, usize)>,
+    edges: VecDeque<(usize, usize)>,
 }
 
 impl<'a> dot::Labeller<'a, Nd, Ed> for Graph {
@@ -178,7 +178,7 @@ impl<'a> dot::GraphWalk<'a, Nd, Ed> for Graph {
 
 pub fn render<W: Write>(ast: Box<AstNode>, output: &mut W) {
     let mut nodes: Vec<String> = Vec::new();
-    let mut edges = Vec::new();
+    let mut edges = VecDeque::new();
 
     nodes.push("Module".to_string());
     let mut stack: Vec<(Box<AstNode>, usize)> = vec![(ast, 0)];
@@ -187,7 +187,7 @@ pub fn render<W: Write>(ast: Box<AstNode>, output: &mut W) {
         let mut push_node = |id, str: String, node: Box<AstNode>| {
             nodes.push(str);
             let child = nodes.len() - 1;
-            edges.push((id, child));
+            edges.push_front((id, child));
             stack.push((node, child));
         };
 
@@ -272,7 +272,7 @@ pub fn render<W: Write>(ast: Box<AstNode>, output: &mut W) {
                 }
             }
             AstNode::StatList(stmts) => {
-                for x in stmts.into_iter().rev() {
+                for x in stmts {
                     push_node(id, format!("{:?}", x), Box::from(x));
                 }
             }

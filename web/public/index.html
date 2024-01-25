@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+
+<head>
+  <title>Fern Home</title>
+  <meta charset="utf-8">
+  <meta name="viewport"
+    content="height=device-height,width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0">
+  <link rel="stylesheet" href="/index.css">
+  <style>
+    * {
+      margin: 0;
+    }
+
+    html {
+      scrollbar-gutter: stable;
+      overflow-y: scroll;
+      overflow: -moz-scrollbars-vertical;
+    }
+  </style>
+  <link rel="stylesheet" href="/compiler.css">
+</head>
+
+<body>
+  <div id="content-holder">
+    <header>
+      <div id="header-top">
+        <h1>Fern</h1>
+      </div>
+      <hr />
+    </header>
+    <div id="compiler-tab">
+      <div style="grid-column: 1;">
+        <div id='editor'></div>
+        <button id="gen-graph" name="ggen">generate graph</button>
+        <p id="err"></p>
+      </div>
+      <sl-card class="card-header">
+        <div slot="header">
+          Graph
+        </div>
+        <div id="graph">
+        </div>
+      </sl-card>
+    </div>
+  </div>
+  <script type="module" src="index.js"></script>
+</body>
+
+</html>

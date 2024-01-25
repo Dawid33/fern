@@ -1,0 +1,76 @@
+#content-holder {
+  display: grid;
+  grid-template-rows: 6rem max-content;
+}
+
+header {
+  grid-row: 1;
+}
+
+#compiler-tab {
+  grid-row: 2;
+  padding: 2em 3em 0 3em;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+#editor {
+  height: 80vh;
+  border: 1px solid black
+}
+
+header {
+  position: sticky;
+  top: 0px;
+  max-height: 6rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background-color: white;
+  z-index: 10;
+  padding: 0 1rem 0 1rem;
+}
+
+header * {
+  margin: 0;
+}
+
+#header-top h1 {
+  margin: 0;
+}
+
+header hr {
+  margin: 0;
+}
+
+#header-top {
+  display: grid;
+  grid-template-columns: max-content max-content 1fr;
+  grid-template-rows: min-content;
+  align-items: baseline;
+}
+
+#breadcrumbs {
+  display: flex;
+  flex-direction: row;
+  padding-left: 0.5rem;
+  margin: 0 !important;
+}
+
+#breadcrumbs li {
+  margin-right: 0.5em;
+  list-style-type: none;
+}
+
+#breadcrumbs li:first-child::before {
+  content: "";
+  display: none;
+}
+
+#breadcrumbs li::before {
+  content: "";
+}
+
+#header-top>div {
+  justify-self: end;
+}

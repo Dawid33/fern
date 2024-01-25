@@ -22,17 +22,15 @@ let editor = new EditorView({
 
 let viz = await instance();
 await wasm.default();
-const start = Date.now();
-
 
 var button = document.getElementById('gen-graph');
 var message = document.getElementById('err');
 button.addEventListener('click', function() {
   try{
     console.log(editor.state.doc.text.join('\n'))
+    console.time("compile code")
     let dot = wasm.compile_fern(editor.state.doc.text.join('\n'))
-    const end = Date.now();
-    console.log(`Execution time: ${end - start} ms`);
+    console.timeEnd("compile code")
 
     let graph = document.getElementById('graph')
     graph.innerHTML = '';
