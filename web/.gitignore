@@ -1,5 +1,4 @@
-fern*
 bundle.js
 node_modules
-public/*
+public/index.js
 *.jekyll-cache

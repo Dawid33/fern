@@ -24,7 +24,7 @@ crossbeam-queue = { version = "*", optional = false }
 crossbeam-channel = { version = "*", optional = false }
 crossbeam-skiplist = { version = "*", optional = false }
 memmap = { version = "*", optional = true }
-wasm-bindgen = { version = "*" }
+wasm-bindgen = { version = "0.2.90" }
 serde = { version = "*", features = ["derive"] }
 flexi_logger = { version = "*", features = ["specfile_without_notification", "colors"] }
 log = "*"

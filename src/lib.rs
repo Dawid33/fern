@@ -1,6 +1,7 @@
 #![cfg_attr(debug_assertions, allow(dead_code, unused_imports))]
 
 use crate::fern_ast::{AstNode, FernParseTree};
+use crate::grammar::RawGrammar;
 use crate::grammar::{OpGrammar, Token};
 use crate::lexer::lua::{LuaLexer, LuaLexerState};
 use crate::lexer::LexerInterface;
@@ -93,6 +94,8 @@ pub fn compile_fern(input: &str) -> String {
     let mut buf = Vec::new();
     render(ast.clone(), &mut buf);
     let string = String::from_utf8(buf).unwrap();
+
+    analysis::check_used_before_declared(ast);
 
     return string;
 }

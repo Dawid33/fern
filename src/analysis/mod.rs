@@ -35,7 +35,6 @@ pub fn check_used_before_declared(root: Box<AstNode>) -> Vec<Box<AstNode>> {
                       final_scopes: &mut Vec<ScopeTreeNode>| {
         info!("Creating new scope.");
         scopes.push((old_tbl, old_nodes));
-        // scopes.push((HashMap::new(), nodes.into_iter().rev().collect()));
         scopes.push((HashMap::new(), nodes.into()));
         final_scopes.push(ScopeTreeNode::new());
     };

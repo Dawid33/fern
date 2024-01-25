@@ -33,7 +33,6 @@ use memmap::Mmap;
 use memmap::MmapOptions;
 use std::ops::Deref;
 use std::thread::{current, park};
-// use tungstenite::protocol::frame::coding::Data;
 
 pub fn split_mmap_into_chunks<'a>(mmap: &'a mut Mmap, step: usize) -> Result<Vec<&'a [u8]>, Box<dyn Error>> {
     let mut indices = vec![];

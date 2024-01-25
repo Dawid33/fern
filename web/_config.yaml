@@ -1,4 +1,0 @@
-
-source: 'src'
-destination: 'public'
-keep_files: ['favicon.ico', '.gitignore', 'index.html', 'compiler.js', 'fern_bg.wasm', 'fern_bg.wasm.d.ts', 'fern.d.ts', 'fern.js']

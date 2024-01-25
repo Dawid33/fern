@@ -1,9 +1,0 @@
----
-layout: doc
-is_doc: true
----
-= Introduction
-
-Documentation introduction.
-
-
