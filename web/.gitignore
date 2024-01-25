@@ -1,3 +1,7 @@
 bundle.js
 node_modules
 *.jekyll-cache
+public/index.js
+public/fern*
+public/README.md
+
