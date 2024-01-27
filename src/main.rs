@@ -27,7 +27,6 @@ use ferncore::grammar::Token;
 use ferncore::lexer::*;
 use ferncore::lexer::{fern::*, json::*, lua::*};
 use ferncore::parser::fern_ast::FernParseTree;
-use ferncore::parser::ParallelParser;
 use flexi_logger::Logger;
 use memmap::Mmap;
 use memmap::MmapOptions;
@@ -160,18 +159,18 @@ fn main() -> Result<(), Box<dyn Error>> {
     Logger::try_with_str("trace, core::grammar = info")?
         .format(flexi_logger::colored_default_format)
         .start_with_specfile("log.toml")?;
-    fern()?;
+    tbl_driven_lexer()?;
     Ok(())
 }
 
 fn tbl_driven_lexer() -> Result<(), Box<dyn Error>> {
-    Logger::try_with_str("trace, core::grammar = info")?.start_with_specfile("log.toml")?;
-
-    let mut file = fs::File::open("data/grammar/test.lg").unwrap();
+    let mut file = fs::File::open("data/grammar/fern.lg").unwrap();
     let mut buf = String::new();
     file.read_to_string(&mut buf).unwrap();
     let g = grammar::lexical_grammar::LexicalGrammar::from(buf);
-    g.print();
+    let nfa = grammar::lexical_grammar::NFA::from(g);
+    let mut f = File::create("nfa.dot").unwrap();
+    grammar::lexical_grammar::render(nfa, &mut f);
 
     Ok(())
 }

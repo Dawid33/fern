@@ -7,43 +7,29 @@
   <meta name="viewport"
     content="height=device-height,width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0">
   <link rel="stylesheet" href="/index.css">
-  <style>
-    * {
-      margin: 0;
-    }
-
-    html {
-      scrollbar-gutter: stable;
-      overflow-y: scroll;
-      overflow: -moz-scrollbars-vertical;
-    }
-  </style>
-  <link rel="stylesheet" href="/compiler.css">
 </head>
 
 <body>
-  <div id="content-holder">
-    <header>
-      <div id="header-top">
-        <h1>Fern</h1>
-      </div>
-      <hr />
-    </header>
-    <div id="compiler-tab">
-      <div style="grid-column: 1;">
-        <div id='editor'></div>
-        <button id="gen-graph" name="ggen">generate graph</button>
-        <p id="err"></p>
-      </div>
-      <sl-card class="card-header">
-        <div slot="header">
-          Graph
-        </div>
-        <div id="graph">
-        </div>
-      </sl-card>
+  <!--
+  <header>
+    <h1>Fern</h1>
+    <hr />
+  </header>
+  -->
+
+  <main>
+    <div id='editor-container'>
+      <div id='editor'></div>
+      <button id="gen-graph" name="ggen">generate graph</button>
+      <p id="err"></p>
     </div>
-  </div>
+
+    <canvas-area id="graph-container" width="401" height="301" style="background-color:#eee; border:solid 1px black;">
+      <canvas id="graph">
+      </canvas>
+    </canvas-area>
+  </main>
+
   <script type="module" src="index.js"></script>
 </body>
 

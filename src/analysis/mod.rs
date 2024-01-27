@@ -101,7 +101,7 @@ pub fn check_used_before_declared(root: Box<AstNode>) -> Vec<Box<AstNode>> {
                         }
                     }
                 }
-                AstNode::If(expr, body, next) => {
+                AstNode::If(_expr, body, _next) => {
                     if let Some(stat_list) = body {
                         if let AstNode::StatList(nodes) = *stat_list {
                             new_scopes(&mut scopes, local_tbl, s, nodes, &mut final_scopes);
