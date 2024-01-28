@@ -9,6 +9,7 @@ use std::process::Termination;
 use dot::Edges;
 use dot::Kind;
 use log::{info, trace};
+use regex_syntax::hir::Class;
 use regex_syntax::hir::Hir;
 use regex_syntax::hir::HirKind;
 
@@ -155,11 +156,16 @@ impl LexicalGrammar {
 struct Node {
     terminal: Option<String>,
     edges: HashMap<u8, usize>,
+    eplisons: Vec<usize>,
 }
 
 impl Node {
     pub fn new(terminal: Option<String>, edges: HashMap<u8, usize>) -> Self {
-        Self { terminal, edges }
+        Self {
+            terminal,
+            edges,
+            eplisons: Vec::new(),
+        }
     }
 }
 
@@ -187,6 +193,7 @@ impl NFA {
 
     pub fn add_regex(&mut self, terminal: String, regex: Hir) {
         self.nodes.push(Node::new(Some(terminal.clone()), HashMap::new()));
+        info!("{:?}", &regex);
         let mut node_stack: Vec<(usize, usize, Hir)> = Vec::from(&[(self.start_state, self.nodes.len() - 1, regex)]);
 
         while let Some((mut start_state, finish_state, hir_node)) = node_stack.pop() {
@@ -199,7 +206,7 @@ impl NFA {
                             if has_next_state {
                                 let next_id = *self.nodes.get(start_state).unwrap().edges.get(c).unwrap();
                                 let next = self.nodes.get_mut(next_id).unwrap();
-                                next.edges.insert('\0' as u8, finish_state);
+                                next.eplisons.push(finish_state);
                             } else {
                                 let start = self.nodes.get_mut(start_state).unwrap();
                                 start.edges.insert(*c, finish_state);
@@ -235,17 +242,48 @@ impl NFA {
                     }
                 }
                 HirKind::Class(class) => {
-                    let start = self.nodes.get_mut(start_state).unwrap();
-                    start.edges.insert('a' as u8, finish_state);
+                    if let Class::Unicode(ranges) = class {
+                        let mut chars = Vec::new();
+                        for range in ranges.iter() {
+                            for c in range.start()..=range.end() {
+                                chars.push(c);
+                            }
+                        }
+                        let start = self.nodes.get_mut(start_state).unwrap();
+                        for c in chars {
+                            start.edges.insert(c as u8, finish_state);
+                        }
+                    } else {
+                        panic!("Lexer doesn't support unicode ranges in regex's.");
+                    }
                 }
-                HirKind::Repetition(_) => todo!(),
+                HirKind::Repetition(rep) => {
+                    info!("{:?}", rep);
+                    self.nodes.push(Node::new(None, HashMap::new()));
+                    let inner_start_id = self.nodes.len() - 1;
+                    self.nodes.push(Node::new(None, HashMap::new()));
+                    let inner_finish_id = self.nodes.len() - 1;
+
+                    let start = self.nodes.get_mut(start_state).unwrap();
+                    start.eplisons.push(finish_state);
+                    start.eplisons.push(inner_start_id);
+
+                    let inner_finish = self.nodes.get_mut(inner_finish_id).unwrap();
+                    inner_finish.eplisons.push(inner_start_id);
+                    inner_finish.eplisons.push(finish_state);
+
+                    node_stack.push((inner_start_id, inner_finish_id, *rep.sub.clone()));
+                }
+                HirKind::Alternation(_) => {}
                 HirKind::Empty => todo!(),
                 HirKind::Look(_) => {}
                 HirKind::Capture(_) => todo!(),
-                HirKind::Alternation(_) => todo!(),
             }
         }
     }
+
+    // POWERRRRR
+    pub fn build_dfa() {}
 }
 
 type Nd = (usize, String);
@@ -304,6 +342,9 @@ pub fn render<W: Write>(nfa: NFA, output: &mut W) {
         for (k, v) in n.edges.iter() {
             edges.push_front((i, *v, format!(" {}", *k as char)));
         }
+        for other in n.eplisons.iter() {
+            edges.push_front((i, *other, "\\0".to_owned()));
+        }
     }
 
     let graph = Graph { nodes, edges };
@@ -315,4 +356,3 @@ pub fn render<W: Write>(nfa: NFA, output: &mut W) {
     string.insert_str(idx + 1, "layout=\"dot\"");
     write!(output, "{}", string).unwrap();
 }
-// TODO: NFA -> DFA using powerset construction https://en.wikipedia.org/wiki/Powerset_construction
