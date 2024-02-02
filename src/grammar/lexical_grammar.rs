@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
@@ -8,7 +9,9 @@ use std::process::Termination;
 
 use dot::Edges;
 use dot::Kind;
+use log::warn;
 use log::{info, trace};
+use regex_syntax::ast::Alternation;
 use regex_syntax::hir::Class;
 use regex_syntax::hir::Hir;
 use regex_syntax::hir::HirKind;
@@ -193,7 +196,7 @@ impl NFA {
 
     pub fn add_regex(&mut self, terminal: String, regex: Hir) {
         self.nodes.push(Node::new(Some(terminal.clone()), HashMap::new()));
-        info!("{:?}", &regex);
+        // info!("{:?}", &regex);
         let mut node_stack: Vec<(usize, usize, Hir)> = Vec::from(&[(self.start_state, self.nodes.len() - 1, regex)]);
 
         while let Some((mut start_state, finish_state, hir_node)) = node_stack.pop() {
@@ -258,7 +261,7 @@ impl NFA {
                     }
                 }
                 HirKind::Repetition(rep) => {
-                    info!("{:?}", rep);
+                    // info!("{:?}", rep);
                     self.nodes.push(Node::new(None, HashMap::new()));
                     let inner_start_id = self.nodes.len() - 1;
                     self.nodes.push(Node::new(None, HashMap::new()));
@@ -274,16 +277,133 @@ impl NFA {
 
                     node_stack.push((inner_start_id, inner_finish_id, *rep.sub.clone()));
                 }
-                HirKind::Alternation(_) => {}
+                HirKind::Capture(capture) => {
+                    node_stack.push((start_state, finish_state, *capture.sub.clone()));
+                }
+                HirKind::Alternation(alternation) => {
+                    for hir in alternation {
+                        self.nodes.push(Node::new(None, HashMap::new()));
+                        let inner_start_id = self.nodes.len() - 1;
+                        self.nodes.push(Node::new(None, HashMap::new()));
+                        let inner_finish_id = self.nodes.len() - 1;
+
+                        let start = self.nodes.get_mut(start_state).unwrap();
+                        start.eplisons.push(inner_start_id);
+
+                        let inner_finish = self.nodes.get_mut(inner_finish_id).unwrap();
+                        inner_finish.eplisons.push(finish_state);
+
+                        node_stack.push((inner_start_id, inner_finish_id, hir.clone()));
+                    }
+                }
                 HirKind::Empty => todo!(),
-                HirKind::Look(_) => {}
-                HirKind::Capture(_) => todo!(),
+                HirKind::Look(_) => todo!(),
             }
         }
     }
 
-    // POWERRRRR
-    pub fn build_dfa() {}
+    // POWERRRRR SSSSEEEEEEEETTTT CONSTRUCTIONNNNN!!1!1!1
+    // Traverse the graph and follow eplison rules to find sets of states
+    pub fn dfa(self) -> NFA {
+        let (c, edges, terminal) = self.get_transitive_closure(BTreeSet::from([0]));
+        // Populate dfa graph with one node for the root at index 0.
+        let mut dfa: Vec<Node> = Vec::from(&[Node {
+            terminal,
+            edges: HashMap::new(),
+            eplisons: Vec::new(),
+        }]);
+        let mut node_map: HashMap<BTreeSet<usize>, usize> = HashMap::from([(c, 0)]);
+        let mut stack: Vec<(usize, (u8, BTreeSet<usize>))> = Vec::new();
+        for e in edges {
+            stack.push((0, e));
+        }
+
+        let mut cnt = 0;
+        while let Some((previous, (letter, next_nodes))) = stack.pop() {
+            let (states_closure, next_edges, terminal) = self.get_transitive_closure(next_nodes);
+
+            let index = if node_map.contains_key(&states_closure) {
+                *node_map.get(&states_closure).unwrap()
+            } else {
+                dfa.push(Node {
+                    terminal,
+                    edges: HashMap::new(),
+                    eplisons: Vec::new(),
+                });
+                let index = dfa.len() - 1;
+                node_map.insert(states_closure, dfa.len() - 1);
+                index
+            };
+
+            let prev = dfa.get_mut(previous).unwrap();
+            let result = prev.edges.insert(letter, index);
+
+            if let None = result {
+                for e in next_edges {
+                    stack.push((index, e));
+                }
+            }
+
+            // info!("dfa {:?}", dfa);
+            if cnt > 10 {
+                // break;
+            }
+            cnt += 1;
+            info!("stack {:?}", stack);
+        }
+        NFA {
+            terminals: self.terminals,
+            nodes: dfa,
+            start_state: 0,
+        }
+    }
+
+    fn get_transitive_closure(&self, mut states: BTreeSet<usize>) -> (BTreeSet<usize>, HashMap<u8, BTreeSet<usize>>, Option<String>) {
+        let mut confirmed_states: BTreeSet<usize> = BTreeSet::from(states.clone());
+        let mut confirmed_edges: HashMap<u8, BTreeSet<usize>> = HashMap::new();
+        let mut terminal = None;
+        let mut cnt = 0;
+        while !states.is_empty() {
+            let mut iter = states.into_iter();
+            let mut to_push: Vec<usize> = Vec::new();
+            while let Some(id) = iter.next() {
+                let node = self.nodes.get(id).unwrap();
+                if node.terminal.is_some() {
+                    if let Some(t) = terminal.clone() {
+                        if t != *node.terminal.as_ref().unwrap() {
+                            panic!("Cannot have dfa node with more than one terminal.");
+                        }
+                    } else {
+                        info!("terminal: {}", id);
+                        terminal = node.terminal.clone();
+                    }
+                }
+                for next_state in &node.eplisons {
+                    to_push.push(*next_state);
+                }
+                for (letter, other) in &node.edges {
+                    if confirmed_edges.contains_key(&letter) {
+                        let set = confirmed_edges.get_mut(&letter).unwrap();
+                        set.insert(*other);
+                    } else {
+                        confirmed_edges.insert(*letter, BTreeSet::from([*other]));
+                    }
+                }
+            }
+            states = BTreeSet::new();
+            for node in to_push {
+                states.insert(node);
+                confirmed_states.insert(node);
+            }
+            cnt += 1;
+            if cnt > 5 {
+                // break;
+            }
+        }
+        info!("states: {:?}", confirmed_states);
+        info!("edges: {:?}", confirmed_edges);
+        return (confirmed_states, confirmed_edges, terminal);
+    }
 }
 
 type Nd = (usize, String);
@@ -329,7 +449,7 @@ impl<'a> dot::GraphWalk<'a, Nd, Ed> for Graph {
     }
 }
 
-pub fn render<W: Write>(nfa: NFA, output: &mut W) {
+pub fn render<W: Write>(nfa: &NFA, output: &mut W) {
     let mut nodes: Vec<String> = Vec::new();
     let mut edges = VecDeque::new();
     for (i, n) in nfa.nodes.iter().enumerate() {
@@ -338,7 +458,7 @@ pub fn render<W: Write>(nfa: NFA, output: &mut W) {
         } else {
             nodes.push(i.to_string());
         }
-        info!("{:?}", n.edges);
+        // info!("{:?}", n.edges);
         for (k, v) in n.edges.iter() {
             edges.push_front((i, *v, format!(" {}", *k as char)));
         }

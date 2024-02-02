@@ -71,7 +71,7 @@ fn json() -> Result<(), Box<dyn Error>> {
     now = Instant::now();
 
     let tokens: LinkedList<Vec<(Token, JsonData)>> = {
-        let file = File::open("data/json/10KB.json")?;
+        let file = File::open("data/json/1KB.json")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         thread::scope(|s| {
             let mut lexer: ParallelLexer<JsonLexerState, JsonLexer, JsonData> =
@@ -164,13 +164,16 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 fn tbl_driven_lexer() -> Result<(), Box<dyn Error>> {
-    let mut file = fs::File::open("data/grammar/fern.lg").unwrap();
+    let mut file = fs::File::open("data/grammar/test.lg").unwrap();
     let mut buf = String::new();
     file.read_to_string(&mut buf).unwrap();
     let g = grammar::lexical_grammar::LexicalGrammar::from(buf);
     let nfa = grammar::lexical_grammar::NFA::from(g);
     let mut f = File::create("nfa.dot").unwrap();
-    grammar::lexical_grammar::render(nfa, &mut f);
+    grammar::lexical_grammar::render(&nfa, &mut f);
+    let dfa = nfa.dfa();
+    let mut f = File::create("dfa.dot").unwrap();
+    grammar::lexical_grammar::render(&dfa, &mut f);
 
     Ok(())
 }

@@ -1,9 +1,144 @@
 import * as wasm from './public/fern.js';
-import * as canvas_area from './canvas-area.js';
 import { instance } from "@viz-js/viz";
 import {EditorView, basicSetup} from "codemirror"
 import {EditorState} from "@codemirror/state"
 import {javascript} from "@codemirror/lang-javascript"
+
+const canvas = document.getElementById('graph')
+canvas.width = 800;
+canvas.height = 600;
+
+window.onload = function(){		
+    var ctx = canvas.getContext('2d');
+    trackTransforms(ctx);
+
+    function redraw(){
+      // Clear the entire canvas
+      var p1 = ctx.transformedPoint(0,0);
+      var p2 = ctx.transformedPoint(canvas.width,canvas.height);
+      ctx.clearRect(p1.x,p1.y,p2.x-p1.x,p2.y-p1.y);
+
+      ctx.save();
+      ctx.setTransform(1,0,0,1,0,0);
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.restore();
+
+      ctx.drawImage(graph,0,0);
+    }
+    redraw();
+
+    var lastX=canvas.width/2, lastY=canvas.height/2;
+
+    var dragStart,dragged;
+
+    canvas.addEventListener('mousedown',function(evt){
+        document.body.style.mozUserSelect = document.body.style.webkitUserSelect = document.body.style.userSelect = 'none';
+        lastX = evt.offsetX || (evt.pageX - canvas.offsetLeft);
+        lastY = evt.offsetY || (evt.pageY - canvas.offsetTop);
+        dragStart = ctx.transformedPoint(lastX,lastY);
+        dragged = false;
+    },false);
+
+    canvas.addEventListener('mousemove',function(evt){
+        lastX = evt.offsetX || (evt.pageX - canvas.offsetLeft);
+        lastY = evt.offsetY || (evt.pageY - canvas.offsetTop);
+        dragged = true;
+        if (dragStart){
+          var pt = ctx.transformedPoint(lastX,lastY);
+          ctx.translate(pt.x-dragStart.x,pt.y-dragStart.y);
+          redraw();
+              }
+    },false);
+
+    canvas.addEventListener('mouseup',function(evt){
+        dragStart = null;
+        if (!dragged) zoom(evt.shiftKey ? -1 : 1 );
+    },false);
+
+    var scaleFactor = 1.1;
+
+    var zoom = function(clicks){
+        var pt = ctx.transformedPoint(lastX,lastY);
+        ctx.translate(pt.x,pt.y);
+        var factor = Math.pow(scaleFactor,clicks);
+        ctx.scale(factor,factor);
+        ctx.translate(-pt.x,-pt.y);
+        redraw();
+    }
+
+    var handleScroll = function(evt){
+        var delta = evt.wheelDelta ? evt.wheelDelta/40 : evt.detail ? -evt.detail : 0;
+        if (delta) zoom(delta);
+        return evt.preventDefault() && false;
+    };
+  
+    canvas.addEventListener('DOMMouseScroll',handleScroll,false);
+    canvas.addEventListener('mousewheel',handleScroll,false);
+};
+
+// Adds ctx.getTransform() - returns an SVGMatrix
+// Adds ctx.transformedPoint(x,y) - returns an SVGPoint
+function trackTransforms(ctx){
+    var svg = document.createElementNS("http://www.w3.org/2000/svg",'svg');
+    var xform = svg.createSVGMatrix();
+    ctx.getTransform = function(){ return xform; };
+
+    var savedTransforms = [];
+    var save = ctx.save;
+    ctx.save = function(){
+        savedTransforms.push(xform.translate(0,0));
+        return save.call(ctx);
+    };
+  
+    var restore = ctx.restore;
+    ctx.restore = function(){
+      xform = savedTransforms.pop();
+      return restore.call(ctx);
+	      };
+
+    var scale = ctx.scale;
+    ctx.scale = function(sx,sy){
+      xform = xform.scaleNonUniform(sx,sy);
+      return scale.call(ctx,sx,sy);
+	      };
+  
+    var rotate = ctx.rotate;
+    ctx.rotate = function(radians){
+        xform = xform.rotate(radians*180/Math.PI);
+        return rotate.call(ctx,radians);
+    };
+  
+    var translate = ctx.translate;
+    ctx.translate = function(dx,dy){
+        xform = xform.translate(dx,dy);
+        return translate.call(ctx,dx,dy);
+    };
+  
+    var transform = ctx.transform;
+    ctx.transform = function(a,b,c,d,e,f){
+        var m2 = svg.createSVGMatrix();
+        m2.a=a; m2.b=b; m2.c=c; m2.d=d; m2.e=e; m2.f=f;
+        xform = xform.multiply(m2);
+        return transform.call(ctx,a,b,c,d,e,f);
+    };
+  
+    var setTransform = ctx.setTransform;
+    ctx.setTransform = function(a,b,c,d,e,f){
+        xform.a = a;
+        xform.b = b;
+        xform.c = c;
+        xform.d = d;
+        xform.e = e;
+        xform.f = f;
+        return setTransform.call(ctx,a,b,c,d,e,f);
+    };
+  
+    var pt  = svg.createSVGPoint();
+    ctx.transformedPoint = function(x,y){
+        pt.x=x; pt.y=y;
+        return pt.matrixTransform(xform.inverse());
+    }
+}
 
 var parent = document.getElementById('editor');
 let editor = new EditorView({
@@ -24,65 +159,33 @@ let editor = new EditorView({
 let viz = await instance();
 await wasm.default();
 
-var button = document.getElementById('gen-graph');
-var message = document.getElementById('err');
-
-var ca = document.getElementById('graph-container');
 function compile_code() {
-  try{
+  var message = document.getElementById('output');
+  let dot;
+  try {
     console.log(editor.state.doc.text.join('\n'))
     console.time("compile code")
-    let dot = wasm.compile_fern(editor.state.doc.text.join('\n'))
+    dot = wasm.compile_fern(editor.state.doc.text.join('\n'))
     console.timeEnd("compile code")
-
-    let canvas = document.getElementById('graph')
-    let ctx = canvas.getContext("2d")
-    let view = ca.view
-    let w = ctx.canvas.width, h = ctx.canvas.height, 
-            sz = 20*view.scl, xoff = view.x%sz, yoff = view.y%sz;
-    if (view.scl > 0.2) {
-      ctx.strokeStyle = "#ccc";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let x=xoff,nx=w+1; x<nx; x+=sz) { ctx.moveTo(x,0); ctx.lineTo(x,h); }
-      for (let y=yoff,ny=h+1; y<ny; y+=sz) { ctx.moveTo(0,y); ctx.lineTo(w,y); }
-      ctx.stroke();
-      ctx.strokeStyle = "#555"; // origin lines ...
-      ctx.beginPath();
-      ctx.moveTo(view.x,0); ctx.lineTo(view.x,h);
-      ctx.moveTo(0,view.y); ctx.lineTo(w,view.y);
-      ctx.stroke();
-    }
-
-    // let svg = viz.renderSVGElement(dot);
-    // renderHtmlToCanvas(ctx, svg);
-    } catch(error){
+  } catch(error){
     console.log(error)
     message.innerHTML= "Fail!"
   }
   message.innerHTML= "Success!"
+  return dot
 }
 
-document.onload = () => {
-    // ca.on('pointer', e => {
-    //         let {x,y} = ca.pntToUsr(e), 
-    //             prec = Math.max(Math.log(ca.view.scl)/Math.log(2), 0);
-    //         coords.innerHTML = `pos: ${(x).toFixed(prec)} / ${(y).toFixed(prec)}`;} )
-    //   .on('resize', e => {
-    //         size.innerHTML = `size: ${(e.width).toFixed()} / ${(e.height).toFixed()}`; });
-
-    // ca.resize({width,height}=ca);  // cause single initial notification ..
-    // compile_code()
-  console.log("loaded")
+function render(dot) {
+    let svg = viz.renderSVGElement(dot);
+    var svgURL = new XMLSerializer().serializeToString(svg);
+    var img = new Image();
+    img.src = 'data:image/svg+xml; charset=utf8, ' + encodeURIComponent(svgURL);
+    return img
 }
 
-button.addEventListener('click', compile_code, false);
+var button = document.getElementById('gen-graph');
+button.addEventListener('click', () => {
+  graph = render(compile_code())
+  redraw()
+}, false);
 
-function renderHtmlToCanvas(ctx, svg_element) {
-  var svgURL = new XMLSerializer().serializeToString(svg_element);
-  var img = new Image();
-  img.onload = function() {
-    ctx.drawImage(this, 0, 0);
-  }
-  img.src = 'data:image/svg+xml; charset=utf8, ' + encodeURIComponent(svgURL);
-}

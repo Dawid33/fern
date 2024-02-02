@@ -30,29 +30,8 @@ pub use parser::*;
 
 use wasm_bindgen::prelude::*;
 
-#[wasm_bindgen]
-#[cfg(target_arch = "wasm32")]
-extern "C" {
-    fn alert(s: &str);
-}
-
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-pub fn greet() {
-    alert("Hello, wasm-game-of-life!");
-}
-
 #[cfg(target_arch = "wasm32")]
 const COMP_TIME_GRAMMAR: &'static str = include_str!("../data/grammar/fern.g");
-
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-extern "C" {
-    // Use `js_namespace` here to bind `console.log(..)` instead of just
-    // `log(..)`
-    #[wasm_bindgen(js_namespace = console)]
-    pub fn log(s: &str);
-}
 
 #[wasm_bindgen]
 #[cfg(target_arch = "wasm32")]

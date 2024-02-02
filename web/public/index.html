@@ -7,27 +7,38 @@
   <meta name="viewport"
     content="height=device-height,width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0">
   <link rel="stylesheet" href="/index.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.13.1/cdn/themes/light.css" />
+  <script type="module"
+    src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.13.1/cdn/shoelace-autoloader.js"></script>
+
 </head>
 
 <body>
-  <!--
-  <header>
-    <h1>Fern</h1>
-    <hr />
-  </header>
-  -->
 
   <main>
+    <header>
+      <h1>Experimental Fern Online Compiler </h1>
+    </header>
     <div id='editor-container'>
       <div id='editor'></div>
-      <button id="gen-graph" name="ggen">generate graph</button>
-      <p id="err"></p>
+      <div id='bottom'>
+        <button id="gen-graph" name="ggen">generate graph</button>
+        <p id="err"></p>
+      </div>
     </div>
 
-    <canvas-area id="graph-container" width="401" height="301" style="background-color:#eee; border:solid 1px black;">
-      <canvas id="graph">
-      </canvas>
-    </canvas-area>
+    <sl-tab-group id="tab-group">
+      <sl-tab slot="nav" panel="out">Output</sl-tab>
+      <sl-tab slot="nav" panel="ast">AST</sl-tab>
+      <sl-tab slot="nav" panel="analysis">Semantic Analysis</sl-tab>
+
+      <sl-tab-panel name="out" id="output"></sl-tab-panel>
+      <sl-tab-panel name="ast">
+        <canvas id="graph">
+        </canvas>
+      </sl-tab-panel>
+      <sl-tab-panel name="analysis">This is the custom tab panel.</sl-tab-panel>
+    </sl-tab-group>
   </main>
 
   <script type="module" src="index.js"></script>

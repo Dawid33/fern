@@ -1,6 +1,7 @@
 pub mod fern_ast;
 pub mod json;
 pub mod print;
+pub mod tree;
 
 use crate::grammar::{Associativity, OpGrammar, Rule, Token};
 use crate::lexer::fern::FernData;
