@@ -196,7 +196,7 @@ impl NFA {
 
     pub fn add_regex(&mut self, terminal: String, regex: Hir) {
         self.nodes.push(Node::new(Some(terminal.clone()), HashMap::new()));
-        // info!("{:?}", &regex);
+        info!("{:?}", &regex);
         let mut node_stack: Vec<(usize, usize, Hir)> = Vec::from(&[(self.start_state, self.nodes.len() - 1, regex)]);
 
         while let Some((mut start_state, finish_state, hir_node)) = node_stack.pop() {
@@ -349,7 +349,7 @@ impl NFA {
                 // break;
             }
             cnt += 1;
-            info!("stack {:?}", stack);
+            // info!("stack {:?}", stack);
         }
         NFA {
             terminals: self.terminals,
@@ -374,7 +374,7 @@ impl NFA {
                             panic!("Cannot have dfa node with more than one terminal.");
                         }
                     } else {
-                        info!("terminal: {}", id);
+                        // info!("terminal: {}", id);
                         terminal = node.terminal.clone();
                     }
                 }
@@ -400,8 +400,8 @@ impl NFA {
                 // break;
             }
         }
-        info!("states: {:?}", confirmed_states);
-        info!("edges: {:?}", confirmed_edges);
+        // info!("states: {:?}", confirmed_states);
+        // info!("edges: {:?}", confirmed_edges);
         return (confirmed_states, confirmed_edges, terminal);
     }
 }
