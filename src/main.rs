@@ -196,6 +196,18 @@ fn tbl_driven_lexer() -> Result<(), Box<dyn Error>> {
             info!("{}", table.terminal_map[t]);
         }
     }
+
+    let (tree, time): (JsonParseTree, Duration) = {
+        let mut parser = ParallelParser::new(grammar.clone(), 1);
+        parser.parse(tokns);
+        parser.parse(LinkedList::from([vec![(grammar.delim, JsonData::NoData)]]));
+        let time = parser.time_spent_rule_searching.clone();
+        (parser.collect_parse_tree().unwrap(), time)
+    };
+
+    tree.print();
+    info!("Total Time to parse: {:?}", now.elapsed());
+    info!("└─Total Time spent rule-searching: {:?}", time);
     // let now = Instant::now();
     // let mut file = File::open("data/test.fern")?;
     // let mut input = String::new();
