@@ -4,6 +4,7 @@ use crossbeam_deque::{Injector, Worker};
 use crossbeam_skiplist::SkipMap;
 use log::info;
 use log::trace;
+use log::warn;
 use std::collections::{HashMap, LinkedList};
 use std::error::Error;
 use std::fmt::Debug;
@@ -24,11 +25,73 @@ pub mod fern;
 pub mod json;
 pub mod lua;
 
+use crate::grammar::lexical_grammar::LexingTable;
+use crate::grammar::lexical_grammar::LookupResult;
 use crate::grammar::{OpGrammar, Token};
 use crate::lexer::error::LexerError;
 use crate::lexer::json::{JsonData, JsonLexer, JsonLexerState, JsonTokens};
 use crate::lexer::lua::{LuaLexer, LuaLexerState};
 use crossbeam_queue::SegQueue;
+
+#[derive(Debug, Clone)]
+pub enum Data {
+    NoData,
+    String(String),
+}
+
+pub struct Lexer {
+    table: LexingTable,
+    start_state: usize,
+    state: usize,
+    buf: String,
+    tokens: Vec<usize>,
+}
+
+impl Lexer {
+    pub fn new(table: LexingTable, start_state: usize) -> Self {
+        Self {
+            table,
+            tokens: Vec::new(),
+            start_state,
+            buf: String::new(),
+            state: start_state,
+        }
+    }
+    pub fn consume(&mut self, input: u8) {
+        let mut reconsume = true;
+        while reconsume {
+            reconsume = false;
+            if input.is_ascii_whitespace() && !self.buf.is_empty() {
+                if let Some(t) = self.table.try_get_terminal(self.state) {
+                    self.tokens.push(t);
+                    self.buf.clear();
+                    self.state = self.start_state;
+                }
+            } else if input.is_ascii_whitespace() {
+                break;
+            } else {
+                match self.table.get(input, self.state) {
+                    LookupResult::Terminal(t) => {
+                        self.tokens.push(t);
+                        self.buf.clear();
+                        self.state = self.start_state;
+                        reconsume = true;
+                    }
+                    LookupResult::State(s) => {
+                        self.buf.push(input as char);
+                        self.state = s;
+                    }
+                    LookupResult::Err => {
+                        panic!("Lexing Error when transitioning state. state : {}", self.state);
+                    }
+                }
+            }
+        }
+    }
+    pub fn take(self) -> Vec<(usize)> {
+        self.tokens
+    }
+}
 
 pub struct LexerOutput<T, Data> {
     lists: Option<HashMap<T, LexerPartialOutput<T, Data>>>,

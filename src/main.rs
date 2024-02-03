@@ -71,7 +71,7 @@ fn json() -> Result<(), Box<dyn Error>> {
     now = Instant::now();
 
     let tokens: LinkedList<Vec<(Token, JsonData)>> = {
-        let file = File::open("data/json/1KB.json")?;
+        let file = File::open("data/json/100KB.json")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         thread::scope(|s| {
             let mut lexer: ParallelLexer<JsonLexerState, JsonLexer, JsonData> =
@@ -87,20 +87,20 @@ fn json() -> Result<(), Box<dyn Error>> {
     info!("Total Time to lex: {:?}", now.elapsed());
     now = Instant::now();
 
-    let (tree, time): (JsonParseTree, Duration) = {
-        let mut parser = ParallelParser::new(grammar.clone(), 1);
-        parser.parse(tokens);
-        parser.parse(LinkedList::from([vec![(grammar.delim, JsonData::NoData)]]));
-        let time = parser.time_spent_rule_searching.clone();
-        (parser.collect_parse_tree().unwrap(), time)
-    };
+    // let (tree, time): (JsonParseTree, Duration) = {
+    //     let mut parser = ParallelParser::new(grammar.clone(), 1);
+    //     parser.parse(tokens);
+    //     parser.parse(LinkedList::from([vec![(grammar.delim, JsonData::NoData)]]));
+    //     let time = parser.time_spent_rule_searching.clone();
+    //     (parser.collect_parse_tree().unwrap(), time)
+    // };
 
-    tree.print();
-    info!("Total Time to parse: {:?}", now.elapsed());
-    info!("└─Total Time spent rule-searching: {:?}", time);
+    // tree.print();
+    // info!("Total Time to parse: {:?}", now.elapsed());
+    // info!("└─Total Time spent rule-searching: {:?}", time);
 
-    now = Instant::now();
-    info!("Total Time to transform ParseTree -> AST Conversion: {:?}", now.elapsed());
+    // now = Instant::now();
+    // info!("Total Time to transform ParseTree -> AST Conversion: {:?}", now.elapsed());
     Ok(())
 }
 
@@ -164,16 +164,31 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 fn tbl_driven_lexer() -> Result<(), Box<dyn Error>> {
-    let mut file = fs::File::open("data/grammar/test.lg").unwrap();
+    let mut file = fs::File::open("data/grammar/json.lg").unwrap();
     let mut buf = String::new();
     file.read_to_string(&mut buf).unwrap();
     let g = grammar::lexical_grammar::LexicalGrammar::from(buf);
-    let nfa = grammar::lexical_grammar::NFA::from(g);
+    let nfa = grammar::lexical_grammar::StateGraph::from(g.clone());
     let mut f = File::create("nfa.dot").unwrap();
     grammar::lexical_grammar::render(&nfa, &mut f);
-    let dfa = nfa.dfa();
+    let dfa = nfa.convert_to_dfa();
     let mut f = File::create("dfa.dot").unwrap();
     grammar::lexical_grammar::render(&dfa, &mut f);
 
+    let table = dfa.build_table(g.get_tokens());
+    // println!("{:?}", table);
+    let mut lexer = crate::lexer::Lexer::new(table, 0);
+
+    let now = Instant::now();
+    let mut file = File::open("data/json/100KB.json")?;
+    let mut input = String::new();
+    file.read_to_string(&mut input);
+    for c in input.chars() {
+        lexer.consume(c as u8);
+    }
+    lexer.consume(b'\n');
+    let output = lexer.take();
+    info!("Total Time to lex: {:?}", now.elapsed());
+    // info!("OUTPUT: {:?}", output);
     Ok(())
 }

@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -16,8 +17,9 @@ use regex_syntax::hir::Class;
 use regex_syntax::hir::Hir;
 use regex_syntax::hir::HirKind;
 
+#[derive(Clone)]
 pub struct LexicalGrammar {
-    pairs: HashMap<String, Hir>,
+    pairs: BTreeMap<String, Hir>,
 }
 
 enum State {
@@ -33,7 +35,7 @@ impl LexicalGrammar {
     pub fn from(input: String) -> Self {
         let token_regex_pairs = Self::scanner(input);
 
-        let mut pairs: HashMap<String, Hir> = HashMap::new();
+        let mut pairs: BTreeMap<String, Hir> = BTreeMap::new();
         for (token, regex) in token_regex_pairs {
             match regex_syntax::parse(&regex) {
                 Ok(r) => pairs.insert(token, r),
@@ -142,6 +144,10 @@ impl LexicalGrammar {
         return pairs;
     }
 
+    pub fn get_tokens(&self) -> Vec<String> {
+        self.pairs.clone().into_keys().collect()
+    }
+
     pub fn print_pairs(pairs: &HashMap<String, String>) {
         for (k, v) in pairs {
             info!("{} = {}", k, v);
@@ -172,14 +178,14 @@ impl Node {
     }
 }
 
-pub struct NFA {
+pub struct StateGraph {
     terminals: HashMap<String, usize>,
     nodes: Vec<Node>,
     start_state: usize,
 }
 
 // TODO: Implement Thompsons Construction
-impl NFA {
+impl StateGraph {
     pub fn from(input: LexicalGrammar) -> Self {
         let nodes = Vec::from(&[Node::new(None, HashMap::new())]);
         let mut nfa = Self {
@@ -304,7 +310,7 @@ impl NFA {
 
     // POWERRRRR SSSSEEEEEEEETTTT CONSTRUCTIONNNNN!!1!1!1
     // Traverse the graph and follow eplison rules to find sets of states
-    pub fn dfa(self) -> NFA {
+    pub fn convert_to_dfa(self) -> StateGraph {
         let (c, edges, terminal) = self.get_transitive_closure(BTreeSet::from([0]));
         // Populate dfa graph with one node for the root at index 0.
         let mut dfa: Vec<Node> = Vec::from(&[Node {
@@ -351,7 +357,7 @@ impl NFA {
             cnt += 1;
             // info!("stack {:?}", stack);
         }
-        NFA {
+        StateGraph {
             terminals: self.terminals,
             nodes: dfa,
             start_state: 0,
@@ -404,6 +410,73 @@ impl NFA {
         // info!("edges: {:?}", confirmed_edges);
         return (confirmed_states, confirmed_edges, terminal);
     }
+
+    pub fn build_table(&self, terminal_map: Vec<String>) -> LexingTable {
+        let mut map = HashMap::new();
+        for (i, t) in terminal_map.iter().enumerate() {
+            map.insert(t, i);
+        }
+        let mut terminals = HashMap::new();
+        let mut table: HashMap<u8, HashMap<usize, usize>> = HashMap::new();
+        for (i, n) in self.nodes.iter().enumerate() {
+            if !n.eplisons.is_empty() {
+                panic!("cannot build table with graph that has epsilon transitions. Make sure its a dfa");
+            }
+            if let Some(t) = &n.terminal {
+                terminals.insert(i, *map.get(&t).unwrap());
+            }
+            for (letter, state) in &n.edges {
+                if table.contains_key(letter) {
+                    table.get_mut(letter).unwrap().insert(i, *state);
+                } else {
+                    table.insert(*letter, HashMap::from([(i, *state)]));
+                }
+            }
+        }
+        LexingTable {
+            table,
+            terminals,
+            terminal_map,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct LexingTable {
+    table: HashMap<u8, HashMap<usize, usize>>,
+    terminals: HashMap<usize, usize>,
+    terminal_map: Vec<String>,
+}
+
+pub enum LookupResult {
+    Terminal(usize),
+    State(usize),
+    Err,
+}
+
+impl LexingTable {
+    pub fn try_get_terminal(&self, state: usize) -> Option<usize> {
+        if let Some(t) = self.terminals.get(&state) {
+            Some(*t)
+        } else {
+            None
+        }
+    }
+    pub fn get(&self, input: u8, state: usize) -> LookupResult {
+        let letter = if let Some(map) = self.table.get(&input) {
+            map
+        } else {
+            panic!("unrecognised character '{}'", input as char);
+        };
+
+        if letter.contains_key(&state) {
+            LookupResult::State(*letter.get(&state).unwrap())
+        } else if self.terminals.contains_key(&state) {
+            LookupResult::Terminal(*self.terminals.get(&state).unwrap())
+        } else {
+            LookupResult::Err
+        }
+    }
 }
 
 type Nd = (usize, String);
@@ -449,7 +522,7 @@ impl<'a> dot::GraphWalk<'a, Nd, Ed> for Graph {
     }
 }
 
-pub fn render<W: Write>(nfa: &NFA, output: &mut W) {
+pub fn render<W: Write>(nfa: &StateGraph, output: &mut W) {
     let mut nodes: Vec<String> = Vec::new();
     let mut edges = VecDeque::new();
     for (i, n) in nfa.nodes.iter().enumerate() {
