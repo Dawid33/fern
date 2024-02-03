@@ -1,0 +1,5 @@
+LET = "let"
+IF = "if"
+WHILE = "while"
+FOR = "for"
+FN = "fn"

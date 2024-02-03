@@ -2,7 +2,7 @@ use crate::grammar::error::GrammarError;
 use crate::grammar::reader::TokenTypes::{Axiom, NonTerminal, Terminal};
 use crate::grammar::{OpGrammar, Rule, Token};
 use crate::reader::SymbolParserState::InKeyword;
-use crate::{Node, TokenGrammarTuple};
+// use crate::{Node, TokenGrammarTuple};
 use log::{debug, info, trace};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
@@ -366,87 +366,87 @@ impl ReductionTree {
         Self { root_nodes: HashMap::new() }
     }
 
-    pub fn disambiguate<T>(&self, node: &Node<T>, g: &OpGrammar, _expected: Option<Token>) -> Vec<&Rule> {
-        let mut output: Vec<&Rule> = Vec::new();
-        let mut iter = node.children.iter();
-        let first = iter.next().unwrap();
+    // pub fn disambiguate<T>(&self, node: &Node<T>, g: &OpGrammar, _expected: Option<Token>) -> Vec<&Rule> {
+    //     let mut output: Vec<&Rule> = Vec::new();
+    //     let mut iter = node.children.iter();
+    //     let first = iter.next().unwrap();
 
-        let current: Option<_> = if g.new_non_terminal_reverse.contains_key(&first.symbol) {
-            let mut result = None;
-            for t in g.new_non_terminal_reverse.get(&first.symbol).unwrap() {
-                if let Some(next_nodes) = self.root_nodes.get(t) {
-                    debug!("Disambiguate - Matched : {}", g.token_raw.get(t).unwrap());
-                    result = Some(next_nodes);
-                    break;
-                }
-            }
-            result
-        } else {
-            if let Some(next_nodes) = self.root_nodes.get(&first.symbol) {
-                debug!("Disambiguate - Matched : {}", g.token_raw.get(&first.symbol).unwrap());
-                Some(next_nodes)
-            } else {
-                None
-            }
-        };
+    //     let current: Option<_> = if g.new_non_terminal_reverse.contains_key(&first.symbol) {
+    //         let mut result = None;
+    //         for t in g.new_non_terminal_reverse.get(&first.symbol).unwrap() {
+    //             if let Some(next_nodes) = self.root_nodes.get(t) {
+    //                 debug!("Disambiguate - Matched : {}", g.token_raw.get(t).unwrap());
+    //                 result = Some(next_nodes);
+    //                 break;
+    //             }
+    //         }
+    //         result
+    //     } else {
+    //         if let Some(next_nodes) = self.root_nodes.get(&first.symbol) {
+    //             debug!("Disambiguate - Matched : {}", g.token_raw.get(&first.symbol).unwrap());
+    //             Some(next_nodes)
+    //         } else {
+    //             None
+    //         }
+    //     };
 
-        if let Some(mut current) = current {
-            for child in iter {
-                let possible_options_for_child: Vec<Token> = if let Some(t) = g.new_non_terminal_reverse.get(&child.symbol) {
-                    t.iter().map(|x| *x).rev().collect()
-                } else {
-                    Vec::from([child.symbol])
-                };
+    //     if let Some(mut current) = current {
+    //         for child in iter {
+    //             let possible_options_for_child: Vec<Token> = if let Some(t) = g.new_non_terminal_reverse.get(&child.symbol) {
+    //                 t.iter().map(|x| *x).rev().collect()
+    //             } else {
+    //                 Vec::from([child.symbol])
+    //             };
 
-                let mut has_changed = false;
-                for t in possible_options_for_child {
-                    let mut found_node: Option<usize> = None;
-                    for (i, exiting_node) in current.iter().enumerate() {
-                        match exiting_node {
-                            ReductionNode::Node(n, _) => {
-                                if *n == t {
-                                    found_node = Some(i);
-                                    break;
-                                }
-                            }
-                            ReductionNode::Rule(_) => (),
-                        }
-                    }
-                    current = if let Some(i) = found_node {
-                        match current.get(i).unwrap() {
-                            ReductionNode::Node(t, vec) => {
-                                debug!("Disambiguate - Matched : {}", g.token_raw.get(t).unwrap());
-                                has_changed = true;
-                                vec
-                            }
-                            ReductionNode::Rule(_) => {
-                                unreachable!()
-                            }
-                        }
-                    } else {
-                        current
-                    };
-                    if has_changed {
-                        break;
-                    }
-                }
-            }
+    //             let mut has_changed = false;
+    //             for t in possible_options_for_child {
+    //                 let mut found_node: Option<usize> = None;
+    //                 for (i, exiting_node) in current.iter().enumerate() {
+    //                     match exiting_node {
+    //                         ReductionNode::Node(n, _) => {
+    //                             if *n == t {
+    //                                 found_node = Some(i);
+    //                                 break;
+    //                             }
+    //                         }
+    //                         ReductionNode::Rule(_) => (),
+    //                     }
+    //                 }
+    //                 current = if let Some(i) = found_node {
+    //                     match current.get(i).unwrap() {
+    //                         ReductionNode::Node(t, vec) => {
+    //                             debug!("Disambiguate - Matched : {}", g.token_raw.get(t).unwrap());
+    //                             has_changed = true;
+    //                             vec
+    //                         }
+    //                         ReductionNode::Rule(_) => {
+    //                             unreachable!()
+    //                         }
+    //                     }
+    //                 } else {
+    //                     current
+    //                 };
+    //                 if has_changed {
+    //                     break;
+    //                 }
+    //             }
+    //         }
 
-            for (_i, exiting_node) in current.iter().enumerate() {
-                match exiting_node {
-                    ReductionNode::Rule(r) => {
-                        debug!("Found : {:?}", r);
-                        output.push(r);
-                    }
-                    _ => (),
-                }
-            }
-        }
-        for r in &output {
-            info!("Could be {}", g.token_raw.get(&r.left).unwrap());
-        }
-        output
-    }
+    //         for (_i, exiting_node) in current.iter().enumerate() {
+    //             match exiting_node {
+    //                 ReductionNode::Rule(r) => {
+    //                     debug!("Found : {:?}", r);
+    //                     output.push(r);
+    //                 }
+    //                 _ => (),
+    //             }
+    //         }
+    //     }
+    //     for r in &output {
+    //         info!("Could be {}", g.token_raw.get(&r.left).unwrap());
+    //     }
+    //     output
+    // }
 
     // let mut iter = rhs.iter();
     // let first = iter.next().unwrap();

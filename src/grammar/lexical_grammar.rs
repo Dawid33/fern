@@ -182,19 +182,21 @@ pub struct StateGraph {
     terminals: HashMap<String, usize>,
     nodes: Vec<Node>,
     start_state: usize,
+    grammar: LexicalGrammar,
 }
 
 // TODO: Implement Thompsons Construction
 impl StateGraph {
-    pub fn from(input: LexicalGrammar) -> Self {
+    pub fn from(grammar: LexicalGrammar) -> Self {
         let nodes = Vec::from(&[Node::new(None, HashMap::new())]);
         let mut nfa = Self {
             nodes,
             start_state: 0,
             terminals: HashMap::new(),
+            grammar,
         };
 
-        for (token, regex) in input.pairs {
+        for (token, regex) in nfa.grammar.pairs.clone() {
             nfa.add_regex(token, regex);
         }
         return nfa;
@@ -361,6 +363,7 @@ impl StateGraph {
             terminals: self.terminals,
             nodes: dfa,
             start_state: 0,
+            grammar: self.grammar,
         }
     }
 
@@ -406,13 +409,14 @@ impl StateGraph {
                 // break;
             }
         }
-        // info!("states: {:?}", confirmed_states);
+        info!("states: {:?}", confirmed_states);
         // info!("edges: {:?}", confirmed_edges);
         return (confirmed_states, confirmed_edges, terminal);
     }
 
-    pub fn build_table(&self, terminal_map: Vec<String>) -> LexingTable {
+    pub fn build_table(&self) -> LexingTable {
         let mut map = HashMap::new();
+        let terminal_map = self.grammar.get_tokens();
         for (i, t) in terminal_map.iter().enumerate() {
             map.insert(t, i);
         }
@@ -445,7 +449,7 @@ impl StateGraph {
 pub struct LexingTable {
     table: HashMap<u8, HashMap<usize, usize>>,
     terminals: HashMap<usize, usize>,
-    terminal_map: Vec<String>,
+    pub terminal_map: Vec<String>,
 }
 
 pub enum LookupResult {

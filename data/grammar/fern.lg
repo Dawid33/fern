@@ -1,6 +1,5 @@
-IDENTIFIER = "[_a-zA-Z][_a-zA-Z0-9]*"
-STRING = "\"(?:[^\"\\]|\\.)*\""
-NUMBER = "[0-9]*"
+NAME = "[_a-zA-Z][_a-zA-Z0-9]*"
+STRING = "\"([a-z][A-Z])*\""
 NUMBER = "[0-9]*"
 SEMI = ";"
 COLON = ":"

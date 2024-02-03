@@ -2,13 +2,14 @@
 #![allow(ambiguous_glob_reexports)]
 extern crate core;
 
-use ferncore::print::{render, render_block};
+// use ferncore::print::{render, render_block};
+use ferncore::lexer::LexerInterface;
 pub use ferncore::*;
 use regex_syntax::{hir::Hir, parse};
 use std::borrow::Cow;
 
 use crossbeam_queue::SegQueue;
-use ferncore::lexer::fern::FernData;
+// use ferncore::lexer::fern::FernData;
 use log::{debug, info, trace, LevelFilter};
 use std::collections::{HashMap, LinkedList};
 use std::error::Error;
@@ -18,15 +19,15 @@ use std::io::Write;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use crate::cfg::ControlFlowGraph;
-use crate::parser::fern_ast::AstNode;
-use crate::parser::json::JsonParseTree;
-use ferncore::grammar::OpGrammar;
-use ferncore::grammar::RawGrammar;
-use ferncore::grammar::Token;
+// use crate::cfg::ControlFlowGraph;
+// use crate::parser::fern_ast::AstNode;
+// use crate::parser::json::JsonParseTree;
+// use ferncore::grammar::OpGrammar;
+// use ferncore::grammar::RawGrammar;
+// use ferncore::grammar::Token;
 use ferncore::lexer::*;
-use ferncore::lexer::{fern::*, json::*, lua::*};
-use ferncore::parser::fern_ast::FernParseTree;
+// use ferncore::lexer::{fern::*, json::*, lua::*};
+// use ferncore::parser::fern_ast::FernParseTree;
 use flexi_logger::Logger;
 use memmap::Mmap;
 use memmap::MmapOptions;
@@ -61,99 +62,99 @@ pub fn split_mmap_into_chunks<'a>(mmap: &'a mut Mmap, step: usize) -> Result<Vec
     return Ok(units);
 }
 
-fn json() -> Result<(), Box<dyn Error>> {
-    let mut now = Instant::now();
-    let mut raw = RawGrammar::from("data/grammar/json.g")?;
-    raw.delete_repeated_rhs()?;
-    let grammar = OpGrammar::new(raw)?;
-    grammar.to_file("data/grammar/json-fnf.g");
-    info!("Total Time to get grammar : {:?}", now.elapsed());
-    now = Instant::now();
+// fn json() -> Result<(), Box<dyn Error>> {
+//     let mut now = Instant::now();
+//     let mut raw = RawGrammar::from("data/grammar/json.g")?;
+//     raw.delete_repeated_rhs()?;
+//     let grammar = OpGrammar::new(raw)?;
+//     grammar.to_file("data/grammar/json-fnf.g");
+//     info!("Total Time to get grammar : {:?}", now.elapsed());
+//     now = Instant::now();
 
-    let tokens: LinkedList<Vec<(Token, JsonData)>> = {
-        let file = File::open("data/json/100KB.json")?;
-        let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
-        thread::scope(|s| {
-            let mut lexer: ParallelLexer<JsonLexerState, JsonLexer, JsonData> =
-                ParallelLexer::new(&grammar, s, 16, &[JsonLexerState::Start, JsonLexerState::InString], JsonLexerState::Start);
-            let batch = lexer.new_batch();
-            lexer.add_to_batch(&batch, &mmap[..], 0);
-            let tokens = lexer.collect_batch(batch);
-            lexer.kill();
-            tokens
-        })
-    };
+//     let tokens: LinkedList<Vec<(Token, JsonData)>> = {
+//         let file = File::open("data/json/100KB.json")?;
+//         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
+//         thread::scope(|s| {
+//             let mut lexer: ParallelLexer<JsonLexerState, JsonLexer, JsonData> =
+//                 ParallelLexer::new(&grammar, s, 16, &[JsonLexerState::Start, JsonLexerState::InString], JsonLexerState::Start);
+//             let batch = lexer.new_batch();
+//             lexer.add_to_batch(&batch, &mmap[..], 0);
+//             let tokens = lexer.collect_batch(batch);
+//             lexer.kill();
+//             tokens
+//         })
+//     };
 
-    info!("Total Time to lex: {:?}", now.elapsed());
-    now = Instant::now();
+//     info!("Total Time to lex: {:?}", now.elapsed());
+//     now = Instant::now();
 
-    // let (tree, time): (JsonParseTree, Duration) = {
-    //     let mut parser = ParallelParser::new(grammar.clone(), 1);
-    //     parser.parse(tokens);
-    //     parser.parse(LinkedList::from([vec![(grammar.delim, JsonData::NoData)]]));
-    //     let time = parser.time_spent_rule_searching.clone();
-    //     (parser.collect_parse_tree().unwrap(), time)
-    // };
+//     // let (tree, time): (JsonParseTree, Duration) = {
+//     //     let mut parser = ParallelParser::new(grammar.clone(), 1);
+//     //     parser.parse(tokens);
+//     //     parser.parse(LinkedList::from([vec![(grammar.delim, JsonData::NoData)]]));
+//     //     let time = parser.time_spent_rule_searching.clone();
+//     //     (parser.collect_parse_tree().unwrap(), time)
+//     // };
 
-    // tree.print();
-    // info!("Total Time to parse: {:?}", now.elapsed());
-    // info!("└─Total Time spent rule-searching: {:?}", time);
+//     // tree.print();
+//     // info!("Total Time to parse: {:?}", now.elapsed());
+//     // info!("└─Total Time spent rule-searching: {:?}", time);
 
-    // now = Instant::now();
-    // info!("Total Time to transform ParseTree -> AST Conversion: {:?}", now.elapsed());
-    Ok(())
-}
+//     // now = Instant::now();
+//     // info!("Total Time to transform ParseTree -> AST Conversion: {:?}", now.elapsed());
+//     Ok(())
+// }
 
-fn fern() -> Result<(), Box<dyn Error>> {
-    let mut now = Instant::now();
-    let mut raw = RawGrammar::from("data/grammar/fern.g")?;
-    raw.delete_repeated_rhs()?;
-    let grammar = OpGrammar::new(raw)?;
-    grammar.to_file("data/grammar/fern-fnf.g");
+// fn fern() -> Result<(), Box<dyn Error>> {
+//     let mut now = Instant::now();
+//     let mut raw = RawGrammar::from("data/grammar/fern.g")?;
+//     raw.delete_repeated_rhs()?;
+//     let grammar = OpGrammar::new(raw)?;
+//     grammar.to_file("data/grammar/fern-fnf.g");
 
-    info!("Total Time to get grammar : {:?}", now.elapsed());
-    now = Instant::now();
-    let tokens: LinkedList<Vec<(Token, FernData)>> = {
-        let file = File::open("data/test.fern")?;
-        let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
-        thread::scope(|s| {
-            let mut lexer: ParallelLexer<FernLexerState, FernLexer, FernData> =
-                ParallelLexer::new(&grammar, s, 1, &[FernLexerState::Start], FernLexerState::Start);
-            let batch = lexer.new_batch();
-            lexer.add_to_batch(&batch, &mmap[..], 0);
-            let tokens = lexer.collect_batch(batch);
-            lexer.kill();
-            tokens
-        })
-    };
+//     info!("Total Time to get grammar : {:?}", now.elapsed());
+//     now = Instant::now();
+//     let tokens: LinkedList<Vec<(Token, FernData)>> = {
+//         let file = File::open("data/test.fern")?;
+//         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
+//         thread::scope(|s| {
+//             let mut lexer: ParallelLexer<FernLexerState, FernLexer, FernData> =
+//                 ParallelLexer::new(&grammar, s, 1, &[FernLexerState::Start], FernLexerState::Start);
+//             let batch = lexer.new_batch();
+//             lexer.add_to_batch(&batch, &mmap[..], 0);
+//             let tokens = lexer.collect_batch(batch);
+//             lexer.kill();
+//             tokens
+//         })
+//     };
 
-    info!("Total Time to lex: {:?}", now.elapsed());
-    now = Instant::now();
+//     info!("Total Time to lex: {:?}", now.elapsed());
+//     now = Instant::now();
 
-    let (tree, time): (FernParseTree, Duration) = {
-        let mut parser = ParallelParser::new(grammar.clone(), 1);
-        parser.parse(tokens);
-        parser.parse(LinkedList::from([vec![(grammar.delim, FernData::NoData)]]));
-        let time = parser.time_spent_rule_searching.clone();
-        (parser.collect_parse_tree().unwrap(), time)
-    };
+//     let (tree, time): (FernParseTree, Duration) = {
+//         let mut parser = ParallelParser::new(grammar.clone(), 1);
+//         parser.parse(tokens);
+//         parser.parse(LinkedList::from([vec![(grammar.delim, FernData::NoData)]]));
+//         let time = parser.time_spent_rule_searching.clone();
+//         (parser.collect_parse_tree().unwrap(), time)
+//     };
 
-    tree.print();
-    info!("Total Time to parse: {:?}", now.elapsed());
-    info!("└─Total Time spent rule-searching: {:?}", time);
-    now = Instant::now();
+//     tree.print();
+//     info!("Total Time to parse: {:?}", now.elapsed());
+//     info!("└─Total Time spent rule-searching: {:?}", time);
+//     now = Instant::now();
 
-    let ast: Box<AstNode> = Box::from(tree.build_ast().unwrap());
-    info!("Total Time to transform ParseTree -> AST: {:?}", now.elapsed());
-    let mut f = File::create("ast.dot").unwrap();
-    render(ast.clone(), &mut f);
+//     let ast: Box<AstNode> = Box::from(tree.build_ast().unwrap());
+//     info!("Total Time to transform ParseTree -> AST: {:?}", now.elapsed());
+//     let mut f = File::create("ast.dot").unwrap();
+//     render(ast.clone(), &mut f);
 
-    now = Instant::now();
-    analysis::check_used_before_declared(ast);
-    info!("Total Time to Analyse AST : {:?}", now.elapsed());
+//     now = Instant::now();
+//     analysis::check_used_before_declared(ast);
+//     info!("Total Time to Analyse AST : {:?}", now.elapsed());
 
-    Ok(())
-}
+//     Ok(())
+// }
 
 fn main() -> Result<(), Box<dyn Error>> {
     Logger::try_with_str("trace, core::grammar = info")?
@@ -167,28 +168,43 @@ fn tbl_driven_lexer() -> Result<(), Box<dyn Error>> {
     let mut file = fs::File::open("data/grammar/json.lg").unwrap();
     let mut buf = String::new();
     file.read_to_string(&mut buf).unwrap();
-    let g = grammar::lexical_grammar::LexicalGrammar::from(buf);
+    let g = grammar::lexical_grammar::LexicalGrammar::from(buf.clone());
     let nfa = grammar::lexical_grammar::StateGraph::from(g.clone());
     let mut f = File::create("nfa.dot").unwrap();
     grammar::lexical_grammar::render(&nfa, &mut f);
     let dfa = nfa.convert_to_dfa();
     let mut f = File::create("dfa.dot").unwrap();
     grammar::lexical_grammar::render(&dfa, &mut f);
+    let table = dfa.build_table();
 
-    let table = dfa.build_table(g.get_tokens());
-    // println!("{:?}", table);
-    let mut lexer = crate::lexer::Lexer::new(table, 0);
+    let tokens: LinkedList<Vec<usize>> = {
+        let file = File::open("data/test.json")?;
+        let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
+        thread::scope(|s| {
+            let mut lexer: ParallelLexer<FernLexer> = ParallelLexer::new(table.clone(), s, 1, &[0], 0);
+            let batch = lexer.new_batch();
+            lexer.add_to_batch(&batch, &mmap[..], 0);
+            let tokens = lexer.collect_batch(batch);
+            lexer.kill();
+            tokens
+        })
+    };
 
-    let now = Instant::now();
-    let mut file = File::open("data/json/100KB.json")?;
-    let mut input = String::new();
-    file.read_to_string(&mut input);
-    for c in input.chars() {
-        lexer.consume(c as u8);
+    info!("{:?}", tokens);
+    for l in tokens {
+        for t in l {
+            info!("{}", table.terminal_map[t]);
+        }
     }
-    lexer.consume(b'\n');
-    let output = lexer.take();
-    info!("Total Time to lex: {:?}", now.elapsed());
-    // info!("OUTPUT: {:?}", output);
+    // let now = Instant::now();
+    // let mut file = File::open("data/test.fern")?;
+    // let mut input = String::new();
+    // file.read_to_string(&mut input);
+    // for c in input.chars() {
+    //     lexer.consume(c as u8);
+    // }
+    // lexer.consume(b' ');
+    // let output = lexer.take();
+    // info!("Total Time to lex: {:?}", now.elapsed());
     Ok(())
 }

@@ -21,17 +21,21 @@ use std::{iter, thread};
 use tinyrand::{RandRange, StdRand};
 
 pub mod error;
-pub mod fern;
-pub mod json;
-pub mod lua;
+// pub mod fern;
+// pub mod json;
+// pub mod lua;
 
+use crate::grammar::lexical_grammar::LexicalGrammar;
 use crate::grammar::lexical_grammar::LexingTable;
 use crate::grammar::lexical_grammar::LookupResult;
-use crate::grammar::{OpGrammar, Token};
+use crate::grammar::OpGrammar;
 use crate::lexer::error::LexerError;
-use crate::lexer::json::{JsonData, JsonLexer, JsonLexerState, JsonTokens};
-use crate::lexer::lua::{LuaLexer, LuaLexerState};
+// use crate::lexer::json::{JsonData, JsonLexer, JsonLexerState, JsonTokens};
+// use crate::lexer::lua::{LuaLexer, LuaLexerState};
 use crossbeam_queue::SegQueue;
+
+type State = usize;
+type Token = usize;
 
 #[derive(Debug, Clone)]
 pub enum Data {
@@ -39,16 +43,16 @@ pub enum Data {
     String(String),
 }
 
-pub struct Lexer {
-    table: LexingTable,
+pub struct FernLexer {
+    pub table: LexingTable,
     start_state: usize,
     state: usize,
     buf: String,
     tokens: Vec<usize>,
 }
 
-impl Lexer {
-    pub fn new(table: LexingTable, start_state: usize) -> Self {
+impl LexerInterface for FernLexer {
+    fn new(table: LexingTable, start_state: usize) -> Self {
         Self {
             table,
             tokens: Vec::new(),
@@ -57,7 +61,7 @@ impl Lexer {
             state: start_state,
         }
     }
-    pub fn consume(&mut self, input: u8) {
+    fn consume(&mut self, input: u8) -> Result<(), LexerError> {
         let mut reconsume = true;
         while reconsume {
             reconsume = false;
@@ -87,62 +91,61 @@ impl Lexer {
                 }
             }
         }
+        return Ok(());
     }
-    pub fn take(self) -> Vec<(usize)> {
-        self.tokens
+    fn take(self) -> (usize, Vec<usize>) {
+        (self.state, self.tokens)
     }
 }
 
-pub struct LexerOutput<T, Data> {
-    lists: Option<HashMap<T, LexerPartialOutput<T, Data>>>,
+pub struct LexerOutput {
+    lists: Option<HashMap<usize, LexerPartialOutput>>,
 }
 
 #[allow(unused)]
-pub struct LexerPartialOutput<T, Data> {
-    list: Vec<(Token, Data)>,
-    finish_state: T,
+pub struct LexerPartialOutput {
+    list: Vec<usize>,
+    finish_state: usize,
     success: bool,
 }
 
-pub struct WorkUnit<'a, T, Data>(usize, &'a [u8], Arc<SkipMap<usize, RwLock<LexerOutput<T, Data>>>>);
+pub struct WorkUnit<'a>(usize, &'a [u8], Arc<SkipMap<usize, RwLock<LexerOutput>>>);
 
-pub struct ParallelLexer<'a, T, U, Data> {
+pub struct ParallelLexer<'a, Lexer> {
     handles: Vec<(ScopedJoinHandle<'a, ()>, Unparker)>,
     connection: crossbeam_channel::Sender<bool>,
-    new_queue: Arc<SegQueue<WorkUnit<'a, T, Data>>>,
-    outputs: HashMap<String, Batch<T, Data>>,
-    initial_state: T,
-    _phantom_data: PhantomData<U>,
+    new_queue: Arc<SegQueue<WorkUnit<'a>>>,
+    outputs: HashMap<String, Batch>,
+    initial_state: usize,
+    _phantom_data: PhantomData<Lexer>,
 }
 
-pub struct Batch<T, Data> {
-    output: Arc<SkipMap<usize, RwLock<LexerOutput<T, Data>>>>,
+pub struct Batch {
+    output: Arc<SkipMap<usize, RwLock<LexerOutput>>>,
     size: usize,
 }
 
-pub trait LexerInterface<T, Data> {
-    fn new(grammar: OpGrammar, start_state: T) -> Self;
-    fn consume(&mut self, c: &u8) -> Result<(), LexerError>;
-    fn take(self) -> (T, Vec<(Token, Data)>);
+pub trait LexerInterface {
+    fn new(table: LexingTable, start_state: usize) -> Self;
+    fn consume(&mut self, c: u8) -> Result<(), LexerError>;
+    fn take(self) -> (usize, Vec<usize>);
 }
 
-impl<'a, T, Lexer, Data> ParallelLexer<'a, T, Lexer, Data>
+impl<'a, Lexer> ParallelLexer<'a, Lexer>
 where
-    T: Copy + Send + Sync + 'static + Eq + PartialEq + Hash + Debug,
-    Data: Send + Sync + 'static + Eq + PartialEq + Hash + Debug,
-    Lexer: LexerInterface<T, Data>,
+    Lexer: LexerInterface,
 {
-    pub fn new(grammar: &OpGrammar, scope: &'a Scope<'a, '_>, threads: usize, possible_start_states: &[T], initial_state: T) -> Self {
-        let new_queue: Arc<SegQueue<WorkUnit<T, Data>>> = Arc::new(SegQueue::new());
+    pub fn new(grammar: LexingTable, scope: &'a Scope<'a, '_>, threads: usize, possible_start_states: &[usize], initial_state: usize) -> Self {
+        let new_queue: Arc<SegQueue<WorkUnit>> = Arc::new(SegQueue::new());
         let (send, recv) = crossbeam_channel::bounded(threads);
-        let outputs: HashMap<String, Batch<T, Data>> = HashMap::new();
+        let outputs: HashMap<String, Batch> = HashMap::new();
 
         let mut handles = vec![];
         for _ in 0..threads {
             let reciever = recv.clone();
             let new_queue = new_queue.clone();
             let grammar = grammar.clone();
-            let start_states: Vec<T> = Vec::from(possible_start_states);
+            let start_states: Vec<usize> = Vec::from(possible_start_states);
             let parker = Parker::new();
             let unparker = parker.unparker().clone();
 
@@ -154,7 +157,7 @@ where
                     while should_run {
                         let task = new_queue.pop();
                         if let Some(task) = task {
-                            let mut lexers: Vec<(Lexer, T, bool)> = Vec::new();
+                            let mut lexers: Vec<(Lexer, usize, bool)> = Vec::new();
                             for state in &start_states {
                                 lexers.push((Lexer::new(grammar.clone(), *state), *state, true));
                             }
@@ -162,7 +165,7 @@ where
                             for c in task.1 {
                                 for (lexer, _, is_successful) in &mut lexers {
                                     if *is_successful {
-                                        if let Err(_) = lexer.consume(c) {
+                                        if let Err(_) = lexer.consume(*c) {
                                             *is_successful = false;
                                         }
                                     }
@@ -175,13 +178,13 @@ where
                             // adding whitespace should make no difference.
                             for (lexer, _, is_successful) in &mut lexers {
                                 if *is_successful {
-                                    if let Err(_) = lexer.consume(&(' ' as u8)) {
+                                    if let Err(_) = lexer.consume(' ' as u8) {
                                         *is_successful = false;
                                     }
                                 }
                             }
 
-                            let mut map: HashMap<T, LexerPartialOutput<T, Data>> = HashMap::new();
+                            let mut map: HashMap<usize, LexerPartialOutput> = HashMap::new();
                             for (lexer, start_state, is_successful) in lexers {
                                 let (finish_state, tokens) = lexer.take();
                                 map.insert(
@@ -264,14 +267,14 @@ where
         trace!("{}", builder);
     }
 
-    pub fn collect_batch(&mut self, id: String) -> LinkedList<Vec<(Token, Data)>> {
-        let batch: Batch<T, Data> = self.outputs.remove(id.as_str()).unwrap();
+    pub fn collect_batch(&mut self, id: String) -> LinkedList<Vec<usize>> {
+        let batch: Batch = self.outputs.remove(id.as_str()).unwrap();
 
         // Spin until threads have finished lexing.
         while batch.size != batch.output.len() {}
 
         // Append first item in list to output
-        let mut result: LinkedList<Vec<(Token, Data)>> = LinkedList::new();
+        let mut result: LinkedList<Vec<usize>> = LinkedList::new();
 
         // For some unknown (probably data-race) reason, if there is only one thread,
         // it will intermittently fail to pop the top of the skiplist even though its
@@ -340,20 +343,20 @@ where
     }
 }
 
-pub fn lex(input: &str, grammar: &OpGrammar, threads: usize) -> Result<LinkedList<Vec<(Token, JsonData)>>, Box<dyn Error>> {
-    let mut tokens: LinkedList<Vec<(Token, JsonData)>> = LinkedList::new();
-    {
-        thread::scope(|s| {
-            let mut lexer: ParallelLexer<JsonLexerState, JsonLexer, JsonData> =
-                ParallelLexer::new(&grammar, s, threads, &[JsonLexerState::Start, JsonLexerState::InString], JsonLexerState::Start);
-            let batch = lexer.new_batch();
-            lexer.add_to_batch(&batch, input.as_bytes(), 0);
-            tokens = lexer.collect_batch(batch);
-            lexer.kill();
-        });
-    }
-    return Ok(tokens);
-}
+// pub fn lex(input: &str, grammar: &OpGrammar, threads: usize) -> Result<LinkedList<Vec<(Token, JsonData)>>, Box<dyn Error>> {
+//     let mut tokens: LinkedList<Vec<(Token, JsonData)>> = LinkedList::new();
+//     {
+//         thread::scope(|s| {
+//             let mut lexer: ParallelLexer<JsonLexerState, JsonLexer, JsonData> =
+//                 ParallelLexer::new(&grammar, s, threads, &[JsonLexerState::Start, JsonLexerState::InString], JsonLexerState::Start);
+//             let batch = lexer.new_batch();
+//             lexer.add_to_batch(&batch, input.as_bytes(), 0);
+//             tokens = lexer.collect_batch(batch);
+//             lexer.kill();
+//         });
+//     }
+//     return Ok(tokens);
+// }
 
 // #[test]
 // pub fn test_lexer() -> Result<(), Box<dyn Error>> {
