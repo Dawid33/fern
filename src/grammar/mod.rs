@@ -3,8 +3,8 @@ use crate::grammar::printing::print_op_table;
 use crate::grammar::reader::TokenTypes::{NonTerminal, Terminal};
 pub use crate::grammar::reader::{RawGrammar, TokenTypes};
 use crate::grammar::Associativity::{Equal, Left, Right};
-use crate::reader::ReductionTree;
 use log::{debug, info, trace};
+use reader::ReductionTree;
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::HashMap;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
@@ -21,7 +21,7 @@ pub mod printing;
 pub mod reader;
 pub mod transform;
 
-pub type Token = u16;
+pub type Token = usize;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Rule {
@@ -80,8 +80,8 @@ pub struct OpGrammar {
 
 #[allow(unused)]
 impl OpGrammar {
-    pub fn from(path: &str) -> OpGrammar {
-        let raw = RawGrammar::from(path).unwrap();
+    pub fn from(path: &str, lexical_sync: Vec<String>) -> OpGrammar {
+        let raw = RawGrammar::from(path, lexical_sync).unwrap();
         OpGrammar::new(raw).unwrap()
     }
 

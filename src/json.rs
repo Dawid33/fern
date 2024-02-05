@@ -1,5 +1,4 @@
 use crate::grammar::OpGrammar;
-use crate::lexer::json::JsonData;
 use crate::parser::{Node, ParseTree};
 use std::cmp::max;
 
@@ -20,8 +19,8 @@ pub struct Number {}
 pub struct Object {}
 
 pub struct JsonParseTree {}
-impl ParseTree<JsonData> for JsonParseTree {
-    fn new(_root: Node<JsonData>, _g: OpGrammar) -> Self {
+impl ParseTree for JsonParseTree {
+    fn new(_root: Node, _g: OpGrammar) -> Self {
         Self {}
     }
 

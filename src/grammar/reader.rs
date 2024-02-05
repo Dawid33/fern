@@ -1,9 +1,9 @@
+use super::reader::SymbolParserState::InKeyword;
 use crate::grammar::error::GrammarError;
 use crate::grammar::reader::TokenTypes::{Axiom, NonTerminal, Terminal};
 use crate::grammar::{OpGrammar, Rule, Token};
-use crate::reader::SymbolParserState::InKeyword;
 // use crate::{Node, TokenGrammarTuple};
-use log::{debug, info, trace};
+use log::{debug, info, trace, warn};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::{BTreeSet, HashMap};
@@ -49,8 +49,8 @@ struct IdCounter {
 }
 
 impl IdCounter {
-    pub fn new() -> Self {
-        Self { highest_id: 0 }
+    pub fn new(start: Token) -> Self {
+        Self { highest_id: start }
     }
     pub fn gen_id(&mut self) -> Token {
         self.highest_id += 1;
@@ -77,13 +77,14 @@ pub struct RawGrammar {
 }
 
 impl RawGrammar {
-    pub fn from(path: &str) -> Result<Self, Box<dyn Error>> {
+    pub fn from(path: &str, lexical_sync: Vec<String>) -> Result<Self, Box<dyn Error>> {
         let mut file = fs::File::open(path).unwrap();
         let mut buf = String::new();
         file.read_to_string(&mut buf).unwrap();
-        Ok(RawGrammar::new(buf.as_str())?)
+        Ok(RawGrammar::new(buf.as_str(), lexical_sync)?)
     }
-    pub fn new(s: &str) -> Result<RawGrammar, GrammarError> {
+    pub fn new(s: &str, lexical_sync: Vec<String>) -> Result<RawGrammar, GrammarError> {
+        info!("{:?}", lexical_sync);
         let mut state = GeneralState::ParserSymbols;
         let mut symbol_parser_state = SymbolParserState::InData;
         let mut rule_parser_state = RuleParserState::InData;
@@ -93,7 +94,7 @@ impl RawGrammar {
         let mut awaiting: Option<TokenTypes> = None;
         let mut token_reverse: HashMap<String, (Token, TokenTypes)> = HashMap::new();
         let mut axiom: Option<Token> = None;
-        let mut id_counter = IdCounter::new();
+        let mut id_counter = IdCounter::new(lexical_sync.len() - 1);
 
         let mut rules: Vec<Rule> = Vec::new();
         let mut rule: Option<Rule> = None;
@@ -127,7 +128,12 @@ impl RawGrammar {
                                 if let Some(t) = awaiting {
                                     match t {
                                         Terminal => {
-                                            token_reverse.insert(buf.clone(), (id_counter.gen_id(), Terminal));
+                                            if lexical_sync.contains(&buf) {
+                                                let i = lexical_sync.iter().position(|x| x == &buf).unwrap();
+                                                token_reverse.insert(buf.clone(), (i, Terminal));
+                                            } else {
+                                                token_reverse.insert(buf.clone(), (id_counter.gen_id(), Terminal));
+                                            }
                                         }
                                         Axiom => axiom = Some(token_reverse.get(buf.as_str()).unwrap().0),
                                         NonTerminal => {

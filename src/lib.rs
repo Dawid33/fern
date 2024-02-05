@@ -1,12 +1,9 @@
 #![cfg_attr(debug_assertions, allow(dead_code, unused_imports))]
 
-// use crate::fern_ast::{AstNode, FernParseTree};
 use crate::grammar::RawGrammar;
 use crate::grammar::{OpGrammar, Token};
-// use crate::lexer::lua::{LuaLexer, LuaLexerState};
 use crate::lexer::LexerInterface;
 use crate::lexer::ParallelLexer;
-// use crate::print::{render, render_block};
 pub use grammar::reader;
 use std::collections::LinkedList;
 use std::error::Error;
@@ -20,13 +17,10 @@ extern crate console_error_panic_hook;
 pub mod grammar;
 // pub mod ir;
 pub mod lexer;
-// pub mod parser;
-pub mod server;
-pub mod slab;
+pub mod parser;
 
-// use crate::lexer::fern::{FernData, FernLexer, FernLexerState};
 use log::{debug, info};
-// pub use parser::*;
+pub use parser::*;
 
 use wasm_bindgen::prelude::*;
 

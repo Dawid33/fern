@@ -1,6 +1,11 @@
+use crate::grammar::lexical_grammar::LexicalGrammar;
+use crate::grammar::lexical_grammar::LexingTable;
+use crate::grammar::lexical_grammar::LookupResult;
+use crate::grammar::OpGrammar;
 use crossbeam::sync::Parker;
 use crossbeam::sync::Unparker;
 use crossbeam_deque::{Injector, Worker};
+use crossbeam_queue::SegQueue;
 use crossbeam_skiplist::SkipMap;
 use log::info;
 use log::trace;
@@ -8,6 +13,7 @@ use log::warn;
 use std::collections::{HashMap, LinkedList};
 use std::error::Error;
 use std::fmt::Debug;
+use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::hash::Hash;
 use std::io::{stdout, Write};
@@ -20,82 +26,32 @@ use std::time::{Duration, Instant};
 use std::{iter, thread};
 use tinyrand::{RandRange, StdRand};
 
-pub mod error;
-// pub mod fern;
-// pub mod json;
-// pub mod lua;
-
-use crate::grammar::lexical_grammar::LexicalGrammar;
-use crate::grammar::lexical_grammar::LexingTable;
-use crate::grammar::lexical_grammar::LookupResult;
-use crate::grammar::OpGrammar;
-use crate::lexer::error::LexerError;
-// use crate::lexer::json::{JsonData, JsonLexer, JsonLexerState, JsonTokens};
-// use crate::lexer::lua::{LuaLexer, LuaLexerState};
-use crossbeam_queue::SegQueue;
-
-type State = usize;
-type Token = usize;
-
-#[derive(Debug, Clone)]
-pub enum Data {
-    NoData,
-    String(String),
+#[derive(Debug)]
+pub struct LexerError {
+    message: String,
 }
 
-pub struct FernLexer {
-    pub table: LexingTable,
-    start_state: usize,
-    state: usize,
-    buf: String,
-    tokens: Vec<usize>,
+impl Error for LexerError {}
+
+impl LexerError {
+    pub fn from(s: String) -> LexerError {
+        LexerError { message: s }
+    }
 }
 
-impl LexerInterface for FernLexer {
-    fn new(table: LexingTable, start_state: usize) -> Self {
-        Self {
-            table,
-            tokens: Vec::new(),
-            start_state,
-            buf: String::new(),
-            state: start_state,
-        }
+impl<'a> Display for LexerError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Lexer Error: {}", self.message)
     }
-    fn consume(&mut self, input: u8) -> Result<(), LexerError> {
-        let mut reconsume = true;
-        while reconsume {
-            reconsume = false;
-            if input.is_ascii_whitespace() && !self.buf.is_empty() {
-                if let Some(t) = self.table.try_get_terminal(self.state) {
-                    self.tokens.push(t);
-                    self.buf.clear();
-                    self.state = self.start_state;
-                }
-            } else if input.is_ascii_whitespace() {
-                break;
-            } else {
-                match self.table.get(input, self.state) {
-                    LookupResult::Terminal(t) => {
-                        self.tokens.push(t);
-                        self.buf.clear();
-                        self.state = self.start_state;
-                        reconsume = true;
-                    }
-                    LookupResult::State(s) => {
-                        self.buf.push(input as char);
-                        self.state = s;
-                    }
-                    LookupResult::Err => {
-                        panic!("Lexing Error when transitioning state. state : {}", self.state);
-                    }
-                }
-            }
-        }
-        return Ok(());
-    }
-    fn take(self) -> (usize, Vec<usize>) {
-        (self.state, self.tokens)
-    }
+}
+
+pub type State = usize;
+pub type Token = usize;
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct Data {
+    pub raw: String,
+    pub token_index: usize,
 }
 
 pub struct LexerOutput {
@@ -104,8 +60,9 @@ pub struct LexerOutput {
 
 #[allow(unused)]
 pub struct LexerPartialOutput {
-    list: Vec<usize>,
-    finish_state: usize,
+    list: Vec<Token>,
+    data: Vec<Data>,
+    finish_state: State,
     success: bool,
 }
 
@@ -128,7 +85,7 @@ pub struct Batch {
 pub trait LexerInterface {
     fn new(table: LexingTable, start_state: usize) -> Self;
     fn consume(&mut self, c: u8) -> Result<(), LexerError>;
-    fn take(self) -> (usize, Vec<usize>);
+    fn take(self) -> (State, Vec<Token>, Vec<Data>);
 }
 
 impl<'a, Lexer> ParallelLexer<'a, Lexer>
@@ -186,13 +143,14 @@ where
 
                             let mut map: HashMap<usize, LexerPartialOutput> = HashMap::new();
                             for (lexer, start_state, is_successful) in lexers {
-                                let (finish_state, tokens) = lexer.take();
+                                let (finish_state, tokens, data) = lexer.take();
                                 map.insert(
                                     start_state,
                                     LexerPartialOutput {
                                         success: is_successful,
                                         finish_state,
                                         list: tokens,
+                                        data,
                                     },
                                 );
                             }
@@ -267,14 +225,14 @@ where
         trace!("{}", builder);
     }
 
-    pub fn collect_batch(&mut self, id: String) -> LinkedList<Vec<usize>> {
+    pub fn collect_batch(&mut self, id: String) -> LinkedList<(Vec<usize>, Vec<Data>)> {
         let batch: Batch = self.outputs.remove(id.as_str()).unwrap();
 
         // Spin until threads have finished lexing.
         while batch.size != batch.output.len() {}
 
         // Append first item in list to output
-        let mut result: LinkedList<Vec<usize>> = LinkedList::new();
+        let mut result: LinkedList<(Vec<Token>, Vec<Data>)> = LinkedList::new();
 
         // For some unknown (probably data-race) reason, if there is only one thread,
         // it will intermittently fail to pop the top of the skiplist even though its
@@ -287,7 +245,7 @@ where
         let first = first.unwrap();
         let mut first = first.value().write().unwrap().lists.take().unwrap();
         let start_state_output = first.remove(&self.initial_state).unwrap();
-        result.push_back(start_state_output.list);
+        result.push_back((start_state_output.list, start_state_output.data));
 
         let mut previous_finish_state = self.initial_state;
         for x in batch.output.iter() {
@@ -300,7 +258,7 @@ where
 
                     found_match = true;
                     previous_finish_state = partial_output.finish_state;
-                    result.push_back(partial_output.list);
+                    result.push_back((partial_output.list, partial_output.data));
                     break;
                 } else {
                     trace!("no");

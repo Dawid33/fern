@@ -2,7 +2,7 @@ use std::collections::{HashMap, VecDeque};
 
 use log::{debug, error, info, warn};
 
-use crate::{fern_ast::AstNode, ir::SymbolData};
+use crate::{ir::SymbolData, parser::fern_ast::AstNode};
 
 #[derive(Clone, Debug)]
 struct ScopeTreeNode {

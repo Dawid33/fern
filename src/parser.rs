@@ -1,10 +1,5 @@
-pub mod fern_ast;
-pub mod json;
-pub mod print;
-pub mod tree;
-
 use crate::grammar::{Associativity, OpGrammar, Rule, Token};
-use crate::lexer::fern::FernData;
+use crate::lexer::Data;
 use log::{debug, error, info, trace, warn};
 use std::any::Any;
 use std::collections::{BTreeSet, HashMap, LinkedList, VecDeque};
@@ -23,47 +18,41 @@ use std::time::{Duration, Instant};
 // use tokio::time::Instant;
 
 #[allow(unused)]
-pub trait ParseTree<T> {
-    fn new(root: Node<T>, g: OpGrammar) -> Self;
+pub trait ParseTree {
+    fn new(root: Node, g: OpGrammar) -> Self;
     fn print(&self);
 }
 
 #[derive(Clone)]
-pub struct Node<T> {
+pub struct Node {
     pub symbol: Token,
-    pub data: Option<T>,
-    pub children: Vec<Node<T>>,
+    pub data: Option<Data>,
+    pub children: Vec<Node>,
 }
 
-impl<T> Node<T> {
-    pub fn new(symbol: Token, data: Option<T>) -> Self {
+impl Node {
+    pub fn new(symbol: Token, data: Option<Data>) -> Self {
         Self {
             symbol,
             data,
             children: Vec::new(),
         }
     }
-    pub fn prepend_child(&mut self, other: Node<T>) {
+    pub fn prepend_child(&mut self, other: Node) {
         self.children.insert(0, other);
     }
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Hash)]
-pub struct TokenGrammarTuple<T>
-where
-    T: Clone,
-{
-    data: T,
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub struct TokenGrammarTuple {
+    data: Option<Data>,
     pub token: Token,
     id: u64,
     associativity: Associativity,
 }
 
-impl<T> TokenGrammarTuple<T>
-where
-    T: Clone,
-{
-    pub fn new(token: Token, associativity: Associativity, id: u64, data: T) -> Self {
+impl TokenGrammarTuple {
+    pub fn new(token: Token, associativity: Associativity, id: u64, data: Option<Data>) -> Self {
         Self {
             token,
             associativity,
@@ -73,13 +62,10 @@ where
     }
 }
 
-pub struct ParallelParser<T>
-where
-    T: Clone,
-{
-    stack: Vec<TokenGrammarTuple<T>>,
+pub struct ParallelParser {
+    stack: Vec<TokenGrammarTuple>,
     pub g: OpGrammar,
-    open_nodes: HashMap<u64, Node<T>>,
+    open_nodes: HashMap<u64, Node>,
     should_reconsume: bool,
     highest_id: u64,
     iteration: u64,
@@ -88,10 +74,7 @@ where
     pub time_spent_rule_searching: Duration,
 }
 
-impl<T> ParallelParser<T>
-where
-    T: Default + Clone,
-{
+impl ParallelParser {
     pub fn new(grammar: OpGrammar, threads: usize) -> Self {
         let _ = threads;
         let mut terminals_set = bittyset::BitSet::<Token>::new();
@@ -119,10 +102,19 @@ where
         return parser;
     }
 
-    pub fn parse(&mut self, tokens: LinkedList<Vec<(Token, T)>>) {
-        for t in tokens {
-            for t in t {
-                self.consume_token(t.0, t.1).expect("Parser raised an exception.");
+    pub fn parse(&mut self, tokens: LinkedList<(Vec<Token>, Vec<Data>)>) {
+        for (tokens, data) in tokens {
+            let mut iter = data.into_iter();
+            for (i, t) in tokens.iter().enumerate() {
+                if let Some(data) = iter.next() {
+                    if data.token_index == i {
+                        self.consume_token(*t, Some(data)).expect("Parser raised an exception.");
+                    } else {
+                        self.consume_token(*t, None).expect("Parser raised an exception.");
+                    }
+                } else {
+                    self.consume_token(*t, None).expect("Parser raised an exception.");
+                }
             }
         }
     }
@@ -132,7 +124,7 @@ where
         return self.highest_id;
     }
 
-    fn consume_token(&mut self, token: Token, data: T) -> Result<(), Box<dyn Error>> {
+    fn consume_token(&mut self, token: Token, data: Option<Data>) -> Result<(), Box<dyn Error>> {
         if self.stack.is_empty() {
             let t = TokenGrammarTuple::new(token, Associativity::Left, self.gen_id(), data);
             self.stack.push(t);
@@ -150,7 +142,7 @@ where
             debug!("{} Open nodes: {}", self.iteration, output);
             self.print_stack();
 
-            let mut y: Option<TokenGrammarTuple<T>> = None;
+            let mut y: Option<TokenGrammarTuple> = None;
             for element in &self.stack {
                 if self.terminals_set.contains(element.token as usize) {
                     y = Some(element.clone());
@@ -165,7 +157,7 @@ where
                 }
                 y.unwrap()
             } else {
-                TokenGrammarTuple::new(self.g.delim, Associativity::Left, self.gen_id(), T::default())
+                TokenGrammarTuple::new(self.g.delim, Associativity::Left, self.gen_id(), None)
             };
 
             if let Some(t) = self.stack.get(0) {
@@ -289,7 +281,7 @@ where
                     let sub_tree = self.open_nodes.remove(&current.id).unwrap();
                     children.push(sub_tree);
                 } else {
-                    let leaf = Node::new(current.token, Some(current.data));
+                    let leaf = Node::new(current.token, current.data);
                     children.push(leaf);
                 }
             }
@@ -297,7 +289,7 @@ where
             let mut parent = Node::new(rule.left, None);
             parent.children.append(&mut children);
 
-            let left = TokenGrammarTuple::new(rule.left, Associativity::Undefined, self.gen_id(), T::default());
+            let left = TokenGrammarTuple::new(rule.left, Associativity::Undefined, self.gen_id(), None);
             self.open_nodes.insert(left.id, parent);
             self.stack.insert((i + offset) as usize, left);
             debug!("{} Reduce", self.iteration);
@@ -309,7 +301,7 @@ where
         }
     }
 
-    fn expand(n: &mut Node<T>, p: &ParallelParser<T>) {
+    fn expand(n: &mut Node, p: &ParallelParser) {
         trace!("Expanding: {}", p.g.token_raw.get(&n.symbol).unwrap());
         let term_list = p.g.new_non_terminal_reverse.get(&n.symbol);
         let term_list = if let Some(list) = term_list {
@@ -340,7 +332,7 @@ where
         debug!("{} Stack: {}", self.iteration, output);
     }
 
-    pub fn collect_parse_tree<U: ParseTree<T>>(self) -> Result<U, Box<dyn Error>> {
+    pub fn collect_parse_tree<U: ParseTree>(self) -> Result<U, Box<dyn Error>> {
         let mut output = String::new();
         for (id, _) in &self.open_nodes {
             for t in &self.stack {
@@ -354,7 +346,7 @@ where
         self.print_stack();
 
         if self.open_nodes.len() == 1 {
-            let mut nodes: Vec<Node<T>> = self.open_nodes.clone().into_iter().map(|(_, v)| v).collect();
+            let mut nodes: Vec<Node> = self.open_nodes.clone().into_iter().map(|(_, v)| v).collect();
             let mut root = nodes.remove(0);
             for child in &mut root.children {
                 Self::expand(child, &self);
