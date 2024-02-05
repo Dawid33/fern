@@ -1,7 +1,7 @@
-use crate::grammar::lexical_grammar::LexicalGrammar;
-use crate::grammar::lexical_grammar::LexingTable;
-use crate::grammar::lexical_grammar::LookupResult;
-use crate::grammar::OpGrammar;
+use crate::grammar::lg::LexicalGrammar;
+use crate::grammar::lg::LexingTable;
+use crate::grammar::lg::LookupResult;
+use crate::grammar::opg::OpGrammar;
 use crossbeam::sync::Parker;
 use crossbeam::sync::Unparker;
 use crossbeam_deque::{Injector, Worker};
@@ -10,6 +10,7 @@ use crossbeam_skiplist::SkipMap;
 use log::info;
 use log::trace;
 use log::warn;
+use memmap::Mmap;
 use std::collections::{HashMap, LinkedList};
 use std::error::Error;
 use std::fmt::Debug;
@@ -341,3 +342,31 @@ where
 //     test(input, expected)?;
 //     Ok(())
 // }
+
+pub fn split_mmap_into_chunks<'a>(mmap: &'a mut Mmap, step: usize) -> Result<Vec<&'a [u8]>, Box<dyn Error>> {
+    let mut indices = vec![];
+    let mut i = 0;
+    let mut prev = 0;
+
+    while i < mmap.len() {
+        if mmap[i] as char != ' ' && mmap[i] as char != '\n' {
+            i += 1;
+        } else {
+            if i + 1 <= mmap.len() {
+                i += 1;
+            }
+            indices.push((prev, i));
+            prev = i;
+            i += step;
+        }
+    }
+    if prev < mmap.len() {
+        indices.push((prev, mmap.len()));
+    }
+
+    let mut units = vec![];
+    for i in indices {
+        units.push(&mmap[i.0..i.1]);
+    }
+    return Ok(units);
+}

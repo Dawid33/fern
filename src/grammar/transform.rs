@@ -1,8 +1,7 @@
-use crate::grammar::error::GrammarError;
-use crate::grammar::printing::print_dict;
-use crate::grammar::reader::TokenTypes::NonTerminal;
-use crate::grammar::reader::{RawGrammar, TokenTypes};
-use crate::grammar::{OpGrammar, Rule, Token};
+use super::opg::RawGrammar;
+use super::GrammarError;
+use crate::grammar::opg::{OpGrammar, Rule, TokenTypes};
+use crate::lexer::Token;
 use log::{debug, info, trace, warn};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::error::Error;
@@ -20,7 +19,7 @@ impl RawGrammar {
 
         let new_axiom = self.gen_id();
         self.token_raw.insert(new_axiom, String::from("_NewAxiom"));
-        self.token_reverse.insert(String::from("_NewAxiom"), (new_axiom, NonTerminal));
+        self.token_reverse.insert(String::from("_NewAxiom"), (new_axiom, TokenTypes::NonTerminal));
         for (_, rules) in &repeated_rules {
             warn!("Repeated rhs among the following rules:");
             for r in rules {
@@ -47,7 +46,7 @@ impl RawGrammar {
             trace!(
                 "dict_rules : {} -> {:?}",
                 self.token_raw.get(left.iter().next().unwrap()).unwrap(),
-                super::OpGrammar::token_list_to_string(rhs, &self.token_raw)
+                OpGrammar::token_list_to_string(rhs, &self.token_raw)
             );
         }
 
@@ -82,22 +81,22 @@ impl RawGrammar {
                 copy.get_mut(&r.left).unwrap().insert(r.right.get(0).unwrap().clone());
                 trace!(
                     "Update: {:?} -> {:?}",
-                    super::OpGrammar::token_list_to_string(&old.into_iter().collect(), &self.token_raw),
-                    super::OpGrammar::token_list_to_string(&copy.get(&r.left).unwrap().clone().into_iter().collect(), &self.token_raw)
+                    OpGrammar::token_list_to_string(&old.into_iter().collect(), &self.token_raw),
+                    OpGrammar::token_list_to_string(&copy.get(&r.left).unwrap().clone().into_iter().collect(), &self.token_raw)
                 );
                 if dict_rules.contains_key(&r.right) {
-                    trace!("Removing : {:?}", super::OpGrammar::token_list_to_string(&r.right, &self.token_raw));
+                    trace!("Removing : {:?}", OpGrammar::token_list_to_string(&r.right, &self.token_raw));
                     dict_rules.remove(&r.right).unwrap();
                 }
             } else {
                 if rhs_dict.contains_key(&r.left) {
-                    trace!("Pushing: {:?}", super::OpGrammar::token_list_to_string(&r.right, &self.token_raw));
+                    trace!("Pushing: {:?}", OpGrammar::token_list_to_string(&r.right, &self.token_raw));
                     rhs_dict.get_mut(&r.left).unwrap().push(r.right.clone());
                 } else {
                     trace!(
                         "Inserting : {:?} -> {:?}",
                         self.token_raw.get(&r.left).unwrap(),
-                        super::OpGrammar::token_list_to_string(&r.right, &self.token_raw)
+                        OpGrammar::token_list_to_string(&r.right, &self.token_raw)
                     );
                     rhs_dict.insert(r.left, Vec::from([r.right.clone()]));
                 }
@@ -371,7 +370,7 @@ impl RawGrammar {
                 } else {
                     let new_rhs_token = self.gen_id();
                     self.token_raw.insert(new_rhs_token, joined.clone());
-                    self.token_reverse.insert(joined, (new_rhs_token, NonTerminal));
+                    self.token_reverse.insert(joined, (new_rhs_token, TokenTypes::NonTerminal));
                     self.non_terminals.push(new_rhs_token);
                     self.new_non_terminal_reverse.insert(new_rhs_token, cloned);
                     self.new_non_terminals_subset.push(new_rhs_token);
@@ -386,7 +385,7 @@ impl RawGrammar {
             if lhs.len() == 1 {
                 current_rule.left = *lhs.get(0).unwrap();
             } else {
-                let joined = super::OpGrammar::list_to_string(&lhs, &self.token_raw);
+                let joined = OpGrammar::list_to_string(&lhs, &self.token_raw);
                 if let Some((t, _)) = self.token_reverse.get(joined.as_str()) {
                     current_rule.left = *t;
                 } else {
@@ -405,7 +404,7 @@ impl RawGrammar {
                 if is_terminal {
                     current_rule.right.append(&mut token);
                 } else {
-                    let joined = super::OpGrammar::list_to_string(&token, &self.token_raw);
+                    let joined = OpGrammar::list_to_string(&token, &self.token_raw);
                     if let Some((t, _)) = self.token_reverse.get(joined.as_str()) {
                         current_rule.right.push(*t);
                     } else {

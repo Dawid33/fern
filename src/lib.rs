@@ -1,10 +1,5 @@
 #![cfg_attr(debug_assertions, allow(dead_code, unused_imports))]
 
-use crate::grammar::RawGrammar;
-use crate::grammar::{OpGrammar, Token};
-use crate::lexer::LexerInterface;
-use crate::lexer::ParallelLexer;
-pub use grammar::reader;
 use std::collections::LinkedList;
 use std::error::Error;
 use std::fs::File;
@@ -12,15 +7,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 extern crate console_error_panic_hook;
 
-// pub mod analysis;
-// pub mod cfg;
-pub mod grammar;
-// pub mod ir;
-pub mod lexer;
-pub mod parser;
-
 use log::{debug, info};
-pub use parser::*;
 
 use wasm_bindgen::prelude::*;
 

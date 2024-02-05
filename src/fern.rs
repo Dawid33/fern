@@ -1,5 +1,5 @@
-use crate::grammar::lexical_grammar::{LexingTable, LookupResult};
-use crate::grammar::{OpGrammar, Token};
+use crate::grammar::lg::{LexingTable, LookupResult};
+use crate::grammar::opg::{OpGrammar, Token};
 use crate::lexer::{Data, LexerError, LexerInterface, State};
 use crate::parser::{Node, ParseTree};
 use log::info;
@@ -25,6 +25,57 @@ pub struct FernLexer {
     pub tokens: Vec<Token>,
     pub data: Vec<Data>,
 }
+
+// fn fern() -> Result<(), Box<dyn Error>> {
+//     let mut now = Instant::now();
+//     let mut raw = RawGrammar::from("data/grammar/fern.g")?;
+//     raw.delete_repeated_rhs()?;
+//     let grammar = OpGrammar::new(raw)?;
+//     grammar.to_file("data/grammar/fern-fnf.g");
+
+//     info!("Total Time to get grammar : {:?}", now.elapsed());
+//     now = Instant::now();
+//     let tokens: LinkedList<Vec<(Token, FernData)>> = {
+//         let file = File::open("data/test.fern")?;
+//         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
+//         thread::scope(|s| {
+//             let mut lexer: ParallelLexer<FernLexerState, FernLexer, FernData> =
+//                 ParallelLexer::new(&grammar, s, 1, &[FernLexerState::Start], FernLexerState::Start);
+//             let batch = lexer.new_batch();
+//             lexer.add_to_batch(&batch, &mmap[..], 0);
+//             let tokens = lexer.collect_batch(batch);
+//             lexer.kill();
+//             tokens
+//         })
+//     };
+
+//     info!("Total Time to lex: {:?}", now.elapsed());
+//     now = Instant::now();
+
+//     let (tree, time): (FernParseTree, Duration) = {
+//         let mut parser = ParallelParser::new(grammar.clone(), 1);
+//         parser.parse(tokens);
+//         parser.parse(LinkedList::from([vec![(grammar.delim, FernData::NoData)]]));
+//         let time = parser.time_spent_rule_searching.clone();
+//         (parser.collect_parse_tree().unwrap(), time)
+//     };
+
+//     tree.print();
+//     info!("Total Time to parse: {:?}", now.elapsed());
+//     info!("└─Total Time spent rule-searching: {:?}", time);
+//     now = Instant::now();
+
+//     let ast: Box<AstNode> = Box::from(tree.build_ast().unwrap());
+//     info!("Total Time to transform ParseTree -> AST: {:?}", now.elapsed());
+//     let mut f = File::create("ast.dot").unwrap();
+//     render(ast.clone(), &mut f);
+
+//     now = Instant::now();
+//     analysis::check_used_before_declared(ast);
+//     info!("Total Time to Analyse AST : {:?}", now.elapsed());
+
+//     Ok(())
+// }
 
 impl LexerInterface for FernLexer {
     fn new(table: LexingTable, start_state: usize) -> Self {

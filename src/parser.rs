@@ -1,4 +1,4 @@
-use crate::grammar::{Associativity, OpGrammar, Rule, Token};
+use crate::grammar::opg::{Associativity, OpGrammar, Rule, Token};
 use crate::lexer::Data;
 use log::{debug, error, info, trace, warn};
 use std::any::Any;
