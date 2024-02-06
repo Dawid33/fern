@@ -8,8 +8,6 @@ use std::io::BufWriter;
 use std::io::Write;
 use std::process::Termination;
 
-use crate::lexer::State;
-use crate::lexer::Token;
 use dot::Edges;
 use dot::Kind;
 use log::warn;
@@ -19,10 +17,8 @@ use regex_syntax::hir::Class;
 use regex_syntax::hir::Hir;
 use regex_syntax::hir::HirKind;
 
-#[derive(Clone)]
-pub struct LexicalGrammar {
-    pairs: BTreeMap<String, Hir>,
-}
+pub type State = usize;
+pub type Token = usize;
 
 enum ParserState {
     InWord,
@@ -31,6 +27,11 @@ enum ParserState {
     AwaitingEquals,
     AwaitingWord,
     AwaitingRegex,
+}
+
+#[derive(Clone)]
+pub struct LexicalGrammar {
+    pairs: BTreeMap<String, Hir>,
 }
 
 impl LexicalGrammar {
@@ -185,6 +186,7 @@ pub struct StateGraph {
     nodes: Vec<Node>,
     start_state: usize,
     grammar: LexicalGrammar,
+    start_states: Vec<State>,
 }
 
 // TODO: Implement Thompsons Construction
@@ -196,11 +198,13 @@ impl StateGraph {
             start_state: 0,
             terminals: HashMap::new(),
             grammar,
+            start_states: Vec::new(),
         };
 
         for (token, regex) in nfa.grammar.pairs.clone() {
             nfa.add_regex(token, regex);
         }
+        nfa.find_start_states();
         return nfa;
     }
 
@@ -446,6 +450,8 @@ impl StateGraph {
             sub_tables: HashMap::new(),
         }
     }
+
+    pub fn find_start_states(&mut self) {}
 }
 
 #[derive(Debug, Clone)]

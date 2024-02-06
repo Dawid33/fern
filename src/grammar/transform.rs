@@ -1,7 +1,7 @@
 use super::opg::RawGrammar;
 use super::GrammarError;
+use crate::grammar::lg::Token;
 use crate::grammar::opg::{OpGrammar, Rule, TokenTypes};
-use crate::lexer::Token;
 use log::{debug, info, trace, warn};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::error::Error;

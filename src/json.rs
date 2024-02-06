@@ -2,9 +2,9 @@ use log::{info, trace};
 use memmap::MmapOptions;
 
 use crate::fern::{FernLexer, FernParseTree};
-use crate::grammar::lg;
+use crate::grammar::lg::{self, Token};
 use crate::grammar::opg::{OpGrammar, RawGrammar};
-use crate::lexer::{split_mmap_into_chunks, Data, ParallelLexer, Token};
+use crate::lexer::{split_mmap_into_chunks, Data, ParallelLexer};
 use crate::parser::{Node, ParallelParser, ParseTree};
 use std::cmp::max;
 use std::collections::LinkedList;

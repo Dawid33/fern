@@ -1,6 +1,6 @@
-use crate::grammar::lg::{self, LexingTable, LookupResult};
+use crate::grammar::lg::{self, LexingTable, LookupResult, State};
 use crate::grammar::opg::{OpGrammar, RawGrammar, Token};
-use crate::lexer::{Data, LexerError, LexerInterface, ParallelLexer, State};
+use crate::lexer::{Data, LexerError, LexerInterface, ParallelLexer};
 use crate::parser::{Node, ParallelParser, ParseTree};
 use log::{info, warn};
 use memmap::MmapOptions;
@@ -44,11 +44,11 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     file.read_to_string(&mut buf).unwrap();
     let g = lg::LexicalGrammar::from(buf.clone());
     let nfa = lg::StateGraph::from(g.clone());
-    // let mut f = File::create("nfa.dot").unwrap();
-    // lg::render(&nfa, &mut f);
+    let mut f = File::create("nfa.dot").unwrap();
+    lg::render(&nfa, &mut f);
     let dfa = nfa.convert_to_dfa();
-    // let mut f = File::create("dfa.dot").unwrap();
-    // lg::render(&dfa, &mut f);
+    let mut f = File::create("dfa.dot").unwrap();
+    lg::render(&dfa, &mut f);
     let keywords = dfa.build_table();
     let second_lg = second_lg.elapsed();
 
@@ -132,7 +132,7 @@ pub struct FernLexer {
 }
 
 impl LexerInterface for FernLexer {
-    fn new(mut table: LexingTable, start_state: usize) -> Self {
+    fn new(table: LexingTable, start_state: usize) -> Self {
         let name_token = table.terminal_map.iter().position(|x| x == "NAME").unwrap();
         let whitespace_token = table.terminal_map.iter().position(|x| x == "WHITESPACE").unwrap();
         let minus = table.terminal_map.iter().position(|x| x == "MINUS").unwrap();
