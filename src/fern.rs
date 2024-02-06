@@ -35,6 +35,7 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     let mut f = File::create("dfa.dot").unwrap();
     lg::render(&dfa, &mut f);
     let mut table = dfa.build_table();
+    table.terminal_map.push("UMINUS".to_string());
     let first_lg = first_lg.elapsed();
     buf.clear();
 
@@ -70,6 +71,7 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     };
     let lex_time = lex_time.elapsed();
 
+    info!("{:?}", table.terminal_map);
     info!("{:?}", &tokens);
     for (l, _) in &tokens {
         for t in l {
@@ -78,7 +80,7 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     }
 
     let grammar_time = Instant::now();
-    let mut raw = RawGrammar::from("data/grammar/fern.g", table.terminal_map)?;
+    let mut raw = RawGrammar::from("data/grammar/fern.g", table.terminal_map).unwrap();
     raw.delete_repeated_rhs()?;
     let grammar = OpGrammar::new(raw)?;
     let grammar_time = grammar_time.elapsed();
@@ -123,14 +125,25 @@ pub struct FernLexer {
     pub tokens: Vec<Token>,
     pub data: Vec<Data>,
     pub whitespace_token: Token,
+    had_whitespace: bool,
+    minus: Token,
+    unary_minus: Token,
+    name_token: Token,
 }
 
 impl LexerInterface for FernLexer {
-    fn new(table: LexingTable, start_state: usize) -> Self {
-        let whitespace_token = table.terminal_map.iter().position(|x| x == "NAME").unwrap();
+    fn new(mut table: LexingTable, start_state: usize) -> Self {
+        let name_token = table.terminal_map.iter().position(|x| x == "NAME").unwrap();
+        let whitespace_token = table.terminal_map.iter().position(|x| x == "WHITESPACE").unwrap();
+        let minus = table.terminal_map.iter().position(|x| x == "MINUS").unwrap();
+        let unary_minus = table.terminal_map.iter().position(|x| x == "UMINUS").unwrap();
         Self {
             table,
             whitespace_token,
+            unary_minus,
+            minus,
+            had_whitespace: false,
+            name_token,
             tokens: Vec::new(),
             start_state,
             buf: String::new(),
@@ -164,15 +177,26 @@ impl LexerInterface for FernLexer {
         let mut reconsume = true;
         while reconsume {
             reconsume = false;
-            match self.table.get(input, self.state) {
+            let result = self.table.get(input, self.state);
+            match result {
                 LookupResult::Terminal(mut t) => {
                     t = parse_subtable(t, &self.buf);
                     if t != self.whitespace_token {
+                        if let Some(t1) = self.tokens.last() {
+                            let t2 = if self.had_whitespace { &self.whitespace_token } else { &t };
+                            if let Some((t1, t2)) = self.look_ahead(&t1.clone(), t2) {
+                                *self.tokens.last_mut().unwrap() = t1;
+                                t = t2;
+                            }
+                        };
                         self.tokens.push(t);
                         self.data.push(Data {
                             token_index: self.tokens.len() - 1,
                             raw: self.buf.clone(),
                         });
+                        self.had_whitespace = false;
+                    } else {
+                        self.had_whitespace = true;
                     }
                     self.buf.clear();
                     self.state = self.start_state;
@@ -191,6 +215,16 @@ impl LexerInterface for FernLexer {
     }
     fn take(self) -> (State, Vec<Token>, Vec<Data>) {
         (self.state, self.tokens, self.data)
+    }
+}
+
+impl FernLexer {
+    fn look_ahead(&self, t1: &Token, t2: &Token) -> Option<(Token, Token)> {
+        warn!("look_ahead {}, {}", self.table.terminal_map[*t1], self.table.terminal_map[*t2]);
+        if *t1 == self.minus && *t2 == self.name_token {
+            return Some((self.unary_minus, *t2));
+        }
+        None
     }
 }
 
