@@ -113,6 +113,20 @@ fn tree_add_child() {
     assert_eq!(TestTokenType::D, tree.tree.get(3).unwrap().token);
 }
 
+#[test]
+fn tree_add_child() {
+    let mut tree = ParseTree::new(TestTokenType::A);
+    tree.add_child(0, TestTokenType::B);
+    tree.add_child(1, TestTokenType::C);
+    tree.add_child(2, TestTokenType::D);
+    let mut f = std::fs::File::create("tree.dot").unwrap();
+    tree.dot(&mut f).unwrap();
+    assert_eq!(TestTokenType::A, tree.tree.get(0).unwrap().token);
+    assert_eq!(TestTokenType::B, tree.tree.get(1).unwrap().token);
+    assert_eq!(TestTokenType::C, tree.tree.get(2).unwrap().token);
+    assert_eq!(TestTokenType::D, tree.tree.get(3).unwrap().token);
+}
+
 type DotNode = (usize, String);
 type DotEdge = (DotNode, DotNode);
 struct Graph {

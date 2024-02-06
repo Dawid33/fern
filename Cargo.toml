@@ -3,18 +3,17 @@ name = "fern"
 version = "0.1.0"
 edition = "2021"
 
-# [lib]
-# name = "ferncore"
-# path = "src/lib.rs"
-# crate-type = ["cdylib", "rlib"]
+[lib]
+name = "libfern"
+path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
 
 # [features]
 # build-binary = ["memmap"]
 
-# [[bin]]
-# name = "fern"
-# path = "src/main.rs"
-# required-features = ["build-binary"]
+[[bin]]
+name = "fern"
+path = "src/main.rs"
 
 [dependencies]
 tinyrand = { version = "*", optional = false }

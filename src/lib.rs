@@ -7,6 +7,12 @@ use std::thread;
 use std::time::{Duration, Instant};
 extern crate console_error_panic_hook;
 
+pub mod fern;
+pub mod grammar;
+pub mod json;
+pub mod lexer;
+pub mod parser;
+
 use log::{debug, info};
 
 use wasm_bindgen::prelude::*;

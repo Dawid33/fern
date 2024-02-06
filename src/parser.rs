@@ -15,12 +15,69 @@ use std::sync::mpsc::channel;
 use std::thread::current;
 use std::time::{Duration, Instant};
 
-// use tokio::time::Instant;
+pub struct ParseTree {
+    pub g: OpGrammar,
+    pub root: Node,
+}
 
-#[allow(unused)]
-pub trait ParseTree {
-    fn new(root: Node, g: OpGrammar) -> Self;
-    fn print(&self);
+impl ParseTree {
+    pub fn new(root: Node, g: OpGrammar) -> Self {
+        Self { g, root }
+    }
+
+    pub fn print(&self) {
+        let mut node_stack: Vec<&Node> = vec![&self.root];
+        let mut child_count_stack: Vec<(i32, i32)> = vec![((self.root.children.len() - 1) as i32, 0)];
+        let mut b = String::new();
+
+        b.push_str(format!("{}", self.g.token_raw.get(&self.root.symbol).unwrap()).as_str());
+        info!("{}", b);
+        b.clear();
+        while !node_stack.is_empty() {
+            let current = node_stack.pop().unwrap();
+            let (mut current_child, min_child) = child_count_stack.pop().unwrap();
+
+            while current.children.len() > 0 && current_child >= min_child {
+                for i in 0..child_count_stack.len() {
+                    let (current, min) = child_count_stack.get(i).unwrap();
+                    if *current >= *min {
+                        b.push_str("| ");
+                    } else {
+                        b.push_str("  ");
+                    }
+                }
+                if current_child != min_child {
+                    b.push_str(
+                        format!(
+                            "├─{}",
+                            self.g.token_raw.get(&current.children.get(current_child as usize).unwrap().symbol).unwrap()
+                        )
+                        .as_str(),
+                    );
+                } else {
+                    b.push_str(
+                        format!(
+                            "└─{}",
+                            self.g.token_raw.get(&current.children.get(current_child as usize).unwrap().symbol).unwrap()
+                        )
+                        .as_str(),
+                    );
+                }
+                info!("{}", b);
+                b.clear();
+                if !current.children.get(current_child as usize).unwrap().children.is_empty() {
+                    node_stack.push(current);
+                    let child = current.children.get(current_child as usize).unwrap();
+                    current_child -= 1;
+                    node_stack.push(child);
+                    child_count_stack.push((current_child, min_child));
+                    child_count_stack.push(((child.children.len() - 1) as i32, 0));
+                    break;
+                }
+                current_child -= 1;
+            }
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -332,7 +389,7 @@ impl ParallelParser {
         debug!("{} Stack: {}", self.iteration, output);
     }
 
-    pub fn collect_parse_tree<U: ParseTree>(self) -> Result<U, Box<dyn Error>> {
+    pub fn collect_parse_tree(self) -> Result<ParseTree, Box<dyn Error>> {
         let mut output = String::new();
         for (id, _) in &self.open_nodes {
             for t in &self.stack {
@@ -351,7 +408,7 @@ impl ParallelParser {
             for child in &mut root.children {
                 Self::expand(child, &self);
             }
-            return Ok(U::new(root, self.g));
+            return Ok(ParseTree::new(root, self.g));
         } else {
             panic!("Cannot create parse tree.");
         }

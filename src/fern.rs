@@ -1,20 +1,118 @@
-use crate::grammar::lg::{LexingTable, LookupResult};
-use crate::grammar::opg::{OpGrammar, Token};
-use crate::lexer::{Data, LexerError, LexerInterface, State};
-use crate::parser::{Node, ParseTree};
-use log::info;
+use crate::grammar::lg::{self, LexingTable, LookupResult};
+use crate::grammar::opg::{OpGrammar, RawGrammar, Token};
+use crate::lexer::{Data, LexerError, LexerInterface, ParallelLexer, State};
+use crate::parser::{Node, ParallelParser, ParseTree};
+use log::{info, warn};
+use memmap::MmapOptions;
 use simple_error::SimpleError;
 use std::borrow::Cow;
 use std::cmp::max;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, LinkedList, VecDeque};
 use std::error::Error;
 use std::fmt::{Debug, Formatter};
-use std::io::Write;
-use std::sync;
+use std::fs::File;
+use std::io::{Read, Write};
+use std::time::{Duration, Instant};
+use std::{sync, thread};
 
 pub struct FernParseTree {
     pub g: OpGrammar,
     pub root: Node,
+}
+
+pub fn compile() -> Result<(), Box<dyn Error>> {
+    let start = Instant::now();
+
+    let first_lg = Instant::now();
+    let mut file = File::open("data/grammar/fern.lg").unwrap();
+    let mut buf = String::new();
+    file.read_to_string(&mut buf).unwrap();
+    let g = lg::LexicalGrammar::from(buf.clone());
+    let nfa = lg::StateGraph::from(g.clone());
+    let mut f = File::create("nfa.dot").unwrap();
+    lg::render(&nfa, &mut f);
+    let dfa = nfa.convert_to_dfa();
+    let mut f = File::create("dfa.dot").unwrap();
+    lg::render(&dfa, &mut f);
+    let mut table = dfa.build_table();
+    let first_lg = first_lg.elapsed();
+    buf.clear();
+
+    let second_lg = Instant::now();
+    let mut file = File::open("data/grammar/keywords.lg").unwrap();
+    file.read_to_string(&mut buf).unwrap();
+    let g = lg::LexicalGrammar::from(buf.clone());
+    let nfa = lg::StateGraph::from(g.clone());
+    // let mut f = File::create("nfa.dot").unwrap();
+    // lg::render(&nfa, &mut f);
+    let dfa = nfa.convert_to_dfa();
+    // let mut f = File::create("dfa.dot").unwrap();
+    // lg::render(&dfa, &mut f);
+    let keywords = dfa.build_table();
+    let second_lg = second_lg.elapsed();
+
+    let name_token = table.terminal_map.iter().position(|x| x == "NAME").unwrap();
+    warn!("{}", name_token);
+    table.add_table(name_token, keywords);
+
+    let lex_time = Instant::now();
+    let tokens: LinkedList<(Vec<Token>, Vec<Data>)> = {
+        let file = File::open("data/test.fern")?;
+        let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
+        thread::scope(|s| {
+            let mut lexer: ParallelLexer<FernLexer> = ParallelLexer::new(table.clone(), s, 1, &[0], 0);
+            let batch = lexer.new_batch();
+            lexer.add_to_batch(&batch, &mmap[..], 0);
+            let tokens = lexer.collect_batch(batch);
+            lexer.kill();
+            tokens
+        })
+    };
+    let lex_time = lex_time.elapsed();
+
+    info!("{:?}", &tokens);
+    for (l, _) in &tokens {
+        for t in l {
+            info!("{}", table.terminal_map[*t]);
+        }
+    }
+
+    let grammar_time = Instant::now();
+    let mut raw = RawGrammar::from("data/grammar/fern.g", table.terminal_map)?;
+    raw.delete_repeated_rhs()?;
+    let grammar = OpGrammar::new(raw)?;
+    let grammar_time = grammar_time.elapsed();
+    grammar.to_file("data/grammar/fern-fnf.g");
+
+    let parse_time = Instant::now();
+    let (tree, time): (ParseTree, Duration) = {
+        let mut parser = ParallelParser::new(grammar.clone(), 1);
+        parser.parse(tokens);
+        parser.parse(LinkedList::from([(vec![grammar.delim], Vec::new())]));
+        let time = parser.time_spent_rule_searching.clone();
+        (parser.collect_parse_tree().unwrap(), time)
+    };
+    let parse_time = parse_time.elapsed();
+
+    tree.print();
+    info!("Time to build first lexical grammar: {:?}", first_lg);
+    info!("Time to build second lexical grammar: {:?}", second_lg);
+    info!("Time to lex: {:?}", lex_time);
+    info!("Time to build parsing grammar: {:?}", grammar_time);
+    info!("Time to parse: {:?}", parse_time);
+    info!("└─Time spent rule-searching: {:?}", time);
+    info!("Total run time : {:?}", start.elapsed());
+
+    // let ast: Box<AstNode> = Box::from(tree.build_ast().unwrap());
+    // info!("Total Time to transform ParseTree -> AST: {:?}", now.elapsed());
+    // let mut f = File::create("ast.dot").unwrap();
+    // render(ast.clone(), &mut f);
+
+    // now = Instant::now();
+    // analysis::check_used_before_declared(ast);
+    // info!("Total Time to Analyse AST : {:?}", now.elapsed());
+
+    Ok(())
 }
 
 pub struct FernLexer {
@@ -24,63 +122,15 @@ pub struct FernLexer {
     pub buf: String,
     pub tokens: Vec<Token>,
     pub data: Vec<Data>,
+    pub whitespace_token: Token,
 }
-
-// fn fern() -> Result<(), Box<dyn Error>> {
-//     let mut now = Instant::now();
-//     let mut raw = RawGrammar::from("data/grammar/fern.g")?;
-//     raw.delete_repeated_rhs()?;
-//     let grammar = OpGrammar::new(raw)?;
-//     grammar.to_file("data/grammar/fern-fnf.g");
-
-//     info!("Total Time to get grammar : {:?}", now.elapsed());
-//     now = Instant::now();
-//     let tokens: LinkedList<Vec<(Token, FernData)>> = {
-//         let file = File::open("data/test.fern")?;
-//         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
-//         thread::scope(|s| {
-//             let mut lexer: ParallelLexer<FernLexerState, FernLexer, FernData> =
-//                 ParallelLexer::new(&grammar, s, 1, &[FernLexerState::Start], FernLexerState::Start);
-//             let batch = lexer.new_batch();
-//             lexer.add_to_batch(&batch, &mmap[..], 0);
-//             let tokens = lexer.collect_batch(batch);
-//             lexer.kill();
-//             tokens
-//         })
-//     };
-
-//     info!("Total Time to lex: {:?}", now.elapsed());
-//     now = Instant::now();
-
-//     let (tree, time): (FernParseTree, Duration) = {
-//         let mut parser = ParallelParser::new(grammar.clone(), 1);
-//         parser.parse(tokens);
-//         parser.parse(LinkedList::from([vec![(grammar.delim, FernData::NoData)]]));
-//         let time = parser.time_spent_rule_searching.clone();
-//         (parser.collect_parse_tree().unwrap(), time)
-//     };
-
-//     tree.print();
-//     info!("Total Time to parse: {:?}", now.elapsed());
-//     info!("└─Total Time spent rule-searching: {:?}", time);
-//     now = Instant::now();
-
-//     let ast: Box<AstNode> = Box::from(tree.build_ast().unwrap());
-//     info!("Total Time to transform ParseTree -> AST: {:?}", now.elapsed());
-//     let mut f = File::create("ast.dot").unwrap();
-//     render(ast.clone(), &mut f);
-
-//     now = Instant::now();
-//     analysis::check_used_before_declared(ast);
-//     info!("Total Time to Analyse AST : {:?}", now.elapsed());
-
-//     Ok(())
-// }
 
 impl LexerInterface for FernLexer {
     fn new(table: LexingTable, start_state: usize) -> Self {
+        let whitespace_token = table.terminal_map.iter().position(|x| x == "NAME").unwrap();
         Self {
             table,
+            whitespace_token,
             tokens: Vec::new(),
             start_state,
             buf: String::new(),
@@ -114,35 +164,26 @@ impl LexerInterface for FernLexer {
         let mut reconsume = true;
         while reconsume {
             reconsume = false;
-            if input.is_ascii_whitespace() && !self.buf.is_empty() {
-                if let Some(mut t) = self.table.try_get_terminal(self.state) {
+            match self.table.get(input, self.state) {
+                LookupResult::Terminal(mut t) => {
                     t = parse_subtable(t, &self.buf);
-                    self.tokens.push(t);
-                    self.buf.clear();
-                    self.state = self.start_state;
-                }
-            } else if input.is_ascii_whitespace() {
-                break;
-            } else {
-                match self.table.get(input, self.state) {
-                    LookupResult::Terminal(mut t) => {
-                        t = parse_subtable(t, &self.buf);
+                    if t != self.whitespace_token {
                         self.tokens.push(t);
                         self.data.push(Data {
                             token_index: self.tokens.len() - 1,
                             raw: self.buf.clone(),
                         });
-                        self.buf.clear();
-                        self.state = self.start_state;
-                        reconsume = true;
                     }
-                    LookupResult::State(s) => {
-                        self.buf.push(input as char);
-                        self.state = s;
-                    }
-                    LookupResult::Err => {
-                        panic!("Lexing Error when transitioning state. state : {}", self.state);
-                    }
+                    self.buf.clear();
+                    self.state = self.start_state;
+                    reconsume = true;
+                }
+                LookupResult::State(s) => {
+                    self.buf.push(input as char);
+                    self.state = s;
+                }
+                LookupResult::Err => {
+                    panic!("Lexing Error when transitioning state. state : {}", self.state);
                 }
             }
         }
@@ -611,66 +652,6 @@ impl LexerInterface for FernLexer {
 //         }
 //     }
 // }
-
-impl ParseTree for FernParseTree {
-    fn new(root: Node, g: OpGrammar) -> Self {
-        Self { g, root }
-    }
-
-    fn print(&self) {
-        let mut node_stack: Vec<&Node> = vec![&self.root];
-        let mut child_count_stack: Vec<(i32, i32)> = vec![((self.root.children.len() - 1) as i32, 0)];
-        let mut b = String::new();
-
-        b.push_str(format!("{}", self.g.token_raw.get(&self.root.symbol).unwrap()).as_str());
-        info!("{}", b);
-        b.clear();
-        while !node_stack.is_empty() {
-            let current = node_stack.pop().unwrap();
-            let (mut current_child, min_child) = child_count_stack.pop().unwrap();
-
-            while current.children.len() > 0 && current_child >= min_child {
-                for i in 0..child_count_stack.len() {
-                    let (current, min) = child_count_stack.get(i).unwrap();
-                    if *current >= *min {
-                        b.push_str("| ");
-                    } else {
-                        b.push_str("  ");
-                    }
-                }
-                if current_child != min_child {
-                    b.push_str(
-                        format!(
-                            "├─{}",
-                            self.g.token_raw.get(&current.children.get(current_child as usize).unwrap().symbol).unwrap()
-                        )
-                        .as_str(),
-                    );
-                } else {
-                    b.push_str(
-                        format!(
-                            "└─{}",
-                            self.g.token_raw.get(&current.children.get(current_child as usize).unwrap().symbol).unwrap()
-                        )
-                        .as_str(),
-                    );
-                }
-                info!("{}", b);
-                b.clear();
-                if !current.children.get(current_child as usize).unwrap().children.is_empty() {
-                    node_stack.push(current);
-                    let child = current.children.get(current_child as usize).unwrap();
-                    current_child -= 1;
-                    node_stack.push(child);
-                    child_count_stack.push((current_child, min_child));
-                    child_count_stack.push(((child.children.len() - 1) as i32, 0));
-                    break;
-                }
-                current_child -= 1;
-            }
-        }
-    }
-}
 
 type Nd = (usize, String);
 type Ed = (Nd, Nd);
