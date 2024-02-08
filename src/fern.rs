@@ -46,11 +46,11 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     file.read_to_string(&mut buf).unwrap();
     let g = lg::LexicalGrammar::from(buf.clone());
     let nfa = lg::StateGraph::from(g.clone());
-    // let mut f = File::create("nfa.dot").unwrap();
-    // lg::render(&nfa, &mut f);
+    let mut f = File::create("nfa.dot").unwrap();
+    lg::render(&nfa, &mut f);
     let dfa = nfa.convert_to_dfa();
-    // let mut f = File::create("dfa.dot").unwrap();
-    // lg::render(&dfa, &mut f);
+    let mut f = File::create("dfa.dot").unwrap();
+    lg::render(&dfa, &mut f);
     let keywords = dfa.build_table();
     let second_lg = second_lg.elapsed();
 
