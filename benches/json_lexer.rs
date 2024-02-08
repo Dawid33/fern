@@ -7,6 +7,7 @@ use libfern::{
         lg::{LexicalGrammar, StateGraph},
         opg::OpGrammar,
     },
+    json::JsonLexer,
     lexer::{split_mmap_into_chunks, ParallelLexer},
 };
 use std::error::Error;
@@ -32,7 +33,7 @@ fn bench_parallel_lexing(path: &str, threads: usize) {
     let chunks = split_mmap_into_chunks(&mut memmap, 6000).unwrap();
 
     let _ = thread::scope(|s| {
-        let mut lexer: ParallelLexer<FernLexer> = ParallelLexer::new(table.clone(), s, threads, &[0], 0);
+        let mut lexer: ParallelLexer<JsonLexer> = ParallelLexer::new(table.clone(), s, threads);
         let batch = lexer.new_batch();
         for task in chunks.iter().enumerate() {
             lexer.add_to_batch(&batch, task.1, task.0);
@@ -45,11 +46,11 @@ fn bench_parallel_lexing(path: &str, threads: usize) {
 
 #[rustfmt::skip]
 fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("json_lexer_1_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 1)));
-    c.bench_function("json_lexer_2_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 2)));
-    c.bench_function("json_lexer_4_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 4)));
-    c.bench_function("json_lexer_8_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 8)));
-    c.bench_function("json_lexer_16_thread_10MB", |b| b.iter(|| bench_parallel_lexing("data/json/10MB.json", 16)));
+    c.bench_function("json_lexer_1_thread_1MB", |b| b.iter(|| bench_parallel_lexing("data/json/1MB.json", 1)));
+    c.bench_function("json_lexer_2_thread_1MB", |b| b.iter(|| bench_parallel_lexing("data/json/1MB.json", 2)));
+    c.bench_function("json_lexer_4_thread_1MB", |b| b.iter(|| bench_parallel_lexing("data/json/1MB.json", 4)));
+    c.bench_function("json_lexer_8_thread_1MB", |b| b.iter(|| bench_parallel_lexing("data/json/1MB.json", 8)));
+    c.bench_function("json_lexer_16_thread_1MB", |b| b.iter(|| bench_parallel_lexing("data/json/1MB.json", 16)));
 
     // c.bench_function("json_fair_sequential_lexing_10KB", |b| b.iter(|| fair_sequential_lexing("data/json/10KB.json")));
     // c.bench_function("json_fair_sequential_lexing_100KB", |b| b.iter(|| fair_sequential_lexing("data/json/100KB.json")));

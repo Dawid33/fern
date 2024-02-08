@@ -204,7 +204,6 @@ impl StateGraph {
         for (token, regex) in nfa.grammar.pairs.clone() {
             nfa.add_regex(token, regex);
         }
-        nfa.find_start_states();
         return nfa;
     }
 
@@ -369,6 +368,7 @@ impl StateGraph {
             terminals: self.terminals,
             nodes: dfa,
             start_state: 0,
+            start_states: Vec::new(),
             grammar: self.grammar,
         }
     }
@@ -447,17 +447,39 @@ impl StateGraph {
             table,
             terminals,
             terminal_map,
+            start_states: self.find_start_states(),
             sub_tables: HashMap::new(),
         }
     }
 
-    pub fn find_start_states(&mut self) {}
+    pub fn find_start_states(&self) -> Vec<usize> {
+        let mut edges: HashMap<u8, HashSet<usize>> = HashMap::new();
+        let mut result: BTreeSet<usize> = BTreeSet::from([0]);
+
+        for (start, n) in self.nodes.iter().enumerate() {
+            for (c, _) in n.edges.iter() {
+                if edges.contains_key(c) {
+                    let states = edges.get_mut(c).unwrap();
+                    states.insert(start);
+                } else {
+                    edges.insert(*c, HashSet::from([start]));
+                }
+            }
+        }
+        for (_, states) in edges {
+            if states.len() > 1 {
+                result.extend(states);
+            }
+        }
+        return result.into_iter().collect();
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct LexingTable {
     table: HashMap<u8, HashMap<usize, usize>>,
     terminals: HashMap<State, Token>,
+    pub start_states: Vec<usize>,
     pub sub_tables: HashMap<Token, (LexingTable, usize)>,
     pub terminal_map: Vec<String>,
 }

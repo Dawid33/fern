@@ -114,7 +114,7 @@ fn tree_add_child() {
 }
 
 #[test]
-fn tree_add_child() {
+fn tree_add_child_1() {
     let mut tree = ParseTree::new(TestTokenType::A);
     tree.add_child(0, TestTokenType::B);
     tree.add_child(1, TestTokenType::C);

@@ -4,7 +4,7 @@ extern crate core;
 
 use crate::fern::FernLexer;
 use crate::grammar::opg::{OpGrammar, RawGrammar};
-use crate::lexer::{split_mmap_into_chunks, Data, ParallelLexer, Token};
+use crate::lexer::{split_mmap_into_chunks, Data, ParallelLexer};
 use crate::parser::{ParallelParser, ParseTree};
 use crossbeam_queue::SegQueue;
 use fern::FernParseTree;
@@ -37,6 +37,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         .format(flexi_logger::colored_default_format)
         .start_with_specfile("log.toml")?;
     fern::compile()?;
-    // json()?;
+    // json::compile()?;
     Ok(())
 }

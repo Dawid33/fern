@@ -92,17 +92,18 @@ impl<'a, Lexer> ParallelLexer<'a, Lexer>
 where
     Lexer: LexerInterface,
 {
-    pub fn new(grammar: LexingTable, scope: &'a Scope<'a, '_>, threads: usize, possible_start_states: &[usize], initial_state: usize) -> Self {
+    pub fn new(table: LexingTable, scope: &'a Scope<'a, '_>, threads: usize) -> Self {
         let new_queue: Arc<SegQueue<WorkUnit>> = Arc::new(SegQueue::new());
         let (send, recv) = crossbeam_channel::bounded(threads);
         let outputs: HashMap<String, Batch> = HashMap::new();
+        // info!("entering: {:?}", table.start_states);
 
         let mut handles = vec![];
         for _ in 0..threads {
             let reciever = recv.clone();
             let new_queue = new_queue.clone();
-            let grammar = grammar.clone();
-            let start_states: Vec<usize> = Vec::from(possible_start_states);
+            let grammar = table.clone();
+            let start_states: Vec<usize> = grammar.start_states.clone();
             let parker = Parker::new();
             let unparker = parker.unparker().clone();
 
@@ -171,7 +172,7 @@ where
             handles,
             new_queue: new_queue.clone(),
             outputs,
-            initial_state,
+            initial_state: 0,
             _phantom_data: PhantomData::default(),
         };
     }

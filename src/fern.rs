@@ -36,6 +36,8 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     lg::render(&dfa, &mut f);
     let mut table = dfa.build_table();
     table.terminal_map.push("UMINUS".to_string());
+    table.terminal_map.push("LPARENFUNC".to_string());
+    table.terminal_map.push("RPARENFUNC".to_string());
     let first_lg = first_lg.elapsed();
     buf.clear();
 
@@ -44,11 +46,11 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     file.read_to_string(&mut buf).unwrap();
     let g = lg::LexicalGrammar::from(buf.clone());
     let nfa = lg::StateGraph::from(g.clone());
-    let mut f = File::create("nfa.dot").unwrap();
-    lg::render(&nfa, &mut f);
+    // let mut f = File::create("nfa.dot").unwrap();
+    // lg::render(&nfa, &mut f);
     let dfa = nfa.convert_to_dfa();
-    let mut f = File::create("dfa.dot").unwrap();
-    lg::render(&dfa, &mut f);
+    // let mut f = File::create("dfa.dot").unwrap();
+    // lg::render(&dfa, &mut f);
     let keywords = dfa.build_table();
     let second_lg = second_lg.elapsed();
 
@@ -61,7 +63,7 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
         let file = File::open("data/test.fern")?;
         let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
         thread::scope(|s| {
-            let mut lexer: ParallelLexer<FernLexer> = ParallelLexer::new(table.clone(), s, 1, &[0], 0);
+            let mut lexer: ParallelLexer<FernLexer> = ParallelLexer::new(table.clone(), s, 1);
             let batch = lexer.new_batch();
             lexer.add_to_batch(&batch, &mmap[..], 0);
             let tokens = lexer.collect_batch(batch);
@@ -125,15 +127,24 @@ pub struct FernLexer {
     pub tokens: Vec<Token>,
     pub data: Vec<Data>,
     pub whitespace_token: Token,
+    had_lparenfunc: i32,
     had_whitespace: bool,
     minus: Token,
     unary_minus: Token,
     name_token: Token,
+    lparen: Token,
+    rparen: Token,
+    lparenfunc: Token,
+    rparenfunc: Token,
 }
 
 impl LexerInterface for FernLexer {
     fn new(table: LexingTable, start_state: usize) -> Self {
         let name_token = table.terminal_map.iter().position(|x| x == "NAME").unwrap();
+        let lparen = table.terminal_map.iter().position(|x| x == "LPAREN").unwrap();
+        let rparen = table.terminal_map.iter().position(|x| x == "RPAREN").unwrap();
+        let lparenfunc = table.terminal_map.iter().position(|x| x == "LPARENFUNC").unwrap();
+        let rparenfunc = table.terminal_map.iter().position(|x| x == "RPARENFUNC").unwrap();
         let whitespace_token = table.terminal_map.iter().position(|x| x == "WHITESPACE").unwrap();
         let minus = table.terminal_map.iter().position(|x| x == "MINUS").unwrap();
         let unary_minus = table.terminal_map.iter().position(|x| x == "UMINUS").unwrap();
@@ -143,7 +154,12 @@ impl LexerInterface for FernLexer {
             unary_minus,
             minus,
             had_whitespace: false,
+            had_lparenfunc: -1,
             name_token,
+            lparenfunc,
+            rparenfunc,
+            lparen,
+            rparen,
             tokens: Vec::new(),
             start_state,
             buf: String::new(),
@@ -152,43 +168,50 @@ impl LexerInterface for FernLexer {
         }
     }
     fn consume(&mut self, input: u8) -> Result<(), LexerError> {
-        let parse_subtable = |mut t, buf: &String| {
-            if let Some((table, offset)) = self.table.sub_tables.get(&t) {
-                let mut state = 0;
-                let buf = format!("{}", buf);
-                for c in buf.chars() {
-                    match table.get(c as u8, state) {
-                        LookupResult::Terminal(token) => {
-                            t = token + offset;
-                            break;
-                        }
-                        LookupResult::State(s) => {
-                            state = s;
-                        }
-                        LookupResult::Err => break,
-                    }
-                }
-                if let Some(token) = table.try_get_terminal(state) {
-                    t = token + offset;
-                }
-            }
-            t
-        };
         let mut reconsume = true;
         while reconsume {
             reconsume = false;
             let result = self.table.get(input, self.state);
             match result {
                 LookupResult::Terminal(mut t) => {
-                    t = parse_subtable(t, &self.buf);
-                    if t != self.whitespace_token {
-                        if let Some(t1) = self.tokens.last() {
-                            let t2 = if self.had_whitespace { &self.whitespace_token } else { &t };
-                            if let Some((t1, t2)) = self.look_ahead(&t1.clone(), t2) {
-                                *self.tokens.last_mut().unwrap() = t1;
-                                t = t2;
+                    if let Some((table, offset)) = self.table.sub_tables.get(&t) {
+                        let mut state = 0;
+                        let buf = format!("{}", self.buf);
+                        for c in buf.chars() {
+                            match table.get(c as u8, state) {
+                                LookupResult::Terminal(token) => {
+                                    t = token + offset;
+                                    break;
+                                }
+                                LookupResult::State(s) => {
+                                    state = s;
+                                }
+                                LookupResult::Err => break,
                             }
-                        };
+                        }
+                        if let Some(token) = table.try_get_terminal(state) {
+                            t = token + offset;
+                        }
+                    }
+
+                    if t == self.lparen && self.had_lparenfunc >= 0 {
+                        self.had_lparenfunc += 1;
+                    }
+
+                    if t == self.rparen && self.had_lparenfunc >= 0 {
+                        if self.had_lparenfunc == 0 {
+                            t = self.rparenfunc;
+                        }
+                        self.had_lparenfunc -= 1;
+                    }
+
+                    info!("c, t: {}, {}", input as char, self.table.terminal_map[t]);
+                    if t != self.whitespace_token {
+                        let t2 = if self.had_whitespace { &self.whitespace_token } else { &t };
+                        if let Some((t1, t2)) = self.look_ahead(*t2) {
+                            *self.tokens.last_mut().unwrap() = t1;
+                            t = t2;
+                        }
                         self.tokens.push(t);
                         self.data.push(Data {
                             token_index: self.tokens.len() - 1,
@@ -199,7 +222,7 @@ impl LexerInterface for FernLexer {
                         self.had_whitespace = true;
                     }
                     self.buf.clear();
-                    self.state = self.start_state;
+                    self.state = 0;
                     reconsume = true;
                 }
                 LookupResult::State(s) => {
@@ -207,7 +230,7 @@ impl LexerInterface for FernLexer {
                     self.state = s;
                 }
                 LookupResult::Err => {
-                    panic!("Lexing Error when transitioning state. state : {}", self.state);
+                    warn!("Lexing Error when transitioning state. state : {}", self.state);
                 }
             }
         }
@@ -219,10 +242,16 @@ impl LexerInterface for FernLexer {
 }
 
 impl FernLexer {
-    fn look_ahead(&self, t1: &Token, t2: &Token) -> Option<(Token, Token)> {
-        warn!("look_ahead {}, {}", self.table.terminal_map[*t1], self.table.terminal_map[*t2]);
-        if *t1 == self.minus && *t2 == self.name_token {
-            return Some((self.unary_minus, *t2));
+    fn look_ahead(&mut self, t2: Token) -> Option<(Token, Token)> {
+        if let Some(t1) = self.tokens.last() {
+            warn!("look_ahead {}, {}", self.table.terminal_map[*t1], self.table.terminal_map[t2]);
+            if *t1 == self.minus && (t2 == self.name_token || t2 == self.lparen) {
+                return Some((self.unary_minus, t2));
+            }
+            if *t1 == self.name_token && t2 == self.lparen {
+                self.had_lparenfunc = 0;
+                return Some((self.name_token, self.lparenfunc));
+            }
         }
         None
     }
