@@ -1,7 +1,8 @@
 use crate::grammar::lg::{self, LexingTable, LookupResult, State};
 use crate::grammar::opg::{OpGrammar, RawGrammar, Token};
 use crate::lexer::{Data, LexerError, LexerInterface, ParallelLexer};
-use crate::parser::{Node, ParallelParser, ParseTree};
+use crate::parser::{Node, ParallelParser};
+use crate::parsetree::ParseTree;
 use log::{info, warn};
 use memmap::MmapOptions;
 use simple_error::SimpleError;
@@ -82,7 +83,7 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     }
 
     let grammar_time = Instant::now();
-    let mut raw = RawGrammar::from("data/grammar/fern.g", table.terminal_map).unwrap();
+    let mut raw = RawGrammar::from("data/grammar/fern.g", table.terminal_map.clone()).unwrap();
     raw.delete_repeated_rhs()?;
     let grammar = OpGrammar::new(raw)?;
     let grammar_time = grammar_time.elapsed();

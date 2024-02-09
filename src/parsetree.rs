@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs::File;
 use std::{
@@ -13,10 +14,13 @@ use log::{info, warn}; // Use log crate when building application
 #[cfg(test)]
 use std::{println as info, println as warn}; // Workaround to use prinltn! for logs.
 
+type Token = usize;
+pub type Id = usize;
+
 #[derive(Debug, Clone)]
 pub struct Node {
     token: usize,
-    child_count: u16,
+    child_count: usize,
 }
 
 impl Node {
@@ -28,43 +32,34 @@ impl Node {
 /// An append only tree of Tokens. Root is at id 0.
 pub struct ParseTree {
     child_count: usize,
+    stack: Vec<usize>,
     nodes: Vec<Node>,
-    token_map: Vec<String>,
+    token_map: HashMap<Token, String>,
 }
 
 impl ParseTree {
-    pub fn new(token_map: Vec<String>) -> Self {
+    pub fn new(token_map: HashMap<Token, String>) -> Self {
         Self {
             nodes: Vec::new(),
             child_count: 0,
             token_map,
+            stack: Vec::new(),
         }
     }
 
-    pub fn with_capacity(size: usize, token_map: Vec<String>) -> Self {
-        Self {
-            nodes: Vec::with_capacity(size),
-            child_count: 0,
-            token_map,
-        }
-    }
-
-    pub fn add_root(&mut self, token: usize) -> usize {
+    pub fn add_node(&mut self, token: usize) -> usize {
         self.nodes.push(Node::new(token));
         self.child_count += 1;
         return self.nodes.len() - 1;
     }
 
-    /// Append a child to token at position id
-    pub fn add_child(&mut self, id: usize, token: usize) -> usize {
-        let parent = match self.nodes.get_mut(id) {
-            Some(id) => id,
-            None => panic!("Failed to append child to parse tree: Requested parent doesn't exist."),
-        };
-        let child_index = id + parent.child_count as usize + 1;
-        parent.child_count += 1;
-        self.nodes.insert(child_index, Node::new(token));
-        return child_index;
+    /// Take a list of nodes and create a parent over them. Returns the id of the parent.
+    pub fn reduce(&mut self, parent: Token, children: &[Id]) -> Id {
+        let min = children.iter().min().unwrap();
+        let mut p = Node::new(parent);
+        p.child_count = children.len();
+        self.nodes.insert(*min, p);
+        *min
     }
 
     pub fn traverse<F: FnMut(&Vec<(Option<usize>, usize)>, usize)>(&self, mut f: F) {
@@ -88,7 +83,7 @@ impl ParseTree {
     }
 
     pub fn dot<W: Write>(&self, out: &mut W) -> io::Result<()> {
-        let nodes = self.nodes.iter().map(|n| self.token_map[n.token].clone()).collect();
+        let nodes = self.nodes.iter().map(|n| self.token_map.get(&n.token).unwrap().clone()).collect();
         let mut edges = Vec::new();
 
         self.traverse(|stack, current| {
@@ -116,9 +111,9 @@ impl ParseTree {
 
             let last = stack.last().unwrap();
             if last.1 > 0 {
-                info!("{}├─{}", padding, self.token_map[n.token]);
+                info!("{}├─{:?}", padding, self.token_map.get(&n.token).unwrap());
             } else {
-                info!("{}└─{}", padding, self.token_map[n.token]);
+                info!("{}└─{:?}", padding, self.token_map.get(&n.token).unwrap());
             }
         });
     }
@@ -137,27 +132,31 @@ const MAP: &[&str] = &["A", "B", "C", "D"];
 fn tree_traverse() {
     let token_map: Vec<String> = MAP.iter().map(|s| s.to_string()).collect();
     let mut tree = ParseTree::new(token_map);
-    let a = tree.add_root(0);
-    let b = tree.add_child(a, 1);
-    let d = tree.add_child(b, 3);
-    let c = tree.add_child(a, 2);
-    let c = tree.add_child(a, 2);
-    let a = tree.add_root(1);
+    // let a = tree.add_root(0);
+    // let b = tree.add_child(a, 1);
+    // let d = tree.add_child(b, 3);
+    // let c = tree.add_child(a, 2);
+    // let c = tree.add_child(a, 2);
+    // let a = tree.add_root(1);
 }
 
 #[test]
 fn tree_add_child() {
     let token_map: Vec<String> = MAP.iter().map(|s| s.to_string()).collect();
     let mut tree = ParseTree::new(token_map);
-    let a = tree.add_root(0);
-    let b = tree.add_child(a, 1);
-    let d = tree.add_child(b, 3);
-    let c = tree.add_child(a, 2);
-    let c = tree.add_child(a, 2);
-    let a = tree.add_root(1);
+    let a1 = tree.add_node(1);
+    let a2 = tree.add_node(1);
+    let a3 = tree.add_node(1);
+    let p1 = tree.reduce(0, &[a1, a2, a3]);
+
+    let a1 = tree.add_node(1);
+    let a2 = tree.add_node(1);
+    let a3 = tree.add_node(1);
+    let p2 = tree.reduce(0, &[a1, a2, a3]);
+    let _ = tree.reduce(0, &[p1, p2]);
     tree.print();
-    let mut f = File::create("ptree.dot").unwrap();
-    tree.dot(&mut f).unwrap();
+    // let mut f = File::create("ptree.dot").unwrap();
+    // tree.dot(&mut f).unwrap();
     assert!(false);
 }
 

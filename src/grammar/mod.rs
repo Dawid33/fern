@@ -1,6 +1,6 @@
 use log::debug;
 use opg::{Associativity, Token, TokenTypes};
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
@@ -31,7 +31,7 @@ impl<'a> Display for GrammarError {
 
 pub fn print_op_table(
     token_raw: &HashMap<Token, String>,
-    token_reverse: &HashMap<String, (Token, TokenTypes)>,
+    token_reverse: &BTreeMap<String, (Token, TokenTypes)>,
     terminals: &Vec<Token>,
     op_table: &HashMap<Token, HashMap<Token, Associativity>>,
 ) {

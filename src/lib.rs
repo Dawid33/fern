@@ -12,6 +12,7 @@ pub mod grammar;
 pub mod json;
 pub mod lexer;
 pub mod parser;
+pub mod parsetree;
 
 use log::{debug, info};
 

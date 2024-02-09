@@ -3,7 +3,7 @@ use super::GrammarError;
 use crate::grammar::lg::Token;
 use crate::grammar::opg::{OpGrammar, Rule, TokenTypes};
 use log::{debug, info, trace, warn};
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::error::Error;
 use std::fs::File;
 use std::io::Write;
@@ -432,7 +432,7 @@ impl RawGrammar {
         new_non_terminals: &BTreeSet<BTreeSet<Token>>,
         new_rule_rhs: &mut Vec<Vec<Token>>,
         token_raw: &HashMap<Token, String>,
-        token_reverse: &HashMap<String, (Token, TokenTypes)>,
+        token_reverse: &BTreeMap<String, (Token, TokenTypes)>,
     ) {
         if key_rhs.len() == 0 {
             if dict_rules_for_iteration.contains_key(new_rule_rhs) {

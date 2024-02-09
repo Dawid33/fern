@@ -5,7 +5,8 @@ use crate::fern::{FernLexer, FernParseTree};
 use crate::grammar::lg::{self, LexingTable, LookupResult, State, Token};
 use crate::grammar::opg::{OpGrammar, RawGrammar};
 use crate::lexer::{split_mmap_into_chunks, Data, LexerError, LexerInterface, ParallelLexer};
-use crate::parser::{Node, ParallelParser, ParseTree};
+use crate::parser::{Node, ParallelParser};
+use crate::parsetree::ParseTree;
 use std::cmp::max;
 use std::collections::LinkedList;
 use std::error::Error;
@@ -57,7 +58,7 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     }
 
     let grammar_time = Instant::now();
-    let mut raw = RawGrammar::from("data/grammar/json.g", table.terminal_map)?;
+    let mut raw = RawGrammar::from("data/grammar/json.g", table.terminal_map.clone())?;
     raw.delete_repeated_rhs()?;
     let grammar = OpGrammar::new(raw)?;
     let grammar_time = grammar_time.elapsed();

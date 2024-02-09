@@ -30,11 +30,12 @@ pub struct Rule {
 /// Ad-hoc hand written parser for loading in .g grammar files.
 pub struct RawGrammar {
     pub rules: Vec<Rule>,
+    pub token_map: Vec<String>,
     pub terminals: Vec<Token>,
     pub non_terminals: Vec<Token>,
     pub token_types: HashMap<Token, TokenTypes>,
     pub token_raw: HashMap<Token, String>,
-    pub token_reverse: HashMap<String, (Token, TokenTypes)>,
+    pub token_reverse: BTreeMap<String, (Token, TokenTypes)>,
     pub axiom: Token,
     pub ast_rules: Vec<Rule>,
     pub new_non_terminal_reverse: HashMap<Token, BTreeSet<Token>>,
@@ -111,7 +112,7 @@ impl RawGrammar {
         let mut buf = String::new();
         let mut nesting_buf = String::new();
         let mut awaiting: Option<TokenTypes> = None;
-        let mut token_reverse: HashMap<String, (Token, TokenTypes)> = HashMap::new();
+        let mut token_reverse: BTreeMap<String, (Token, TokenTypes)> = BTreeMap::new();
         let mut axiom: Option<Token> = None;
         let mut id_counter = IdCounter::new(lexical_sync.len() - 1);
 
@@ -312,9 +313,11 @@ impl RawGrammar {
 
         let mut token_types: HashMap<Token, TokenTypes> = HashMap::new();
         let mut token_raw: HashMap<Token, String> = HashMap::new();
+        let mut token_map: Vec<String> = Vec::new();
         for (raw, (id, token_type)) in &token_reverse {
             token_types.insert(*id, *token_type);
             token_raw.insert(*id, raw.clone());
+            token_map.push(raw.clone());
         }
         let axiom: Token = axiom.expect("Need to specify and axiom.");
 
@@ -361,6 +364,7 @@ impl RawGrammar {
 
         Ok(RawGrammar {
             rules,
+            token_map,
             terminals,
             non_terminals,
             token_types,
@@ -532,7 +536,8 @@ pub struct OpGrammar {
     pub rules: Vec<Rule>,
     pub token_types: HashMap<Token, TokenTypes>,
     pub token_raw: HashMap<Token, String>,
-    pub token_reverse: HashMap<String, (Token, TokenTypes)>,
+    pub token_map: Vec<String>,
+    pub token_reverse: BTreeMap<String, (Token, TokenTypes)>,
     pub ast_rules: Vec<Rule>,
     pub new_non_terminals_subset: Vec<Token>,
     pub new_non_terminal_reverse: HashMap<Token, BTreeSet<Token>>,
@@ -780,6 +785,7 @@ impl OpGrammar {
 
         Ok(OpGrammar {
             token_raw: g.token_raw,
+            token_map: g.token_map,
             token_types: g.token_types,
             rules: g.rules,
             terminals: g.terminals,
