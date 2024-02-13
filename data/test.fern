@@ -1,14 +1,13 @@
 
-
-
-fn main[first, second] {
-	if (x + 3) >= 3 {
-		first = 3;
-	};
+fn main[] {
 	let x = 0;
-	return x;
-};
-
-fn add[a,b] {
-	return a + b;
+	let y = "test";
+	if y && "x" {
+		return 0;
+	} else {
+		
+	};
+	while (y && x - 3) + 1 {
+		return;
+	};
 }

@@ -101,6 +101,8 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     let parse_time = parse_time.elapsed();
 
     tree.print();
+    let mut f = File::create("ptree.dot").unwrap();
+    tree.dot(&mut f).unwrap();
     info!("Time to build first lexical grammar: {:?}", first_lg);
     info!("Time to build second lexical grammar: {:?}", second_lg);
     info!("Time to lex: {:?}", lex_time);

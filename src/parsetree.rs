@@ -8,6 +8,7 @@ use std::{
 
 use flexi_logger::Logger;
 
+use log::trace;
 #[cfg(not(test))]
 use log::{info, warn}; // Use log crate when building application
 
@@ -50,51 +51,78 @@ impl ParseTree {
         }
     }
 
-    ///
-    pub fn insert(&mut self, parent: Token, children: &[(Option<Id>, Token)]) -> Id {
-        // TODO: push to the back of the list by default. If have encountered
-        // an existing id, get its total field  and offset that much from the
-        // back of the list and insert there. Sum up all total fields from
-        // existing nodes and +1 for new nodes. Create new parent at the back of
-        // the list.
-        let mut min = 0;
-        for (existing_id, token) in children {
+    /// Take a list of nodes and create a parent over them. Returns the id of the parent.
+    pub fn reduce(&mut self, parent: Token, children: &[(Option<Id>, Token)]) -> Id {
+        let mut parent_total = 0;
+        let mut pivot: Option<Id> = None;
+        let mut b = String::new();
+        for (_, t) in children {
+            b.push_str(format!("{} ", self.token_map.get(t).unwrap()).as_str());
+        }
+        warn!("children: {}", b);
+
+        for (existing_id, new_token) in children.iter().rev() {
             if let Some(id) = existing_id {
+                let total = self.nodes.get(*id).unwrap().total;
+                parent_total += total;
+                pivot = Some((id + 1) - total);
+
+                warn!(
+                    "pivot: ({}, token: {}, total: {}, children: {})",
+                    (id + 1) - total,
+                    self.token_map.get(&self.nodes.get((id + 1) - total).unwrap().token).unwrap(),
+                    &self.nodes.get(*id).unwrap().total,
+                    &self.nodes.get(*id).unwrap().child_count
+                );
+            } else if let Some(id) = pivot {
+                self.nodes.insert(id, Node::new(*new_token, 1));
+                parent_total += 1;
             } else {
+                self.nodes.push(Node::new(*new_token, 1));
+                parent_total += 1;
             }
         }
 
-        // let mut p = Node::new(parent);
-        // p.child_count = children.len();
-        // self.child_count -= p.child_count - 1;
-        // self.nodes.push(p);
-
-        // self.stack.insert(self.nodes.p);
+        let m = children.iter().min().unwrap();
+        let mut p = Node::new(parent, parent_total + 1);
+        p.child_count = children.len();
+        self.nodes.push(p);
 
         let mut b = String::new();
         for n in &self.nodes {
-            b.push_str(format!("{} ", self.token_map.get(&n.token).unwrap()).as_str());
+            b.push_str(format!("({}, {}) ", self.token_map.get(&n.token).unwrap(), n.total).as_str());
         }
-        warn!("{}", b);
+        warn!("after: {}", b);
 
         self.nodes.len() - 1
     }
 
-    pub fn traverse<F: FnMut(&Vec<(Option<usize>, usize)>, usize)>(&self, mut f: F) {
-        let mut stack = Vec::from(&[(None, self.child_count)]);
+    pub fn pre_order_traverse<F: FnMut(&Vec<(Option<usize>, usize)>, usize)>(&self, mut f: F) {
+        let mut stack = Vec::from(&[(None, self.nodes.last().unwrap().child_count)]);
 
         for (i, n) in self.nodes.iter().enumerate().rev() {
+            warn!("{:?}", stack);
+            let n_t = &self.nodes[i];
             let last = stack.last_mut().unwrap();
+            // warn!(
+            //     "last.1: {}, token: {}, children: {}",
+            //     last.1,
+            //     self.token_map.get(&n_t.token).unwrap(),
+            //     n_t.child_count
+            // );
             last.1 -= 1;
 
             f(&stack, i);
 
-            let (_, last) = stack.last_mut().unwrap();
             if n.child_count > 0 {
                 stack.push((Some(i), n.child_count as usize));
             } else {
-                if *last == 0 {
-                    stack.pop();
+                while let Some((_, last)) = stack.last() {
+                    if *last == 0 {
+                        stack.pop();
+                    } else {
+                        break;
+                    }
                 }
             }
         }
@@ -104,7 +132,7 @@ impl ParseTree {
         let nodes = self.nodes.iter().map(|n| self.token_map.get(&n.token).unwrap().clone()).collect();
         let mut edges = Vec::new();
 
-        self.traverse(|stack, current| {
+        self.pre_order_traverse(|stack, current| {
             if stack.last().unwrap().0.is_some() {
                 edges.push((stack.last().unwrap().0.unwrap(), current));
             }
@@ -115,8 +143,9 @@ impl ParseTree {
     }
 
     pub fn print(&self) {
-        self.traverse(|stack, current| {
+        self.pre_order_traverse(|stack, current| {
             let n = &self.nodes[current];
+
             let mut padding = String::new();
             for i in 0..stack.len() - 1 {
                 let current = stack.get(i).unwrap();

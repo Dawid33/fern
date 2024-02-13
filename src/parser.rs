@@ -18,16 +18,16 @@ use std::time::{Duration, Instant};
 
 #[derive(Clone)]
 pub struct Node {
-    pub id: Id,
+    pub id: Option<Id>,
     pub symbol: Token,
     pub data: Option<Data>,
     pub children: Vec<Node>,
 }
 
 impl Node {
-    pub fn new(symbol: Token, data: Option<Data>, id: Id) -> Self {
+    pub fn new(symbol: Token, data: Option<Data>) -> Self {
         Self {
-            id,
+            id: None,
             symbol,
             data,
             children: Vec::new(),
@@ -279,18 +279,17 @@ impl ParallelParser {
                 let current = self.stack.remove((i + offset) as usize);
                 if self.open_nodes.contains_key(&current.id) {
                     let sub_tree = self.open_nodes.remove(&current.id).unwrap();
-                    children.push(sub_tree);
+                    children.push((sub_tree.id, sub_tree.symbol));
                 } else {
-                    // let id = self.tree.add_node(current.token);
-                    let leaf = Node::new(current.token, current.data, 0);
-                    children.push(leaf);
+                    let leaf = Node::new(current.token, current.data);
+                    children.push((leaf.id, leaf.symbol));
                 }
             }
 
-            let c: Vec<usize> = children.iter().map(|n| n.id).collect();
-            // let p_id = self.tree.reduce(rule.left, &c);
+            let p_id = self.tree.reduce(rule.left, &children);
+            let mut parent = Node::new(rule.left, None);
+            parent.id = Some(p_id);
 
-            let mut parent = Node::new(rule.left, None, 0);
             let left = TokenGrammarTuple::new(rule.left, Associativity::Undefined, self.gen_id(), None);
             self.open_nodes.insert(left.id, parent);
             self.stack.insert((i + offset) as usize, left);
