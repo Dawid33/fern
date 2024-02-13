@@ -1,3 +1,14 @@
 
-let x = 0;
 
+
+fn main[first, second] {
+	if (x + 3) >= 3 {
+		first = 3;
+	};
+	let x = 0;
+	return x;
+};
+
+fn add[a,b] {
+	return a + b;
+}

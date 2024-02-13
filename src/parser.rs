@@ -80,9 +80,15 @@ impl ParallelParser {
             non_terminals_set.insert(*x as usize);
         });
 
+        let map = grammar
+            .token_raw
+            .clone()
+            .into_iter()
+            .map(|(k, v)| (k, v.rsplit_once('_').unwrap_or((v.as_str(), v.as_str())).1.to_string()))
+            .collect();
         let parser = Self {
             stack: Vec::new(),
-            tree: ParseTree::new(grammar.token_raw.clone()),
+            tree: ParseTree::new(map),
             g: grammar,
             should_reconsume: false,
             open_nodes: BTreeMap::new(),
@@ -275,18 +281,16 @@ impl ParallelParser {
                     let sub_tree = self.open_nodes.remove(&current.id).unwrap();
                     children.push(sub_tree);
                 } else {
-                    let id = self.tree.add_node(current.token);
-                    let leaf = Node::new(current.token, current.data, id);
+                    // let id = self.tree.add_node(current.token);
+                    let leaf = Node::new(current.token, current.data, 0);
                     children.push(leaf);
                 }
             }
 
             let c: Vec<usize> = children.iter().map(|n| n.id).collect();
-            let p = self.tree.reduce(rule.left, &c);
+            // let p_id = self.tree.reduce(rule.left, &c);
 
-            let mut parent = Node::new(rule.left, None, p);
-            parent.children.append(&mut children);
-
+            let mut parent = Node::new(rule.left, None, 0);
             let left = TokenGrammarTuple::new(rule.left, Associativity::Undefined, self.gen_id(), None);
             self.open_nodes.insert(left.id, parent);
             self.stack.insert((i + offset) as usize, left);

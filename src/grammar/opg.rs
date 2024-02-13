@@ -536,7 +536,6 @@ pub struct OpGrammar {
     pub rules: Vec<Rule>,
     pub token_types: HashMap<Token, TokenTypes>,
     pub token_raw: HashMap<Token, String>,
-    pub token_map: Vec<String>,
     pub token_reverse: BTreeMap<String, (Token, TokenTypes)>,
     pub ast_rules: Vec<Rule>,
     pub new_non_terminals_subset: Vec<Token>,
@@ -785,7 +784,6 @@ impl OpGrammar {
 
         Ok(OpGrammar {
             token_raw: g.token_raw,
-            token_map: g.token_map,
             token_types: g.token_types,
             rules: g.rules,
             terminals: g.terminals,

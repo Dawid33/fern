@@ -21,19 +21,21 @@ pub type Id = usize;
 pub struct Node {
     token: usize,
     child_count: usize,
+    total: usize,
 }
 
 impl Node {
-    fn new(token: usize) -> Self {
-        Self { token, child_count: 0 }
+    fn new(token: usize, total: usize) -> Self {
+        Self { token, child_count: 0, total }
     }
 }
 
 /// An append only tree of Tokens. Root is at id 0.
 pub struct ParseTree {
     child_count: usize,
-    stack: Vec<usize>,
+    insertion_point: usize,
     nodes: Vec<Node>,
+    stack: Vec<usize>,
     token_map: HashMap<Token, String>,
 }
 
@@ -42,30 +44,46 @@ impl ParseTree {
         Self {
             nodes: Vec::new(),
             child_count: 0,
-            token_map,
+            insertion_point: 0,
             stack: Vec::new(),
+            token_map,
         }
     }
 
-    pub fn add_node(&mut self, token: usize) -> usize {
-        self.nodes.push(Node::new(token));
-        self.child_count += 1;
-        return self.nodes.len() - 1;
-    }
+    ///
+    pub fn insert(&mut self, parent: Token, children: &[(Option<Id>, Token)]) -> Id {
+        // TODO: push to the back of the list by default. If have encountered
+        // an existing id, get its total field  and offset that much from the
+        // back of the list and insert there. Sum up all total fields from
+        // existing nodes and +1 for new nodes. Create new parent at the back of
+        // the list.
+        let mut min = 0;
+        for (existing_id, token) in children {
+            if let Some(id) = existing_id {
+            } else {
+            }
+        }
 
-    /// Take a list of nodes and create a parent over them. Returns the id of the parent.
-    pub fn reduce(&mut self, parent: Token, children: &[Id]) -> Id {
-        let min = children.iter().min().unwrap();
-        let mut p = Node::new(parent);
-        p.child_count = children.len();
-        self.nodes.insert(*min, p);
-        *min
+        // let mut p = Node::new(parent);
+        // p.child_count = children.len();
+        // self.child_count -= p.child_count - 1;
+        // self.nodes.push(p);
+
+        // self.stack.insert(self.nodes.p);
+
+        let mut b = String::new();
+        for n in &self.nodes {
+            b.push_str(format!("{} ", self.token_map.get(&n.token).unwrap()).as_str());
+        }
+        warn!("{}", b);
+
+        self.nodes.len() - 1
     }
 
     pub fn traverse<F: FnMut(&Vec<(Option<usize>, usize)>, usize)>(&self, mut f: F) {
         let mut stack = Vec::from(&[(None, self.child_count)]);
 
-        for (i, n) in self.nodes.iter().enumerate() {
+        for (i, n) in self.nodes.iter().enumerate().rev() {
             let last = stack.last_mut().unwrap();
             last.1 -= 1;
 
@@ -111,9 +129,9 @@ impl ParseTree {
 
             let last = stack.last().unwrap();
             if last.1 > 0 {
-                info!("{}├─{:?}", padding, self.token_map.get(&n.token).unwrap());
+                info!("{}├─{}", padding, self.token_map.get(&n.token).unwrap());
             } else {
-                info!("{}└─{:?}", padding, self.token_map.get(&n.token).unwrap());
+                info!("{}└─{}", padding, self.token_map.get(&n.token).unwrap());
             }
         });
     }

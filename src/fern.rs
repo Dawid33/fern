@@ -58,6 +58,7 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     let name_token = table.terminal_map.iter().position(|x| x == "NAME").unwrap();
     warn!("{}", name_token);
     table.add_table(name_token, keywords);
+    table.start_states = Vec::from(&[0]);
 
     let lex_time = Instant::now();
     let tokens: LinkedList<(Vec<Token>, Vec<Data>)> = {
@@ -130,13 +131,18 @@ pub struct FernLexer {
     pub whitespace_token: Token,
     had_lparenfunc: i32,
     had_whitespace: bool,
+    semi: Token,
+    lbrace: Token,
+    rbrace: Token,
+    let_t: Token,
+    while_t: Token,
+    return_t: Token,
+    fn_t: Token,
     minus: Token,
     unary_minus: Token,
     name_token: Token,
     lparen: Token,
     rparen: Token,
-    lparenfunc: Token,
-    rparenfunc: Token,
 }
 
 impl LexerInterface for FernLexer {
@@ -144,11 +150,17 @@ impl LexerInterface for FernLexer {
         let name_token = table.terminal_map.iter().position(|x| x == "NAME").unwrap();
         let lparen = table.terminal_map.iter().position(|x| x == "LPAREN").unwrap();
         let rparen = table.terminal_map.iter().position(|x| x == "RPAREN").unwrap();
-        let lparenfunc = table.terminal_map.iter().position(|x| x == "LPARENFUNC").unwrap();
-        let rparenfunc = table.terminal_map.iter().position(|x| x == "RPARENFUNC").unwrap();
         let whitespace_token = table.terminal_map.iter().position(|x| x == "WHITESPACE").unwrap();
         let minus = table.terminal_map.iter().position(|x| x == "MINUS").unwrap();
         let unary_minus = table.terminal_map.iter().position(|x| x == "UMINUS").unwrap();
+        let fn_t = table.terminal_map.iter().position(|x| x == "FUNCTION").unwrap();
+        let return_t = table.terminal_map.iter().position(|x| x == "RETURN").unwrap();
+        let while_t = table.terminal_map.iter().position(|x| x == "WHILE").unwrap();
+        let let_t = table.terminal_map.iter().position(|x| x == "LET").unwrap();
+        let rbrace = table.terminal_map.iter().position(|x| x == "RBRACE").unwrap();
+        let lbrace = table.terminal_map.iter().position(|x| x == "LBRACE").unwrap();
+        let semi = table.terminal_map.iter().position(|x| x == "SEMI").unwrap();
+
         Self {
             table,
             whitespace_token,
@@ -157,8 +169,6 @@ impl LexerInterface for FernLexer {
             had_whitespace: false,
             had_lparenfunc: -1,
             name_token,
-            lparenfunc,
-            rparenfunc,
             lparen,
             rparen,
             tokens: Vec::new(),
@@ -166,6 +176,13 @@ impl LexerInterface for FernLexer {
             buf: String::new(),
             state: start_state,
             data: Vec::new(),
+            semi,
+            lbrace,
+            rbrace,
+            let_t,
+            while_t,
+            return_t,
+            fn_t,
         }
     }
     fn consume(&mut self, input: u8) -> Result<(), LexerError> {
@@ -195,24 +212,11 @@ impl LexerInterface for FernLexer {
                         }
                     }
 
-                    if t == self.lparen && self.had_lparenfunc >= 0 {
-                        self.had_lparenfunc += 1;
-                    }
-
-                    if t == self.rparen && self.had_lparenfunc >= 0 {
-                        if self.had_lparenfunc == 0 {
-                            t = self.rparenfunc;
-                        }
-                        self.had_lparenfunc -= 1;
-                    }
-
                     info!("c, t: {}, {}", input as char, self.table.terminal_map[t]);
                     if t != self.whitespace_token {
                         let t2 = if self.had_whitespace { &self.whitespace_token } else { &t };
-                        if let Some((t1, t2)) = self.look_ahead(*t2) {
-                            *self.tokens.last_mut().unwrap() = t1;
-                            t = t2;
-                        }
+                        // warn!("t2: {}", self.table.terminal_map[*t2]);
+                        self.look_ahead(*t2);
                         self.tokens.push(t);
                         self.data.push(Data {
                             token_index: self.tokens.len() - 1,
@@ -243,19 +247,23 @@ impl LexerInterface for FernLexer {
 }
 
 impl FernLexer {
-    fn look_ahead(&mut self, t2: Token) -> Option<(Token, Token)> {
+    fn look_ahead(&mut self, t2: Token) -> Token {
         if let Some(t1) = self.tokens.last() {
             warn!("look_ahead {}, {}", self.table.terminal_map[*t1], self.table.terminal_map[t2]);
             if *t1 == self.minus && (t2 == self.name_token || t2 == self.lparen) {
-                return Some((self.unary_minus, t2));
+                *self.tokens.last_mut().unwrap() = self.unary_minus;
+                return t2;
             }
-            if *t1 == self.name_token && t2 == self.lparen {
-                self.had_lparenfunc = 0;
-                return Some((self.name_token, self.lparenfunc));
+            if *t1 == self.rbrace {
+                if t2 == self.let_t || t2 == self.name_token {
+                    self.tokens.push(self.semi);
+                }
+                return t2;
             }
         }
-        None
+        t2
     }
+    fn should_insert_semi(t1: Token, t2: Token) {}
 }
 
 // #[derive(Clone)]
