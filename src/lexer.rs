@@ -96,7 +96,7 @@ where
         let new_queue: Arc<SegQueue<WorkUnit>> = Arc::new(SegQueue::new());
         let (send, recv) = crossbeam_channel::bounded(threads);
         let outputs: HashMap<String, Batch> = HashMap::new();
-        info!("starts: {:?}", table.start_states);
+        // info!("starts: {:?}", table.start_states);
 
         let mut handles = vec![];
         for _ in 0..threads {

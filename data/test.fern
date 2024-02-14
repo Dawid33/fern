@@ -1,4 +1,5 @@
 
-fn main[test: x, other: test] {
-}
-
+let x = 0;
+let y = 0;
+let y = 0;
+let y = 0;

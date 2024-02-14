@@ -21,13 +21,13 @@ impl RawGrammar {
         self.token_raw.insert(new_axiom, String::from("_NewAxiom"));
         self.token_reverse.insert(String::from("_NewAxiom"), (new_axiom, TokenTypes::NonTerminal));
         for (_, rules) in &repeated_rules {
-            warn!("Repeated rhs among the following rules:");
+            trace!("Repeated rhs among the following rules:");
             for r in rules {
                 let mut rhs_formatted = String::new();
                 for t in &r.right {
                     rhs_formatted.push_str(self.token_raw.get(t).unwrap());
                 }
-                warn!("{} -> {}", self.token_raw.get(&r.left).unwrap(), rhs_formatted);
+                trace!("{} -> {}", self.token_raw.get(&r.left).unwrap(), rhs_formatted);
             }
         }
 
@@ -431,7 +431,7 @@ impl RawGrammar {
         non_terminals: &Vec<Token>,
         new_non_terminals: &BTreeSet<BTreeSet<Token>>,
         new_rule_rhs: &mut Vec<Vec<Token>>,
-        token_raw: &HashMap<Token, String>,
+        token_raw: &BTreeMap<Token, String>,
         token_reverse: &BTreeMap<String, (Token, TokenTypes)>,
     ) {
         if key_rhs.len() == 0 {

@@ -30,7 +30,7 @@ impl<'a> Display for GrammarError {
 }
 
 pub fn print_op_table(
-    token_raw: &HashMap<Token, String>,
+    token_raw: &BTreeMap<Token, String>,
     token_reverse: &BTreeMap<String, (Token, TokenTypes)>,
     terminals: &Vec<Token>,
     op_table: &HashMap<Token, HashMap<Token, Associativity>>,

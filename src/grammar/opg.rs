@@ -34,7 +34,7 @@ pub struct RawGrammar {
     pub terminals: Vec<Token>,
     pub non_terminals: Vec<Token>,
     pub token_types: HashMap<Token, TokenTypes>,
-    pub token_raw: HashMap<Token, String>,
+    pub token_raw: BTreeMap<Token, String>,
     pub token_reverse: BTreeMap<String, (Token, TokenTypes)>,
     pub axiom: Token,
     pub ast_rules: Vec<Rule>,
@@ -104,7 +104,6 @@ impl RawGrammar {
         Ok(RawGrammar::new(buf.as_str(), lexical_sync)?)
     }
     pub fn new(s: &str, lexical_sync: Vec<String>) -> Result<RawGrammar, GrammarError> {
-        info!("{:?}", lexical_sync);
         let mut state = GeneralState::ParserSymbols;
         let mut symbol_parser_state = SymbolParserState::InData;
         let mut rule_parser_state = RuleParserState::InData;
@@ -312,7 +311,7 @@ impl RawGrammar {
         }
 
         let mut token_types: HashMap<Token, TokenTypes> = HashMap::new();
-        let mut token_raw: HashMap<Token, String> = HashMap::new();
+        let mut token_raw: BTreeMap<Token, String> = BTreeMap::new();
         let mut token_map: Vec<String> = Vec::new();
         for (raw, (id, token_type)) in &token_reverse {
             token_types.insert(*id, *token_type);
@@ -395,7 +394,7 @@ impl ReductionTree {
         Self { root_nodes: HashMap::new() }
     }
 
-    pub fn match_rule(&self, rhs: &[&Token], tokens_raw: &HashMap<Token, String>) -> Option<&Rule> {
+    pub fn match_rule(&self, rhs: &[&Token], tokens_raw: &BTreeMap<Token, String>) -> Option<&Rule> {
         if rhs.len() == 0 {
             return None;
         }
@@ -535,7 +534,7 @@ pub struct OpGrammar {
     pub inverse_rewrite_rules: HashMap<Token, Vec<Token>>,
     pub rules: Vec<Rule>,
     pub token_types: HashMap<Token, TokenTypes>,
-    pub token_raw: HashMap<Token, String>,
+    pub token_raw: BTreeMap<Token, String>,
     pub token_reverse: BTreeMap<String, (Token, TokenTypes)>,
     pub ast_rules: Vec<Rule>,
     pub new_non_terminals_subset: Vec<Token>,
@@ -803,7 +802,7 @@ impl OpGrammar {
         })
     }
 
-    pub fn token_list_to_string(value: &Vec<Token>, token_raw: &HashMap<Token, String>) -> Vec<String> {
+    pub fn token_list_to_string(value: &Vec<Token>, token_raw: &BTreeMap<Token, String>) -> Vec<String> {
         let mut output = Vec::new();
         for t in value {
             output.push(token_raw.get(t).unwrap().clone());
@@ -811,7 +810,7 @@ impl OpGrammar {
         output
     }
 
-    pub fn list_to_string(list: &Vec<Token>, token_raw: &HashMap<Token, String>) -> String {
+    pub fn list_to_string(list: &Vec<Token>, token_raw: &BTreeMap<Token, String>) -> String {
         let mut sorted = Vec::new();
         for t in list {
             sorted.push(token_raw.get(t).unwrap().as_str());

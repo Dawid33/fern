@@ -209,7 +209,7 @@ impl StateGraph {
 
     pub fn add_regex(&mut self, terminal: String, regex: Hir) {
         self.nodes.push(Node::new(Some(terminal.clone()), HashMap::new()));
-        info!("{:?}", &regex);
+        // info!("{:?}", &regex);
         let mut node_stack: Vec<(usize, usize, Hir)> = Vec::from(&[(self.start_state, self.nodes.len() - 1, regex)]);
 
         while let Some((mut start_state, finish_state, hir_node)) = node_stack.pop() {
