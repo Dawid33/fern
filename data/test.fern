@@ -1,13 +1,4 @@
 
-fn main[] {
-	let x = 0;
-	let y = "test";
-	if y && "x" {
-		return 0;
-	} else {
-		
-	};
-	while (y && x - 3) + 1 {
-		return;
-	};
+fn main[test: x, other: test] {
 }
+

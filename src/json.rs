@@ -5,7 +5,7 @@ use crate::fern::{FernLexer, FernParseTree};
 use crate::grammar::lg::{self, LexingTable, LookupResult, State, Token};
 use crate::grammar::opg::{OpGrammar, RawGrammar};
 use crate::lexer::{split_mmap_into_chunks, Data, LexerError, LexerInterface, ParallelLexer};
-use crate::parser::{Node, ParallelParser};
+use crate::parser::{Node, Parser};
 use crate::parsetree::ParseTree;
 use std::cmp::max;
 use std::collections::LinkedList;
@@ -64,22 +64,22 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     let grammar_time = grammar_time.elapsed();
     grammar.to_file("data/grammar/json-fnf.g");
 
-    let parse_time = Instant::now();
-    let (tree, time): (ParseTree, Duration) = {
-        let mut parser = ParallelParser::new(grammar.clone(), 1);
-        parser.parse(tokens);
-        parser.parse(LinkedList::from([(vec![grammar.delim], Vec::new())]));
-        let time = parser.time_spent_rule_searching.clone();
-        (parser.collect_parse_tree().unwrap(), time)
-    };
-    let parse_time = parse_time.elapsed();
+    // let parse_time = Instant::now();
+    // let (tree, time): (ParseTree, Duration) = {
+    //     let mut parser = Parser::new(grammar.clone(), 1);
+    //     parser.parse(tokens);
+    //     parser.parse(LinkedList::from([(vec![grammar.delim], Vec::new())]));
+    //     let time = parser.time_spent_rule_searching.clone();
+    //     (parser.collect_parse_tree().unwrap(), time)
+    // };
+    // let parse_time = parse_time.elapsed();
 
-    tree.print();
+    // tree.print();
     info!("Time to build lexical grammar: {:?}", lg);
     info!("Time to lex: {:?}", lex_time);
     info!("Time to build parsing grammar: {:?}", grammar_time);
-    info!("Time to parse: {:?}", parse_time);
-    info!("└─Time spent rule-searching: {:?}", time);
+    // info!("Time to parse: {:?}", parse_time);
+    // info!("└─Time spent rule-searching: {:?}", time);
     info!("Total run time : {:?}", start.elapsed());
 
     Ok(())

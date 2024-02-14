@@ -5,7 +5,7 @@ extern crate core;
 use crate::fern::FernLexer;
 use crate::grammar::opg::{OpGrammar, RawGrammar};
 use crate::lexer::{split_mmap_into_chunks, Data, ParallelLexer};
-use crate::parser::ParallelParser;
+use crate::parser::Parser;
 use crossbeam_queue::SegQueue;
 use fern::FernParseTree;
 use flexi_logger::Logger;

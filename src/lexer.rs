@@ -96,7 +96,7 @@ where
         let new_queue: Arc<SegQueue<WorkUnit>> = Arc::new(SegQueue::new());
         let (send, recv) = crossbeam_channel::bounded(threads);
         let outputs: HashMap<String, Batch> = HashMap::new();
-        // info!("entering: {:?}", table.start_states);
+        info!("starts: {:?}", table.start_states);
 
         let mut handles = vec![];
         for _ in 0..threads {
@@ -107,10 +107,8 @@ where
             let parker = Parker::new();
             let unparker = parker.unparker().clone();
 
-            info!("Before spawning thread");
             handles.push((
                 scope.spawn(move || {
-                    info!("Inside thread");
                     let mut should_run = true;
                     while should_run {
                         let task = new_queue.pop();
@@ -165,7 +163,6 @@ where
                 }),
                 unparker,
             ));
-            info!("After spawned thread");
         }
         return Self {
             connection: send,
@@ -306,6 +303,10 @@ pub fn split_mmap_into_chunks<'a>(mmap: &'a mut Mmap, step: usize) -> Result<Vec
     let mut indices = vec![];
     let mut i = 0;
     let mut prev = 0;
+
+    if mmap.len() < step {
+        return Ok(vec![&mmap[..]]);
+    }
 
     while i < mmap.len() {
         if mmap[i] as char != ' ' && mmap[i] as char != '\n' {

@@ -18,7 +18,6 @@ use std::time::{Duration, Instant};
 
 #[derive(Clone)]
 pub struct Node {
-    pub id: Option<Id>,
     pub symbol: Token,
     pub data: Option<Data>,
     pub children: Vec<Node>,
@@ -27,7 +26,6 @@ pub struct Node {
 impl Node {
     pub fn new(symbol: Token, data: Option<Data>) -> Self {
         Self {
-            id: None,
             symbol,
             data,
             children: Vec::new(),
@@ -40,6 +38,7 @@ pub struct TokenGrammarTuple {
     data: Option<Data>,
     pub token: Token,
     id: u64,
+    tree_id: Option<Id>,
     associativity: Associativity,
 }
 
@@ -50,11 +49,23 @@ impl TokenGrammarTuple {
             associativity,
             id,
             data,
+            tree_id: None,
         }
     }
 }
 
-pub struct ParallelParser {
+pub struct PartialParseTree {
+    parser: Parser,
+}
+
+impl PartialParseTree {
+    pub fn merge(&mut self, tree: PartialParseTree) {}
+    pub fn into_tree(self) -> ParseTree {
+        self.parser.tree
+    }
+}
+
+pub struct Parser {
     tree: ParseTree,
     stack: Vec<TokenGrammarTuple>,
     pub g: OpGrammar,
@@ -67,9 +78,8 @@ pub struct ParallelParser {
     pub time_spent_rule_searching: Duration,
 }
 
-impl ParallelParser {
-    pub fn new(grammar: OpGrammar, threads: usize) -> Self {
-        let _ = threads;
+impl Parser {
+    pub fn new(grammar: OpGrammar) -> Self {
         let mut terminals_set = bittyset::BitSet::<Token>::new();
         grammar.terminals.iter().for_each(|x| {
             terminals_set.insert(*x as usize);
@@ -102,19 +112,17 @@ impl ParallelParser {
         return parser;
     }
 
-    pub fn parse(&mut self, tokens: LinkedList<(Vec<Token>, Vec<Data>)>) {
-        for (tokens, data) in tokens {
-            let mut iter = data.into_iter();
-            for (i, t) in tokens.iter().enumerate() {
-                if let Some(data) = iter.next() {
-                    if data.token_index == i {
-                        self.consume_token(*t, Some(data)).expect("Parser raised an exception.");
-                    } else {
-                        self.consume_token(*t, None).expect("Parser raised an exception.");
-                    }
+    pub fn parse(&mut self, tokens: Vec<Token>, data: Vec<Data>) {
+        let mut iter = data.into_iter();
+        for (i, t) in tokens.iter().enumerate() {
+            if let Some(data) = iter.next() {
+                if data.token_index == i {
+                    self.consume_token(*t, Some(data)).expect("Parser raised an exception.");
                 } else {
                     self.consume_token(*t, None).expect("Parser raised an exception.");
                 }
+            } else {
+                self.consume_token(*t, None).expect("Parser raised an exception.");
             }
         }
     }
@@ -124,10 +132,16 @@ impl ParallelParser {
         return self.highest_id;
     }
 
+    pub fn push(&mut self, mut tuple: TokenGrammarTuple) {
+        let id = self.tree.push(tuple.token);
+        tuple.tree_id = Some(id);
+        self.stack.push(tuple);
+    }
+
     fn consume_token(&mut self, token: Token, data: Option<Data>) -> Result<(), Box<dyn Error>> {
         if self.stack.is_empty() {
             let t = TokenGrammarTuple::new(token, Associativity::Left, self.gen_id(), data);
-            self.stack.push(t);
+            self.push(t);
             return Ok(());
         }
 
@@ -152,7 +166,7 @@ impl ParallelParser {
             let y = if self.g.delim != token {
                 if let None = y {
                     let t = TokenGrammarTuple::new(token, Associativity::Left, self.gen_id(), data);
-                    self.stack.push(t);
+                    self.push(t);
                     return Ok(());
                 }
                 y.unwrap()
@@ -184,21 +198,21 @@ impl ParallelParser {
 
             if precedence == Associativity::Left {
                 let t = TokenGrammarTuple::new(token, Associativity::Left, self.gen_id(), data);
-                self.stack.push(t);
+                self.push(t);
                 debug!("{} Append", self.iteration);
                 return Ok(());
             }
 
             if precedence == Associativity::Equal {
                 let t = TokenGrammarTuple::new(token, Associativity::Equal, self.gen_id(), data);
-                self.stack.push(t);
+                self.push(t);
                 debug!("{} Append", self.iteration);
                 return Ok(());
             }
 
             if self.non_terminals_set.contains(token as usize) {
                 let t = TokenGrammarTuple::new(token, Associativity::Undefined, self.gen_id(), data);
-                self.stack.push(t);
+                self.push(t);
                 debug!("{}, Append", self.iteration);
                 return Ok(());
             }
@@ -213,7 +227,7 @@ impl ParallelParser {
 
                 if i < 0 && token != self.g.delim {
                     let t = TokenGrammarTuple::new(token, Associativity::Right, self.gen_id(), data);
-                    self.stack.push(t);
+                    self.push(t);
                     debug!("{}, Append", self.iteration);
                     return Ok(());
                 } else if i - 1 >= 0 {
@@ -278,19 +292,22 @@ impl ParallelParser {
             for _ in 0..rule.right.len() {
                 let current = self.stack.remove((i + offset) as usize);
                 if self.open_nodes.contains_key(&current.id) {
-                    let sub_tree = self.open_nodes.remove(&current.id).unwrap();
-                    children.push((sub_tree.id, sub_tree.symbol));
-                } else {
-                    let leaf = Node::new(current.token, current.data);
-                    children.push((leaf.id, leaf.symbol));
+                    self.open_nodes.remove(&current.id).unwrap();
                 }
+                children.push(current.tree_id.unwrap());
             }
 
             let p_id = self.tree.reduce(rule.left, &children);
-            let mut parent = Node::new(rule.left, None);
-            parent.id = Some(p_id);
+            let parent = Node::new(rule.left, None);
 
-            let left = TokenGrammarTuple::new(rule.left, Associativity::Undefined, self.gen_id(), None);
+            let mut left = TokenGrammarTuple::new(rule.left, Associativity::Undefined, self.gen_id(), None);
+            left.tree_id = Some(p_id);
+            for n in &mut self.stack {
+                if n.tree_id.unwrap() > p_id {
+                    *n.tree_id.as_mut().unwrap() += 1;
+                }
+            }
+
             self.open_nodes.insert(left.id, parent);
             self.stack.insert((i + offset) as usize, left);
             debug!("{} Reduce", self.iteration);
@@ -302,7 +319,7 @@ impl ParallelParser {
         }
     }
 
-    fn expand(n: &mut Node, p: &ParallelParser) {
+    fn expand(n: &mut Node, p: &Parser) {
         trace!("Expanding: {}", p.g.token_raw.get(&n.symbol).unwrap());
         let term_list = p.g.new_non_terminal_reverse.get(&n.symbol);
         let term_list = if let Some(list) = term_list {
@@ -333,7 +350,7 @@ impl ParallelParser {
         trace!("{} Stack: {}", self.iteration, output);
     }
 
-    pub fn collect_parse_tree(self) -> Result<ParseTree, Box<dyn Error>> {
+    pub fn collect_parse_tree(self) -> Result<PartialParseTree, Box<dyn Error>> {
         let mut output = String::new();
         for (id, _) in &self.open_nodes {
             for t in &self.stack {
@@ -346,15 +363,6 @@ impl ParallelParser {
         debug!("{} FINAL Open nodes: {}", self.iteration, output);
         self.print_stack();
 
-        if self.open_nodes.len() == 1 {
-            let mut nodes: Vec<Node> = self.open_nodes.clone().into_iter().map(|(_, v)| v).collect();
-            let mut root = nodes.remove(0);
-            for child in &mut root.children {
-                Self::expand(child, &self);
-            }
-            return Ok(self.tree);
-        } else {
-            panic!("Cannot create parse tree.");
-        }
+        return Ok(PartialParseTree { parser: self });
     }
 }

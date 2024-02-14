@@ -22,12 +22,11 @@ pub type Id = usize;
 pub struct Node {
     token: usize,
     child_count: usize,
-    total: usize,
 }
 
 impl Node {
-    fn new(token: usize, total: usize) -> Self {
-        Self { token, child_count: 0, total }
+    fn new(token: usize) -> Self {
+        Self { token, child_count: 0 }
     }
 }
 
@@ -51,65 +50,28 @@ impl ParseTree {
         }
     }
 
-    /// Take a list of nodes and create a parent over them. Returns the id of the parent.
-    pub fn reduce(&mut self, parent: Token, children: &[(Option<Id>, Token)]) -> Id {
-        let mut parent_total = 0;
-        let mut pivot: Option<Id> = None;
-        let mut b = String::new();
-        for (_, t) in children {
-            b.push_str(format!("{} ", self.token_map.get(t).unwrap()).as_str());
-        }
-        warn!("children: {}", b);
+    pub fn push(&mut self, token: Token) -> Id {
+        self.nodes.push(Node::new(token));
+        return self.nodes.len() - 1;
+    }
 
-        for (existing_id, new_token) in children.iter().rev() {
-            if let Some(id) = existing_id {
-                let total = self.nodes.get(*id).unwrap().total;
-                parent_total += total;
-                pivot = Some((id + 1) - total);
-
-                warn!(
-                    "pivot: ({}, token: {}, total: {}, children: {})",
-                    (id + 1) - total,
-                    self.token_map.get(&self.nodes.get((id + 1) - total).unwrap().token).unwrap(),
-                    &self.nodes.get(*id).unwrap().total,
-                    &self.nodes.get(*id).unwrap().child_count
-                );
-            } else if let Some(id) = pivot {
-                self.nodes.insert(id, Node::new(*new_token, 1));
-                parent_total += 1;
-            } else {
-                self.nodes.push(Node::new(*new_token, 1));
-                parent_total += 1;
-            }
-        }
-
-        let m = children.iter().min().unwrap();
-        let mut p = Node::new(parent, parent_total + 1);
+    pub fn reduce(&mut self, parent: Token, children: &[Id]) -> Id {
+        let m = children.iter().max().unwrap();
+        let mut p = Node::new(parent);
         p.child_count = children.len();
-        self.nodes.push(p);
-
-        let mut b = String::new();
-        for n in &self.nodes {
-            b.push_str(format!("({}, {}) ", self.token_map.get(&n.token).unwrap(), n.total).as_str());
+        if *m + 1 >= self.nodes.len() {
+            self.nodes.push(p);
+        } else {
+            self.nodes.insert(*m + 1, p);
         }
-        warn!("after: {}", b);
-
-        self.nodes.len() - 1
+        *m + 1
     }
 
     pub fn pre_order_traverse<F: FnMut(&Vec<(Option<usize>, usize)>, usize)>(&self, mut f: F) {
         let mut stack = Vec::from(&[(None, self.nodes.last().unwrap().child_count)]);
 
         for (i, n) in self.nodes.iter().enumerate().rev() {
-            warn!("{:?}", stack);
-            let n_t = &self.nodes[i];
             let last = stack.last_mut().unwrap();
-            // warn!(
-            //     "last.1: {}, token: {}, children: {}",
-            //     last.1,
-            //     self.token_map.get(&n_t.token).unwrap(),
-            //     n_t.child_count
-            // );
             last.1 -= 1;
 
             f(&stack, i);

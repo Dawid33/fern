@@ -1,9 +1,9 @@
 use crate::grammar::lg::{self, LexingTable, LookupResult, State};
 use crate::grammar::opg::{OpGrammar, RawGrammar, Token};
-use crate::lexer::{Data, LexerError, LexerInterface, ParallelLexer};
-use crate::parser::{Node, ParallelParser};
+use crate::lexer::{split_mmap_into_chunks, Data, LexerError, LexerInterface, ParallelLexer};
+use crate::parser::{Node, Parser, PartialParseTree};
 use crate::parsetree::ParseTree;
-use log::{info, warn};
+use log::{info, trace, warn};
 use memmap::MmapOptions;
 use simple_error::SimpleError;
 use std::borrow::Cow;
@@ -58,16 +58,18 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     let name_token = table.terminal_map.iter().position(|x| x == "NAME").unwrap();
     warn!("{}", name_token);
     table.add_table(name_token, keywords);
-    table.start_states = Vec::from(&[0]);
 
     let lex_time = Instant::now();
     let tokens: LinkedList<(Vec<Token>, Vec<Data>)> = {
         let file = File::open("data/test.fern")?;
-        let mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
+        let mut mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
+        let chunks = split_mmap_into_chunks(&mut mmap, 1000).unwrap();
         thread::scope(|s| {
             let mut lexer: ParallelLexer<FernLexer> = ParallelLexer::new(table.clone(), s, 1);
             let batch = lexer.new_batch();
-            lexer.add_to_batch(&batch, &mmap[..], 0);
+            for task in chunks.iter().enumerate() {
+                lexer.add_to_batch(&batch, task.1, task.0);
+            }
             let tokens = lexer.collect_batch(batch);
             lexer.kill();
             tokens
@@ -91,12 +93,21 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     grammar.to_file("data/grammar/fern-fnf.g");
 
     let parse_time = Instant::now();
-    let (tree, time): (ParseTree, Duration) = {
-        let mut parser = ParallelParser::new(grammar.clone(), 1);
-        parser.parse(tokens);
-        parser.parse(LinkedList::from([(vec![grammar.delim], Vec::new())]));
-        let time = parser.time_spent_rule_searching.clone();
-        (parser.collect_parse_tree().unwrap(), time)
+    let tree: ParseTree = {
+        let mut trees = Vec::new();
+        for (partial_tokens, partial_data) in tokens {
+            let mut parser = Parser::new(grammar.clone());
+            parser.parse(partial_tokens, partial_data);
+            parser.parse(vec![grammar.delim], Vec::new());
+            trees.push(parser.collect_parse_tree().unwrap());
+        }
+
+        trees.reverse();
+        let mut first = trees.pop().unwrap();
+        while let Some(tree) = trees.pop() {
+            first.merge(tree);
+        }
+        first.into_tree()
     };
     let parse_time = parse_time.elapsed();
 
@@ -108,7 +119,7 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     info!("Time to lex: {:?}", lex_time);
     info!("Time to build parsing grammar: {:?}", grammar_time);
     info!("Time to parse: {:?}", parse_time);
-    info!("└─Time spent rule-searching: {:?}", time);
+    // info!("└─Time spent rule-searching: {:?}", time);
     info!("Total run time : {:?}", start.elapsed());
 
     // let ast: Box<AstNode> = Box::from(tree.build_ast().unwrap());
@@ -214,11 +225,11 @@ impl LexerInterface for FernLexer {
                         }
                     }
 
-                    info!("c, t: {}, {}", input as char, self.table.terminal_map[t]);
+                    trace!("c, t: {}, {}", input as char, self.table.terminal_map[t]);
                     if t != self.whitespace_token {
-                        let t2 = if self.had_whitespace { &self.whitespace_token } else { &t };
-                        // warn!("t2: {}", self.table.terminal_map[*t2]);
-                        self.look_ahead(*t2);
+                        let mut t2 = if self.had_whitespace { self.whitespace_token } else { t };
+                        self.look_ahead(&mut t2);
+                        self.look_ahead_no_whitespace(&mut t);
                         self.tokens.push(t);
                         self.data.push(Data {
                             token_index: self.tokens.len() - 1,
@@ -237,7 +248,7 @@ impl LexerInterface for FernLexer {
                     self.state = s;
                 }
                 LookupResult::Err => {
-                    warn!("Lexing Error when transitioning state. state : {}", self.state);
+                    trace!("Lexing Error when transitioning state. state : {}", self.state);
                 }
             }
         }
@@ -249,23 +260,23 @@ impl LexerInterface for FernLexer {
 }
 
 impl FernLexer {
-    fn look_ahead(&mut self, t2: Token) -> Token {
+    fn look_ahead(&mut self, t2: &mut Token) {
         if let Some(t1) = self.tokens.last() {
-            warn!("look_ahead {}, {}", self.table.terminal_map[*t1], self.table.terminal_map[t2]);
-            if *t1 == self.minus && (t2 == self.name_token || t2 == self.lparen) {
+            trace!("look_ahead {}, {}", self.table.terminal_map[*t1], self.table.terminal_map[*t2]);
+            if *t1 == self.minus && (*t2 == self.name_token || *t2 == self.lparen) {
                 *self.tokens.last_mut().unwrap() = self.unary_minus;
-                return t2;
-            }
-            if *t1 == self.rbrace {
-                if t2 == self.let_t || t2 == self.name_token {
-                    self.tokens.push(self.semi);
-                }
-                return t2;
             }
         }
-        t2
     }
-    fn should_insert_semi(t1: Token, t2: Token) {}
+    fn look_ahead_no_whitespace(&mut self, t2: &mut Token) {
+        if let Some(t1) = self.tokens.last() {
+            if *t1 == self.rbrace {
+                if *t2 == self.let_t || *t2 == self.name_token {
+                    self.tokens.push(self.semi);
+                }
+            }
+        }
+    }
 }
 
 // #[derive(Clone)]
