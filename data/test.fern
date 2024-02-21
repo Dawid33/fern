@@ -1,5 +1,9 @@
 
-let x = 0;
-let y = 0;
-let y = 0;
-let y = 0;
+
+fn factorial[n: int] {
+	if n == 0 {
+		return 1;
+	} 
+
+	return (n * factorial(n - 1));
+}

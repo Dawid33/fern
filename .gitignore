@@ -5,3 +5,4 @@
 log.toml
 perf.data*
 *.dot
+*.png

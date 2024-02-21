@@ -47,10 +47,10 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     file.read_to_string(&mut buf).unwrap();
     let g = lg::LexicalGrammar::from(buf.clone());
     let nfa = lg::StateGraph::from(g.clone());
-    let mut f = File::create("nfa.dot").unwrap();
+    let mut f = File::create("keyword_nfa.dot").unwrap();
     lg::render(&nfa, &mut f);
     let dfa = nfa.convert_to_dfa();
-    let mut f = File::create("dfa.dot").unwrap();
+    let mut f = File::create("keyword_dfa.dot").unwrap();
     lg::render(&dfa, &mut f);
     let keywords = dfa.build_table();
     let second_lg = second_lg.elapsed();
@@ -111,11 +111,11 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     let parse_time = parse_time.elapsed();
 
     tree.print();
-    // let mut f = File::create("ptree.dot").unwrap();
-    // tree.dot(&mut f).unwrap();
+    let mut f = File::create("ptree.dot").unwrap();
+    tree.dot(&mut f).unwrap();
     let ast: FernAst = tree.into();
     ast.print();
-    let mut f = File::create("ptree.dot").unwrap();
+    let mut f = File::create("ast.dot").unwrap();
     ast.dot(&mut f).unwrap();
 
     info!("Time to build first lexical grammar: {:?}", first_lg);
