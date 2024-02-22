@@ -37,8 +37,6 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     lg::render(&dfa, &mut f);
     let mut table = dfa.build_table();
     table.terminal_map.push("UMINUS".to_string());
-    table.terminal_map.push("LPARENFUNC".to_string());
-    table.terminal_map.push("RPARENFUNC".to_string());
     let first_lg = first_lg.elapsed();
     buf.clear();
 

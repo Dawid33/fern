@@ -25,6 +25,7 @@ use std::thread;
 use std::thread::{current, park};
 use std::time::{Duration, Instant};
 
+mod eslang;
 mod fern;
 mod grammar;
 mod json;
@@ -36,7 +37,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     Logger::try_with_str("trace, core::grammar = info")?
         .format(flexi_logger::colored_default_format)
         .start_with_specfile("log.toml")?;
-    fern::compile()?;
+    // fern::compile()?;
     // json::compile()?;
+    eslang::compile()?;
     Ok(())
 }

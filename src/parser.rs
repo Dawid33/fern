@@ -288,9 +288,6 @@ impl Parser {
 
             // Take stuff off stack that will become new parents children.
             let mut children = Vec::new();
-            for t in &rule.right {
-                warn!("{:?}", self.tree.token_map.get(t));
-            }
             for _ in 0..rule.right.len() {
                 let current = self.stack.remove((i + offset) as usize);
                 if self.open_nodes.contains_key(&current.id) {
