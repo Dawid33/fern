@@ -50,12 +50,14 @@ impl ParseTree {
         let m = children.iter().max().unwrap();
         let mut p = Node::new(parent);
         p.child_count = children.len();
+
         if *m + 1 >= self.nodes.len() {
             self.nodes.push(p);
+            self.nodes.len() - 1
         } else {
             self.nodes.insert(*m + 1, p);
+            m + 1
         }
-        *m + 1
     }
 
     fn pre_order_traverse<F: FnMut(&Vec<(Option<usize>, usize)>, usize)>(&self, mut f: F) {

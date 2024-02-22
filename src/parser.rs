@@ -288,7 +288,9 @@ impl Parser {
 
             // Take stuff off stack that will become new parents children.
             let mut children = Vec::new();
-            // flatten any non-terminal children that have only one node.
+            for t in &rule.right {
+                warn!("{:?}", self.tree.token_map.get(t));
+            }
             for _ in 0..rule.right.len() {
                 let current = self.stack.remove((i + offset) as usize);
                 if self.open_nodes.contains_key(&current.id) {
@@ -303,7 +305,7 @@ impl Parser {
             let mut left = TokenGrammarTuple::new(rule.left, Associativity::Undefined, self.gen_id(), None);
             left.tree_id = Some(p_id);
             for n in &mut self.stack {
-                if n.tree_id.unwrap() > p_id {
+                if n.tree_id.unwrap() >= p_id {
                     *n.tree_id.as_mut().unwrap() += 1;
                 }
             }

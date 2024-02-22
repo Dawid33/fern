@@ -36,7 +36,7 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     let tokens: LinkedList<(Vec<Token>, Vec<Data>)> = {
         let file = File::open("data/test.json")?;
         let mut mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
-        let chunks = split_mmap_into_chunks(&mut mmap, 5).unwrap();
+        let chunks = split_mmap_into_chunks(&mut mmap, 10000).unwrap();
         thread::scope(|s| {
             let mut lexer: ParallelLexer<JsonLexer> = ParallelLexer::new(table.clone(), s, 4);
             let batch = lexer.new_batch();
@@ -64,21 +64,32 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     let grammar_time = grammar_time.elapsed();
     grammar.to_file("data/grammar/json-fnf.g");
 
-    // let parse_time = Instant::now();
-    // let (tree, time): (ParseTree, Duration) = {
-    //     let mut parser = Parser::new(grammar.clone(), 1);
-    //     parser.parse(tokens);
-    //     parser.parse(LinkedList::from([(vec![grammar.delim], Vec::new())]));
-    //     let time = parser.time_spent_rule_searching.clone();
-    //     (parser.collect_parse_tree().unwrap(), time)
-    // };
-    // let parse_time = parse_time.elapsed();
+    let parse_time = Instant::now();
+    let tree: ParseTree = {
+        let mut trees = Vec::new();
+        for (partial_tokens, partial_data) in tokens {
+            let mut parser = Parser::new(grammar.clone());
+            parser.parse(partial_tokens, partial_data);
+            parser.parse(vec![grammar.delim], Vec::new());
+            trees.push(parser.collect_parse_tree().unwrap());
+        }
 
-    // tree.print();
+        trees.reverse();
+        let mut first = trees.pop().unwrap();
+        while let Some(tree) = trees.pop() {
+            first.merge(tree);
+        }
+        first.into_tree()
+    };
+    let parse_time = parse_time.elapsed();
+
+    tree.print();
+    let mut f = File::create("ptree.dot").unwrap();
+    tree.dot(&mut f).unwrap();
     info!("Time to build lexical grammar: {:?}", lg);
     info!("Time to lex: {:?}", lex_time);
     info!("Time to build parsing grammar: {:?}", grammar_time);
-    // info!("Time to parse: {:?}", parse_time);
+    info!("Time to parse: {:?}", parse_time);
     // info!("└─Time spent rule-searching: {:?}", time);
     info!("Total run time : {:?}", start.elapsed());
 

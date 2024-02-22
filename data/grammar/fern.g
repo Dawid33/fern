@@ -94,6 +94,7 @@
 %terminal EQ
 %terminal QUESTIONMARK
 %terminal STRUCT
+%terminal COMMENT
 
 %%
 
@@ -114,7 +115,6 @@ stat : baseExp EQ expr
 	| LBRACE RBRACE
 	| WHILE expr LBRACE statList RBRACE
 	| WHILE expr LBRACE RBRACE
-	| FUNCTION funcName LBRACK nameList RBRACK LBRACE statList RBRACE
 	| IF exprThen RBRACE
 	| IF exprThen RBRACE elseIfBlock
 	| STRUCT baseExp LBRACE RBRACE
@@ -122,7 +122,7 @@ stat : baseExp EQ expr
 	| FUNCTION baseExp LBRACK RBRACK LBRACE statList RBRACE
 	| FUNCTION baseExp LBRACK fieldList RBRACK LBRACE statList RBRACE
 	| FUNCTION baseExp LBRACK fieldList RBRACK LBRACE RBRACE
-	| FUNCTION baseExp LBRACK baseExp RBRACK LBRACE statList LBRACK
+	| FUNCTION baseExp LBRACK baseExp RBRACK LBRACE statList RBRACE
 	| FUNCTION baseExp LBRACK baseExp RBRACK LBRACE RBRACE
 	| FUNCTION baseExp LBRACK RBRACK LBRACE RBRACE
 	| FOR nameList IN exprList LBRACE statList RBRACE

@@ -113,10 +113,11 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     tree.print();
     let mut f = File::create("ptree.dot").unwrap();
     tree.dot(&mut f).unwrap();
-    let ast: FernAst = tree.into();
-    ast.print();
-    let mut f = File::create("ast.dot").unwrap();
-    ast.dot(&mut f).unwrap();
+
+    // let ast: FernAst = tree.into();
+    // ast.print();
+    // let mut f = File::create("ast.dot").unwrap();
+    // ast.dot(&mut f).unwrap();
 
     info!("Time to build first lexical grammar: {:?}", first_lg);
     info!("Time to build second lexical grammar: {:?}", second_lg);
@@ -160,6 +161,7 @@ pub struct FernLexer {
     name_token: Token,
     lparen: Token,
     rparen: Token,
+    comment: Token,
 }
 
 impl LexerInterface for FernLexer {
@@ -177,6 +179,7 @@ impl LexerInterface for FernLexer {
         let rbrace = table.terminal_map.iter().position(|x| x == "RBRACE").unwrap();
         let lbrace = table.terminal_map.iter().position(|x| x == "LBRACE").unwrap();
         let semi = table.terminal_map.iter().position(|x| x == "SEMI").unwrap();
+        let comment = table.terminal_map.iter().position(|x| x == "COMMENT").unwrap();
 
         Self {
             table,
@@ -200,6 +203,7 @@ impl LexerInterface for FernLexer {
             while_t,
             return_t,
             fn_t,
+            comment,
         }
     }
     fn consume(&mut self, input: u8) -> Result<(), LexerError> {
@@ -230,7 +234,7 @@ impl LexerInterface for FernLexer {
                     }
 
                     trace!("c, t: {}, {}", input as char, self.table.terminal_map[t]);
-                    if t != self.whitespace_token {
+                    if t != self.whitespace_token && t != self.comment {
                         let mut t2 = if self.had_whitespace { self.whitespace_token } else { t };
                         self.look_ahead(&mut t2);
                         self.look_ahead_no_whitespace(&mut t);

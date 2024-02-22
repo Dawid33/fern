@@ -1,3 +1,4 @@
+%nonterminal chunk
 %nonterminal OBJECT
 %nonterminal MEMBERS
 %nonterminal PAIR
