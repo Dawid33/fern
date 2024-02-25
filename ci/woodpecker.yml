@@ -1,5 +1,5 @@
 steps:
-  - publish-base:
+  - name: publish-base
     image: plugins/docker
     settings:
       dockerfile: ci/ci-base.dockerfile
@@ -12,7 +12,7 @@ steps:
     when:
       path: ["ci/ci-base.dockerfile"]
 
-  - build:
+  - name: build
     image: 192.168.1.50:9003/dawids/fern-base:latest
     pull: true
     commands:
@@ -20,7 +20,7 @@ steps:
     volumes:
       - /cargo:/cargo
 
-  - test:
+  - name: test
     image: 192.168.1.50:9003/dawids/fern-base:latest
     commands:
       - CARGO_HOME=/cargo cargo test
