@@ -6,14 +6,14 @@ pipeline:
       username: dawids
       password:
         from_secret: docker_password
-      repo: git.dawidsobczak.com/dawids/fern-base
-      registry: git.dawidsobczak.com
+      repo: 192.168.1.50:9003/dawids/fern-base
+      registry: 192.168.1.50:9003
       tags: latest
     when:
       path: ["ci/ci-base.dockerfile"]
 
   build:
-    image: git.dawidsobczak.com/dawids/fern-base:latest
+    image: 192.168.1.50:9003/dawids/fern-base:latest
     pull: true
     commands:
       - CARGO_HOME=/cargo cargo build
@@ -21,25 +21,25 @@ pipeline:
       - /cargo:/cargo
 
   test:
-    image: git.dawidsobczak.com/dawids/fern-base:latest
+    image: 192.168.1.50:9003/dawids/fern-base:latest
     commands:
       - CARGO_HOME=/cargo cargo test
     volumes:
       - /cargo:/cargo
 
-  benchmark:
-    image: git.dawidsobczak.com/dawids/fern-base:latest
-    commands:
-      - CARGO_HOME=/cargo ./ci/bench.sh
-    volumes:
-      - /cargo:/cargo
+  # benchmark:
+  #   image: 192.168.1.50:9003/dawids/fern-base:latest
+  #   commands:
+  #     - CARGO_HOME=/cargo ./ci/bench.sh
+  #   volumes:
+  #     - /cargo:/cargo
 
-  upload-benchmark:
-    image: cschlosser/drone-ftps
-    settings:
-      hostname: dawidsobczak.com:9999
-      src_dir: /${CI_COMMIT_SHA}
-      dest_dir: /${CI_COMMIT_SHA}
-      secure: false
-      chmod: false
-    secrets: [ftp_username, ftp_password]
+  # upload-benchmark:
+  #   image: cschlosser/drone-ftps
+  #   settings:
+  #     hostname: dawidsobczak.com:9999
+  #     src_dir: /${CI_COMMIT_SHA}
+  #     dest_dir: /${CI_COMMIT_SHA}
+  #     secure: false
+  #     chmod: false
+  #   secrets: [ftp_username, ftp_password]
