@@ -1,31 +1,41 @@
 steps:
-  - name: publish-base
-    image: plugins/docker
-    settings:
-      dockerfile: ci/ci-base.dockerfile
-      username: dawids
-      password:
-        from_secret: docker_password
-      repo: 192.168.1.50:9003/dawids/fern-base
-      registry: 192.168.1.50:9003
-      tags: latest
-    when:
-      path: ["ci/ci-base.dockerfile"]
-
   - name: build
-    image: 192.168.1.50:9003/dawids/fern-base:latest
-    pull: true
+    image: debian
     commands:
-      - CARGO_HOME=/cargo cargo build
-    volumes:
-      - /cargo:/cargo
+      - echo "This is the build step"
+  - name: a-test-step
+    image: debian
+    commands:
+      - echo "Testing.."
 
-  - name: test
-    image: 192.168.1.50:9003/dawids/fern-base:latest
-    commands:
-      - CARGO_HOME=/cargo cargo test
-    volumes:
-      - /cargo:/cargo
+# steps:
+#   - name: publish-base
+#     image: plugins/docker
+#     settings:
+#       dockerfile: ci/ci-base.dockerfile
+#       username: dawids
+#       password:
+#         from_secret: docker_password
+#       repo: 192.168.1.50:9003/dawids/fern-base
+#       registry: 192.168.1.50:9003
+#       tags: latest
+#     when:
+#       path: ["ci/ci-base.dockerfile"]
+
+#   - name: build
+#     image: 192.168.1.50:9003/dawids/fern-base:latest
+#     pull: true
+#     commands:
+#       - CARGO_HOME=/cargo cargo build
+#     volumes:
+#       - /cargo:/cargo
+
+#   - name: test
+#     image: 192.168.1.50:9003/dawids/fern-base:latest
+#     commands:
+#       - CARGO_HOME=/cargo cargo test
+#     volumes:
+#       - /cargo:/cargo
 
   # benchmark:
   #   image: 192.168.1.50:9003/dawids/fern-base:latest
