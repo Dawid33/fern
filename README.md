@@ -9,9 +9,16 @@ A parallel compiler implementation. Name is wip.
 Use rust nightly-2023-06-28 
 
 ## Intro  
-Lexer / parser is based on [this paper](https://doi.org/10.1016/j.scico.2015.09.002). Ir code and code gen is much more wip and ad hoc as I'm going by trial and error. If I find some decent research for ir or code gen then I'll implement it instead.
+Lexer / parser is based on [this paper](https://doi.org/10.1016/
+j.scico.2015.09.002). Ir code and code gen is much more wip and ad hoc as I'm
+going by trial and error. If I find some decent research for ir or code gen then
+I'll implement it instead.
 
-The general goal is to write a compiler for a functional (not the paradigm, functional as in practical) language where each stage of the compiler is fully parallel. The only noticeable output right now (and for the foreseeable future) is graphs in dot language. `ast.dot` is the abstract syntax tree and `ir.dot` is the intermediate representation. Example graphs:
+The general goal is to write a compiler for a functional (not the paradigm,
+functional as in practical) language where each stage of the compiler is fully
+parallel. The only noticeable output right now (and for the foreseeable future)
+is graphs in dot language. `ast.dot` is the abstract syntax tree and `ir.dot` is
+the intermediate representation. Example graphs:
 
 ### AST
 ```
@@ -49,7 +56,8 @@ fn main (argc, argv) {
 ![ir.png](ir.png)
 
 ## Syntax goals
-This is the syntax I'm aiming for. the grammar isn't fully fleshed out yet so this isn't parseable yet
+This is the syntax I'm aiming for. the grammar isn't fully fleshed out yet so
+this isn't parseable yet
 ```
 let print = @include("std").print;
 
