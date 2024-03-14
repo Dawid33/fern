@@ -477,7 +477,7 @@ impl StateGraph {
 
 #[derive(Debug, Clone)]
 pub struct LexingTable {
-    table: HashMap<u8, HashMap<usize, usize>>,
+    pub table: HashMap<u8, HashMap<usize, usize>>,
     terminals: HashMap<State, Token>,
     pub start_states: Vec<usize>,
     pub sub_tables: HashMap<Token, (LexingTable, usize)>,

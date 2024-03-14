@@ -1,4 +1,4 @@
-use log::{info, trace, warn};
+use log::{debug, info, trace, warn};
 use memmap::MmapOptions;
 
 use crate::fern::{FernLexer, FernParseTree};
@@ -48,69 +48,73 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     let keywords = dfa.build_table();
     let second_lg = second_lg.elapsed();
 
-    let name_token = table.terminal_map.iter().position(|x| x == "NAME").unwrap();
-    table.add_table(name_token, keywords);
-
-    let lex_time = Instant::now();
-    let tokens: LinkedList<(Vec<Token>, Vec<Data>)> = {
-        let file = File::open("data/test.eslang")?;
-        let mut mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
-        let chunks = split_mmap_into_chunks(&mut mmap, 50000).unwrap();
-        thread::scope(|s| {
-            let mut lexer: ParallelLexer<EslangLexer> = ParallelLexer::new(table.clone(), s, 4);
-            let batch = lexer.new_batch();
-            for task in chunks.iter().enumerate() {
-                lexer.add_to_batch(&batch, task.1, task.0);
-            }
-            let tokens = lexer.collect_batch(batch);
-            lexer.kill();
-            tokens
-        })
-    };
-    let lex_time = lex_time.elapsed();
-
-    trace!("{:?}", &tokens);
-    for (l, _) in &tokens {
-        for t in l {
-            trace!("{}", table.terminal_map[*t]);
-        }
+    for x in keywords.table {
+        println!("{:?}, {:?}", x.0 as char, x.1);
     }
 
-    let grammar_time = Instant::now();
-    let mut raw = RawGrammar::from("data/grammar/eslang.g", table.terminal_map.clone())?;
-    raw.delete_repeated_rhs()?;
-    let grammar = OpGrammar::new(raw)?;
-    let grammar_time = grammar_time.elapsed();
+    // let name_token = table.terminal_map.iter().position(|x| x == "TEXT").unwrap();
+    // table.add_table(name_token, keywords);
 
-    let parse_time = Instant::now();
-    let tree: ParseTree = {
-        let mut trees = Vec::new();
-        for (partial_tokens, partial_data) in tokens {
-            let mut parser = Parser::new(grammar.clone());
-            parser.parse(partial_tokens, partial_data);
-            parser.parse(vec![grammar.delim], Vec::new());
-            trees.push(parser.collect_parse_tree().unwrap());
-        }
+    // let lex_time = Instant::now();
+    // let tokens: LinkedList<(Vec<Token>, Vec<Data>)> = {
+    //     let file = File::open("data/test.eslang")?;
+    //     let mut mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
+    //     let chunks = split_mmap_into_chunks(&mut mmap, 50000).unwrap();
+    //     thread::scope(|s| {
+    //         let mut lexer: ParallelLexer<EslangLexer> = ParallelLexer::new(table.clone(), s, 1);
+    //         let batch = lexer.new_batch();
+    //         for task in chunks.iter().enumerate() {
+    //             lexer.add_to_batch(&batch, task.1, task.0);
+    //         }
+    //         let tokens = lexer.collect_batch(batch);
+    //         lexer.kill();
+    //         tokens
+    //     })
+    // };
+    // let lex_time = lex_time.elapsed();
 
-        trees.reverse();
-        let mut first = trees.pop().unwrap();
-        while let Some(tree) = trees.pop() {
-            first.merge(tree);
-        }
-        first.into_tree()
-    };
-    let parse_time = parse_time.elapsed();
+    // info!("{:?}", &tokens);
+    // for (l, _) in &tokens {
+    //     for t in l {
+    //         info!("{}", table.terminal_map[*t]);
+    //     }
+    // }
 
-    tree.print();
-    let mut f = File::create("ptree.dot").unwrap();
-    tree.dot(&mut f).unwrap();
+    // let grammar_time = Instant::now();
+    // let mut raw = RawGrammar::from("data/grammar/eslang.g", table.terminal_map.clone())?;
+    // raw.delete_repeated_rhs()?;
+    // let grammar = OpGrammar::new(raw)?;
+    // let grammar_time = grammar_time.elapsed();
 
-    info!("Time to build lexical grammar: {:?}", lg);
-    info!("Time to build second lexical grammar: {:?}", second_lg);
-    info!("Time to lex: {:?}", lex_time);
-    info!("Time to build parsing grammar: {:?}", grammar_time);
-    info!("Time to parse: {:?}", parse_time);
-    info!("Total run time : {:?}", start.elapsed());
+    // let parse_time = Instant::now();
+    // let tree: ParseTree = {
+    //     let mut trees = Vec::new();
+    //     for (partial_tokens, partial_data) in tokens {
+    //         let mut parser = Parser::new(grammar.clone());
+    //         parser.parse(partial_tokens, partial_data);
+    //         parser.parse(vec![grammar.delim], Vec::new());
+    //         trees.push(parser.collect_parse_tree().unwrap());
+    //     }
+
+    //     trees.reverse();
+    //     let mut first = trees.pop().unwrap();
+    //     while let Some(tree) = trees.pop() {
+    //         first.merge(tree);
+    //     }
+    //     first.into_tree()
+    // };
+    // let parse_time = parse_time.elapsed();
+
+    // tree.print();
+    // let mut f = File::create("ptree.dot").unwrap();
+    // tree.dot(&mut f).unwrap();
+
+    // info!("Time to build lexical grammar: {:?}", lg);
+    // info!("Time to build second lexical grammar: {:?}", second_lg);
+    // info!("Time to lex: {:?}", lex_time);
+    // info!("Time to build parsing grammar: {:?}", grammar_time);
+    // info!("Time to parse: {:?}", parse_time);
+    // info!("Total run time : {:?}", start.elapsed());
 
     Ok(())
 }
@@ -147,7 +151,7 @@ impl LexerInterface for EslangLexer {
             let result = self.table.get(input, self.state);
             match result {
                 LookupResult::Terminal(mut t) => {
-                    // info!("c, t: {}, {}", input as char, self.table.terminal_map[t]);
+                    info!("c, t: {}, {}", input as char, self.table.terminal_map[t]);
                     if let Some((table, offset)) = self.table.sub_tables.get(&t) {
                         let mut state = 0;
                         let buf = format!("{}", self.buf);
@@ -187,7 +191,7 @@ impl LexerInterface for EslangLexer {
                     self.state = s;
                 }
                 LookupResult::Err => {
-                    // warn!("Lexing Error when transitioning state. state : {}", self.state);
+                    warn!("Lexing Error when transitioning state. state : {}", self.state);
                 }
             }
         }

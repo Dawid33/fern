@@ -37,8 +37,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     Logger::try_with_str("trace, core::grammar = info")?
         .format(flexi_logger::colored_default_format)
         .start_with_specfile("log.toml")?;
-    // fern::compile()?;
+    fern::compile()?;
     // json::compile()?;
-    eslang::compile()?;
+    // eslang::compile()?;
     Ok(())
 }

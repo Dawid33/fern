@@ -34,6 +34,8 @@
 %nonterminal ptrTypeStart
 %nonterminal label
 %nonterminal assemblyInstruction
+%nonterminal pipeList 
+%nonterminal textBlock
 
 %axiom chunk
 
@@ -102,6 +104,8 @@
 %terminal PUSH
 %terminal POP
 %terminal SUB
+%terminal PIPE
+%terminal CHARS
 
 %%
 
@@ -115,34 +119,18 @@ statList : stat
 	| statList SEMI
 	;
 
-stat : baseExp EQ expr
-	| functionCall
-	| retStat
-	| LBRACE statList RBRACE
-	| LBRACE RBRACE
-	| WHILE expr LBRACE statList RBRACE
-	| WHILE expr LBRACE RBRACE
-	| STRUCT baseExp LBRACE RBRACE
-	| STRUCT baseExp LBRACE fieldList RBRACE
-	| FUNCTION baseExp LPAREN RPAREN LBRACE statList RBRACE
-	| FUNCTION baseExp LPAREN fieldList RPAREN LBRACE statList RBRACE
-	| FUNCTION baseExp LPAREN fieldList RPAREN LBRACE RBRACE
-	| FUNCTION baseExp LPAREN baseExp RPAREN LBRACE statList RBRACE
-	| FUNCTION baseExp LPAREN baseExp RPAREN LBRACE RBRACE
-	| FUNCTION baseExp LPAREN RPAREN LBRACE RBRACE
-	| FOR nameList IN exprList LBRACE statList RBRACE
-	| FOR nameList IN exprList LBRACE RBRACE
-	| LET field EQ expr
-	| LET baseExp EQ expr
-	| LET baseExp
-	| LET field
-	| LABEL baseExp 
-	| assemblyInstruction
+stat :  LBRACK pipeList RBRACK textBlock
+	| LBRACK CHARS RBRACK textBlock
 	;
 
-assemblyInstruction : MOV baseExp COMMA baseExp
-					| SUB baseExp COMMA baseExp
-				    ;
+pipeList : CHARS PIPE CHARS
+	| pipeList PIPE CHARS
+	;
+
+textBlock : LBRACK CHARS RBRACK 
+	| CHARS LBRACK CHARS RBRACK 
+	| stat
+	; 
 
 functionCall : baseExp LPAREN exprList RPAREN
 	| baseExp LPAREN expr RPAREN
@@ -208,6 +196,7 @@ baseExp : NIL
 	| NUMBER
 	| STRING
 	| NAME
+	| TEXT
 	| functionDef
 	| prefixExp
 	;

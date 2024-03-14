@@ -1,13 +1,9 @@
 
-label another;  
-	mov x, 3;
-    sub 3, y;
 
-fn main(argc: char, argv: char) {
-	return argc;
-}
 
-fn add(another: test) {
-	let eax = 3 + (test.y() - 3);
-}
 
+[main]
+
+test
+
+[main]

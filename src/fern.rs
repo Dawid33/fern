@@ -112,10 +112,10 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     let mut f = File::create("ptree.dot").unwrap();
     tree.dot(&mut f).unwrap();
 
-    // let ast: FernAst = tree.into();
-    // ast.print();
-    // let mut f = File::create("ast.dot").unwrap();
-    // ast.dot(&mut f).unwrap();
+    let ast: FernAst = tree.into();
+    ast.print();
+    let mut f = File::create("ast.dot").unwrap();
+    ast.dot(&mut f).unwrap();
 
     info!("Time to build first lexical grammar: {:?}", first_lg);
     info!("Time to build second lexical grammar: {:?}", second_lg);
@@ -124,16 +124,6 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     info!("Time to parse: {:?}", parse_time);
     // info!("└─Time spent rule-searching: {:?}", time);
     info!("Total run time : {:?}", start.elapsed());
-
-    // let ast: Box<AstNode> = Box::from(tree.build_ast().unwrap());
-    // info!("Total Time to transform ParseTree -> AST: {:?}", now.elapsed());
-    // let mut f = File::create("ast.dot").unwrap();
-    // render(ast.clone(), &mut f);
-
-    // now = Instant::now();
-    // analysis::check_used_before_declared(ast);
-    // info!("Total Time to Analyse AST : {:?}", now.elapsed());
-
     Ok(())
 }
 
@@ -285,8 +275,8 @@ impl FernLexer {
     }
 }
 
-#[derive(Clone)]
-pub enum Operator {
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum OperatorKind {
     Add,
     Multiply,
     Divide,
@@ -308,11 +298,11 @@ struct AstNode {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum AstNodeKind {
-    Binary,
-    Unary,
+    Operator(OperatorKind),
     Number,
     String,
     Name,
+    Field,
     ExprList,
     Assign,
     Let,
@@ -352,10 +342,16 @@ impl Into<FernAst> for ParseTree {
         let number = find("NUMBER");
         let let_t = find("LET");
         let eq = find("EQ");
+        let colon = find("COLON");
         let semi = find("SEMI");
         let stat = find("stat");
+        let field = find("field");
         let stat_list = find("statList");
         let axiom = find("NewAxiom");
+        let relational_exp = find("relationalExp");
+        let additive_exp = find("additiveExp");
+        let ret_stat = find("retStat");
+        let expr_then = find("exprThen");
         let mut reduce = |parent: &Node, children: Vec<Node>| -> AstNode {
             if base_exp.contains(&parent.token) {
                 let child = children.get(0).unwrap().token;
@@ -375,6 +371,48 @@ impl Into<FernAst> for ParseTree {
                         child_count: 0,
                     };
                 }
+            }
+
+            if relational_exp.contains(&parent.token) {
+                return AstNode {
+                    kind: AstNodeKind::Operator(OperatorKind::Equal),
+                    child_count: 2,
+                };
+            }
+
+            if additive_exp.contains(&parent.token) {
+                return AstNode {
+                    kind: AstNodeKind::Operator(OperatorKind::Add),
+                    child_count: 2,
+                };
+            }
+
+            if ret_stat.contains(&parent.token) {
+                return AstNode {
+                    kind: AstNodeKind::Operator(OperatorKind::Add),
+                    child_count: 2,
+                };
+            }
+
+            if ret_stat.contains(&parent.token) {
+                return AstNode {
+                    kind: AstNodeKind::Return,
+                    child_count: 2,
+                };
+            }
+
+            if field.contains(&parent.token) {
+                return AstNode {
+                    kind: AstNodeKind::Field,
+                    child_count: 2,
+                };
+            }
+
+            if expr_then.contains(&parent.token) {
+                return AstNode {
+                    kind: AstNodeKind::Field,
+                    child_count: 2,
+                };
             }
 
             if stat.contains(&parent.token) {
