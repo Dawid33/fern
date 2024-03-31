@@ -35,7 +35,7 @@ impl Node {
 
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct TokenGrammarTuple {
-    data: Option<Data>,
+    pub data: Option<Data>,
     pub token: Token,
     id: u64,
     tree_id: Option<Id>,
@@ -133,7 +133,7 @@ impl Parser {
     }
 
     pub fn push(&mut self, mut tuple: TokenGrammarTuple) {
-        let id = self.tree.push(tuple.token);
+        let id = self.tree.push(tuple.clone());
         tuple.tree_id = Some(id);
         self.stack.push(tuple);
     }

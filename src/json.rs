@@ -1,12 +1,12 @@
 use log::{info, trace, warn};
-use memmap::MmapOptions;
 
 use crate::fern::{FernLexer, FernParseTree};
 use crate::grammar::lg::{self, LexingTable, LookupResult, State, Token};
 use crate::grammar::opg::{OpGrammar, RawGrammar};
-use crate::lexer::{split_mmap_into_chunks, Data, LexerError, LexerInterface, ParallelLexer};
+use crate::lexer::{Data, LexerError, LexerInterface, ParallelLexer};
 use crate::parser::{Node, Parser};
 use crate::parsetree::ParseTree;
+use crate::split_file_into_chunks;
 use std::cmp::max;
 use std::collections::LinkedList;
 use std::error::Error;
@@ -15,14 +15,17 @@ use std::io::Read;
 use std::thread;
 use std::time::{Duration, Instant};
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn compile() -> Result<(), Box<dyn Error>> {
+    use memmap::MmapOptions;
+
     let start = Instant::now();
 
     let lg = Instant::now();
     let mut file = File::open("data/grammar/json.lg").unwrap();
     let mut buf = String::new();
     file.read_to_string(&mut buf).unwrap();
-    let g = lg::LexicalGrammar::from(buf.clone());
+    let g = lg::LexicalGrammar::from(&buf);
     let nfa = lg::StateGraph::from(g.clone());
     let mut f = File::create("nfa.dot").unwrap();
     lg::render(&nfa, &mut f);
@@ -36,7 +39,7 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     let tokens: LinkedList<(Vec<Token>, Vec<Data>)> = {
         let file = File::open("data/test.json")?;
         let mut mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
-        let chunks = split_mmap_into_chunks(&mut mmap, 10000).unwrap();
+        let chunks = split_file_into_chunks(&mmap, 10000).unwrap();
         thread::scope(|s| {
             let mut lexer: ParallelLexer<JsonLexer> = ParallelLexer::new(table.clone(), s, 4);
             let batch = lexer.new_batch();

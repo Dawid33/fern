@@ -35,7 +35,7 @@ pub struct LexicalGrammar {
 }
 
 impl LexicalGrammar {
-    pub fn from(input: String) -> Self {
+    pub fn from(input: &str) -> Self {
         let token_regex_pairs = Self::scanner(input);
 
         let mut pairs: BTreeMap<String, Hir> = BTreeMap::new();
@@ -48,7 +48,7 @@ impl LexicalGrammar {
         Self { pairs }
     }
 
-    fn scanner(input: String) -> HashMap<String, String> {
+    fn scanner(input: &str) -> HashMap<String, String> {
         let mut pairs: HashMap<String, String> = HashMap::new();
         let mut current_token = String::new();
         let mut current_regex = String::new();
@@ -415,7 +415,7 @@ impl StateGraph {
                 // break;
             }
         }
-        trace!("states: {:?}", confirmed_states);
+        // trace!("states: {:?}", confirmed_states);
         // info!("edges: {:?}", confirmed_edges);
         return (confirmed_states, confirmed_edges, terminal);
     }

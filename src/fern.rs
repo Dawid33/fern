@@ -1,10 +1,9 @@
 use crate::grammar::lg::{self, LexingTable, LookupResult, State};
 use crate::grammar::opg::{OpGrammar, RawGrammar, Token};
-use crate::lexer::{split_mmap_into_chunks, Data, LexerError, LexerInterface, ParallelLexer};
+use crate::lexer::{Data, LexerError, LexerInterface, ParallelLexer};
 use crate::parser::{Parser, PartialParseTree};
 use crate::parsetree::{Node, ParseTree};
 use log::{info, trace, warn};
-use memmap::MmapOptions;
 use simple_error::SimpleError;
 use std::borrow::Cow;
 use std::cmp::max;
@@ -21,14 +20,19 @@ pub struct FernParseTree {
     pub root: Node,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn compile() -> Result<(), Box<dyn Error>> {
+    use memmap::MmapOptions;
+
+    use crate::split_file_into_chunks;
+
     let start = Instant::now();
 
     let first_lg = Instant::now();
     let mut file = File::open("data/grammar/fern.lg").unwrap();
     let mut buf = String::new();
     file.read_to_string(&mut buf).unwrap();
-    let g = lg::LexicalGrammar::from(buf.clone());
+    let g = lg::LexicalGrammar::from(&buf);
     let nfa = lg::StateGraph::from(g.clone());
     let mut f = File::create("nfa.dot").unwrap();
     lg::render(&nfa, &mut f);
@@ -43,7 +47,7 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     let second_lg = Instant::now();
     let mut file = File::open("data/grammar/keywords.lg").unwrap();
     file.read_to_string(&mut buf).unwrap();
-    let g = lg::LexicalGrammar::from(buf.clone());
+    let g = lg::LexicalGrammar::from(&buf);
     let nfa = lg::StateGraph::from(g.clone());
     let mut f = File::create("keyword_nfa.dot").unwrap();
     lg::render(&nfa, &mut f);
@@ -60,7 +64,7 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     let tokens: LinkedList<(Vec<Token>, Vec<Data>)> = {
         let file = File::open("data/test.fern")?;
         let mut mmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file)? };
-        let chunks = split_mmap_into_chunks(&mut mmap, 1000).unwrap();
+        let chunks = split_file_into_chunks(&mmap, 1000).unwrap();
         thread::scope(|s| {
             let mut lexer: ParallelLexer<FernLexer> = ParallelLexer::new(table.clone(), s, 1);
             let batch = lexer.new_batch();
@@ -87,13 +91,15 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     raw.delete_repeated_rhs()?;
     let grammar = OpGrammar::new(raw)?;
     let grammar_time = grammar_time.elapsed();
-    grammar.to_file("data/grammar/fern-fnf.g");
 
     let parse_time = Instant::now();
     let tree: ParseTree = {
         let mut trees = Vec::new();
         for (partial_tokens, partial_data) in tokens {
             let mut parser = Parser::new(grammar.clone());
+            for (i, (x, y)) in partial_tokens.iter().zip(&partial_data).enumerate() {
+                info!("i={}, {} {:?}", i, x, y);
+            }
             parser.parse(partial_tokens, partial_data);
             parser.parse(vec![grammar.delim], Vec::new());
             trees.push(parser.collect_parse_tree().unwrap());
@@ -108,6 +114,7 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     };
     let parse_time = parse_time.elapsed();
 
+    // tree.print_raw();
     tree.print();
     let mut f = File::create("ptree.dot").unwrap();
     tree.dot(&mut f).unwrap();
@@ -124,6 +131,10 @@ pub fn compile() -> Result<(), Box<dyn Error>> {
     info!("Time to parse: {:?}", parse_time);
     // info!("└─Time spent rule-searching: {:?}", time);
     info!("Total run time : {:?}", start.elapsed());
+
+    for s in ast.analysis() {
+        warn!("{}", s);
+    }
     Ok(())
 }
 
@@ -269,6 +280,10 @@ impl FernLexer {
             if *t1 == self.rbrace {
                 if *t2 == self.let_t || *t2 == self.name_token || *t2 == self.return_t || *t2 == self.fn_t || *t2 == self.rbrace {
                     self.tokens.push(self.semi);
+                    self.data.push(Data {
+                        token_index: self.tokens.len() - 1,
+                        raw: ";".to_string(),
+                    });
                 }
             }
         }
@@ -284,6 +299,8 @@ pub enum OperatorKind {
     Subtract,
     Equal,
     NotEqual,
+    Or,
+    And,
     GreaterThan,
     GreaterThanOrEqual,
     LessThan,
@@ -296,30 +313,32 @@ struct AstNode {
     child_count: usize,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AstNodeKind {
     Operator(OperatorKind),
-    Number,
-    String,
-    Name,
+    Number(String),
+    String(String),
+    Name(String),
     Field,
     ExprList,
+    FieldList,
     Assign,
     Let,
+    LetAssign,
     Return,
     Module,
     StatList,
     FunctionCall,
     Function,
     If,
-    ExprThen,
     ElseIf,
     Else,
     For,
     While,
+    Struct,
 }
 
-struct FernAst {
+pub struct FernAst {
     nodes: Vec<AstNode>,
     token_map: BTreeMap<usize, String>,
 }
@@ -337,90 +356,309 @@ impl Into<FernAst> for ParseTree {
         };
 
         let base_exp = find("baseExp");
+        let prefix_exp = find("prefixExp");
         let string = find("STRING");
+        let else_t = find("ELSE");
+        let else_if = find("ELSEIF");
+        let rbrack = find("RBRACK");
+        let rbrace = find("RBRACE");
         let name = find("NAME");
         let number = find("NUMBER");
         let let_t = find("LET");
+        let if_t = find("IF");
+        let fn_t = find("FUNCTION");
         let eq = find("EQ");
         let colon = find("COLON");
+        let or = find("logicalOrExp");
+        let and = find("logicalAndExp");
         let semi = find("SEMI");
         let stat = find("stat");
         let field = find("field");
         let stat_list = find("statList");
+        let field_list = find("fieldList");
+        let field_list_body = find("fieldListBody");
         let axiom = find("NewAxiom");
         let relational_exp = find("relationalExp");
         let additive_exp = find("additiveExp");
+        let mul_exp = find("multiplicativeExp");
         let ret_stat = find("retStat");
+        let fn_call = find("functionCall");
         let expr_then = find("exprThen");
-        let mut reduce = |parent: &Node, children: Vec<Node>| -> AstNode {
+        let lbrace = find("LBRACE");
+        let struct_t = find("STRUCT");
+        let else_if_block = find("elseIfBlock");
+
+        let rm_child = |mut child: isize, mut total_child: isize, existing_nodes: &mut Vec<AstNode>| -> Vec<AstNode> {
+            let desired = child;
+            let mut current_child = 0;
+            let mut seeking_end = false;
+            let mut start_index = 0;
+            let mut end_index = 0;
+            total_child -= 1;
+            for (i, n) in existing_nodes.iter().enumerate().rev() {
+                warn!("i: {}, child {}, total: {}, node: {:?}", i, child, total_child, n);
+                child -= 1;
+                child += n.child_count as isize;
+                if child - (total_child - 1) == 0 {
+                    total_child -= 1;
+                    current_child += 1;
+                    if !seeking_end {
+                        if current_child == desired {
+                            warn!("END i: {}, child {}, total: {}, node: {:?}", i, child, total_child, n);
+                            end_index = i;
+                            seeking_end = true;
+                        }
+                    } else {
+                        warn!("START i: {}, child {}, total: {}, node: {:?}", i, child, total_child, n);
+                        start_index = i;
+                        break;
+                    }
+                }
+                if child < 0 {
+                    warn!("START i: {}, child {}, total: {}, node: {:?}", i, child, total_child, n);
+                    start_index = i;
+                    break;
+                };
+            }
+            warn!("start: {}, end {}", start_index, end_index);
+
+            if start_index == end_index {
+                vec![existing_nodes.remove(start_index)]
+            } else {
+                existing_nodes.drain(start_index..end_index).collect()
+            }
+        };
+
+        let expr_map = |parent: &Node, children: &Vec<Node>| -> Option<AstNode> {
             if base_exp.contains(&parent.token) {
-                let child = children.get(0).unwrap().token;
+                let child = children.last().unwrap().token;
+                let data = if let Some(ref d) = children.get(0).unwrap().data {
+                    d.raw.clone()
+                } else {
+                    String::new()
+                };
                 if string.contains(&child) {
-                    return AstNode {
-                        kind: AstNodeKind::String,
+                    return Some(AstNode {
+                        kind: AstNodeKind::String(data),
                         child_count: 0,
-                    };
+                    });
                 } else if name.contains(&child) {
-                    return AstNode {
-                        kind: AstNodeKind::Name,
+                    return Some(AstNode {
+                        kind: AstNodeKind::Name(data),
                         child_count: 0,
-                    };
+                    });
                 } else if number.contains(&child) {
-                    return AstNode {
-                        kind: AstNodeKind::Number,
+                    return Some(AstNode {
+                        kind: AstNodeKind::Number(data),
                         child_count: 0,
-                    };
+                    });
                 }
             }
 
             if relational_exp.contains(&parent.token) {
-                return AstNode {
+                return Some(AstNode {
                     kind: AstNodeKind::Operator(OperatorKind::Equal),
                     child_count: 2,
-                };
+                });
             }
 
             if additive_exp.contains(&parent.token) {
-                return AstNode {
+                return Some(AstNode {
                     kind: AstNodeKind::Operator(OperatorKind::Add),
                     child_count: 2,
-                };
+                });
+            }
+
+            if mul_exp.contains(&parent.token) {
+                return Some(AstNode {
+                    kind: AstNodeKind::Operator(OperatorKind::Multiply),
+                    child_count: 2,
+                });
+            }
+
+            if or.contains(&parent.token) {
+                return Some(AstNode {
+                    kind: AstNodeKind::Operator(OperatorKind::Or),
+                    child_count: 2,
+                });
+            }
+
+            if and.contains(&parent.token) {
+                return Some(AstNode {
+                    kind: AstNodeKind::Operator(OperatorKind::And),
+                    child_count: 2,
+                });
+            }
+            None
+        };
+
+        let reduce = |parent: &Node, mut children: Vec<Node>, existing_nodes: &mut Vec<AstNode>| -> Option<AstNode> {
+            if let Some(op) = expr_map(parent, &children) {
+                return Some(op);
+            }
+
+            if prefix_exp.contains(&parent.token) {
+                warn!("does nothing for prefixexp");
+                return None;
             }
 
             if ret_stat.contains(&parent.token) {
-                return AstNode {
-                    kind: AstNodeKind::Operator(OperatorKind::Add),
-                    child_count: 2,
-                };
-            }
-
-            if ret_stat.contains(&parent.token) {
-                return AstNode {
+                return Some(AstNode {
                     kind: AstNodeKind::Return,
-                    child_count: 2,
-                };
+                    child_count: 1,
+                });
+            }
+
+            if fn_call.contains(&parent.token) {
+                if children.len() > 3 {
+                    return Some(AstNode {
+                        kind: AstNodeKind::FunctionCall,
+                        child_count: 2,
+                    });
+                } else {
+                    return Some(AstNode {
+                        kind: AstNodeKind::FunctionCall,
+                        child_count: 1,
+                    });
+                }
             }
 
             if field.contains(&parent.token) {
-                return AstNode {
+                return Some(AstNode {
                     kind: AstNodeKind::Field,
                     child_count: 2,
-                };
+                });
             }
 
-            if expr_then.contains(&parent.token) {
-                return AstNode {
-                    kind: AstNodeKind::Field,
-                    child_count: 2,
-                };
+            if field_list.contains(&parent.token) {
+                return Some(AstNode {
+                    kind: AstNodeKind::FieldList,
+                    child_count: 1,
+                });
+            }
+
+            if field_list_body.contains(&parent.token) {
+                if children.len() > 1 {
+                    return Some(AstNode {
+                        kind: AstNodeKind::FieldList,
+                        child_count: 2,
+                    });
+                }
+            }
+
+            if else_if_block.contains(&parent.token) {
+                if else_t.contains(&children.last().unwrap().token) {
+                    if children.len() > 3 {
+                        return Some(AstNode {
+                            kind: AstNodeKind::Else,
+                            child_count: 1,
+                        });
+                    } else {
+                        return Some(AstNode {
+                            kind: AstNodeKind::Else,
+                            child_count: 0,
+                        });
+                    }
+                }
+                if else_if.contains(&children.last().unwrap().token) {
+                    if children.len() == 4 {
+                        return Some(AstNode {
+                            kind: AstNodeKind::ElseIf,
+                            child_count: 1,
+                        });
+                    } else if children.len() == 5 {
+                        return Some(AstNode {
+                            kind: AstNodeKind::ElseIf,
+                            child_count: 2,
+                        });
+                    } else if children.len() == 6 {
+                        return Some(AstNode {
+                            kind: AstNodeKind::ElseIf,
+                            child_count: 3,
+                        });
+                    }
+                }
             }
 
             if stat.contains(&parent.token) {
-                if let_t.contains(&children.get(0).unwrap().token) {
-                    return AstNode {
-                        kind: AstNodeKind::Let,
+                if struct_t.contains(&children.last().unwrap().token) {
+                    if children.len() > 3 {
+                        return Some(AstNode {
+                            kind: AstNodeKind::Struct,
+                            child_count: 2,
+                        });
+                    } else {
+                        return Some(AstNode {
+                            kind: AstNodeKind::Struct,
+                            child_count: 1,
+                        });
+                    }
+                }
+
+                if lbrace.contains(&children.last().unwrap().token) {
+                    return Some(AstNode {
+                        kind: AstNodeKind::StatList,
+                        child_count: 0,
+                    });
+                }
+
+                if eq.contains(&children.last().unwrap().token) {
+                    return Some(AstNode {
+                        kind: AstNodeKind::Assign,
                         child_count: 2,
-                    };
+                    });
+                }
+
+                if fn_t.contains(&children.last().unwrap().token) {
+                    if children.len() == 6 {
+                        return Some(AstNode {
+                            kind: AstNodeKind::Function,
+                            child_count: 1,
+                        });
+                    } else if rbrack.contains(&children.get(children.len() - 4).unwrap().token) {
+                        return Some(AstNode {
+                            kind: AstNodeKind::Function,
+                            child_count: 2,
+                        });
+                    } else if !rbrace.contains(&children.get(1).unwrap().token) {
+                        return Some(AstNode {
+                            kind: AstNodeKind::Function,
+                            child_count: 3,
+                        });
+                    } else {
+                        return Some(AstNode {
+                            kind: AstNodeKind::Function,
+                            child_count: 2,
+                        });
+                    }
+                }
+
+                if if_t.contains(&children.last().unwrap().token) {
+                    let mut cnt = 1;
+                    if else_if_block.contains(&children.last().unwrap().token) {
+                        cnt += 1;
+                    }
+                    if !rbrace.contains(&children.get(3).unwrap().token) {
+                        cnt += 1;
+                    }
+                    return Some(AstNode {
+                        kind: AstNodeKind::If,
+                        child_count: cnt,
+                    });
+                }
+
+                if let_t.contains(&children.last().unwrap().token) {
+                    if children.len() > 2 {
+                        return Some(AstNode {
+                            kind: AstNodeKind::LetAssign,
+                            child_count: 2,
+                        });
+                    } else {
+                        return Some(AstNode {
+                            kind: AstNodeKind::Let,
+                            child_count: 1,
+                        });
+                    }
                 }
             }
 
@@ -431,19 +669,20 @@ impl Into<FernAst> for ParseTree {
                         cnt += 1;
                     }
                 }
-                return AstNode {
+                return Some(AstNode {
                     kind: AstNodeKind::StatList,
                     child_count: cnt,
-                };
+                });
             }
 
-            todo!();
+            todo!("Didn't reduce parse tree node.");
         };
 
-        let mut nodes = Vec::new();
-        let mut current = Vec::new();
+        let mut nodes: Vec<AstNode> = Vec::new();
+        // let mut current = Vec::new();
         let mut operands: Vec<Node> = Vec::new();
-        for n in self.nodes {
+        // bottom up traversal of the tree.
+        for n in self.nodes.into_iter().rev() {
             let ops: Vec<&String> = operands.iter().map(|n| self.token_map.get(&n.token).unwrap()).collect();
             info!("operands {:?}", ops);
             if n.child_count > 0 {
@@ -454,16 +693,48 @@ impl Into<FernAst> for ParseTree {
                 if axiom.contains(&n.token) {
                     break;
                 }
-                let new = reduce(&n, ops);
-                if new.kind == AstNodeKind::StatList {}
+                let mut new = match reduce(&n, ops.clone(), &mut nodes) {
+                    Some(new) => new,
+                    None => {
+                        operands.push(n);
+                        continue;
+                    }
+                };
+
+                // Flatten statlists
+                if new.kind == AstNodeKind::StatList {
+                    let mut has_child_stat_list = false;
+                    for o in &ops {
+                        if stat_list.contains(&o.token) {
+                            has_child_stat_list = true;
+                            break;
+                        }
+                    }
+                    if has_child_stat_list {
+                        // Go through the exsiting ast node stack backwards
+                        // in order to find the index of the existing statlist.
+                        let mut stat_list_pos = None;
+                        for (i, x) in nodes.iter().enumerate().rev() {
+                            if x.kind == AstNodeKind::StatList {
+                                stat_list_pos = Some(i);
+                                break;
+                            }
+                        }
+                        if let Some(i) = stat_list_pos {
+                            let mut existing_stat_list = nodes.remove(i);
+                            existing_stat_list.child_count += new.child_count - 1;
+                            new = existing_stat_list;
+                        }
+                    }
+                }
+
                 nodes.push(new);
-                current.push(nodes.len() - 1);
                 operands.push(n);
             } else {
                 operands.push(n);
             }
         }
-        let n: Vec<(AstNodeKind, usize)> = nodes.iter().map(|n| (n.kind, n.child_count)).collect();
+        let n: Vec<(AstNodeKind, usize)> = nodes.iter().map(|n| (n.kind.clone(), n.child_count)).collect();
         info!("ast {:?}", n);
         FernAst {
             nodes,
@@ -502,7 +773,7 @@ impl FernAst {
 
         self.pre_order_traverse(|stack, current| {
             if stack.last().unwrap().0.is_some() {
-                edges.push_back((stack.last().unwrap().0.unwrap(), current));
+                edges.push_front((stack.last().unwrap().0.unwrap(), current));
             }
         });
         let g = Graph { nodes, edges };
@@ -510,11 +781,17 @@ impl FernAst {
     }
 
     pub fn print(&self) {
+        info!("{:?}", self.nodes.last().unwrap().kind);
         self.pre_order_traverse(|stack, current| {
+            // don't print first node during traversal
+            if current == self.nodes.len() - 1 {
+                return;
+            }
+
             let n = &self.nodes[current];
 
             let mut padding = String::new();
-            for i in 0..stack.len() - 1 {
+            for i in 1..stack.len() - 1 {
                 let current = stack.get(i).unwrap();
                 if current.1 > 0 {
                     padding.push_str("| ");
@@ -531,6 +808,119 @@ impl FernAst {
             }
         });
     }
+
+    pub fn analysis(&self) -> Vec<String> {
+        let mut table: BTreeMap<String, IdentifierKind> = BTreeMap::new();
+        let mut prefix: Vec<String> = Vec::new();
+        let mut partial_var = None;
+        let mut issues_discovered = Vec::new();
+        self.pre_order_traverse(|stack, current| {
+            let n = &self.nodes[current];
+            let (parent_id, children_left) = if let Some((p_id, child_count)) = stack.last() {
+                (p_id, child_count)
+            } else {
+                panic!("One name node with no parent??");
+            };
+
+            let mut add_to_table = |name: &String, data: IdentifierKind, table: &mut BTreeMap<String, IdentifierKind>| {
+                if table.contains_key(name) {
+                    issues_discovered.push(format!("Identifier {} already exists.", name));
+                } else {
+                    table.insert(name.clone(), data);
+                }
+            };
+
+            match n.kind {
+                AstNodeKind::Number(ref name) | AstNodeKind::String(ref name) => match self.nodes[parent_id.unwrap()].kind {
+                    AstNodeKind::LetAssign => {
+                        if !name.is_empty() {
+                            warn!("{}", name);
+                            if *children_left == 1 {
+                                issues_discovered.push(format!("Strings and / or numbers ({}) cannot be used as identifiers.", name));
+                            } else if *children_left == 0 {
+                                if let Some(left) = partial_var {
+                                    partial_var = None;
+                                    add_to_table(left, IdentifierKind::Local, &mut table);
+                                }
+                            }
+                        }
+                    }
+                    _ => (),
+                },
+                AstNodeKind::Operator(_) | AstNodeKind::FunctionCall => match self.nodes[parent_id.unwrap()].kind {
+                    AstNodeKind::LetAssign => {
+                        if let Some(left) = partial_var {
+                            partial_var = None;
+                            add_to_table(left, IdentifierKind::Local, &mut table);
+                        }
+                    }
+                    _ => (),
+                },
+                AstNodeKind::Name(ref name) => match self.nodes[parent_id.unwrap()].kind {
+                    AstNodeKind::LetAssign => {
+                        if !name.is_empty() {
+                            warn!("{}", name);
+                            if *children_left == 1 {
+                                partial_var = Some(name);
+                            } else if *children_left == 0 {
+                                if let Some(left) = partial_var {
+                                    partial_var = None;
+                                    if !table.contains_key(name) {
+                                        issues_discovered.push(format!("Identifier {} used but not declared.", name));
+                                    } else {
+                                        add_to_table(left, IdentifierKind::Local, &mut table);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    AstNodeKind::Let => {
+                        if !name.is_empty() {
+                            add_to_table(name, IdentifierKind::Local, &mut table);
+                        }
+                    }
+                    AstNodeKind::Function => match n.kind {
+                        AstNodeKind::String(ref name) | AstNodeKind::Number(ref name) => {
+                            issues_discovered.push(format!("Invalid function name {}", name));
+                        }
+                        AstNodeKind::Name(ref name) => {
+                            warn!("{}", name);
+                            add_to_table(name, IdentifierKind::FunctionName, &mut table);
+                        }
+                        _ => {}
+                    },
+                    AstNodeKind::Field => {
+                        if !name.is_empty() && *children_left == 1 {
+                            partial_var = Some(name);
+                        } else if *children_left == 0 {
+                            let n = partial_var.unwrap();
+                            partial_var = None;
+                            add_to_table(n, IdentifierKind::FunctionParam(name.clone()), &mut table);
+                        }
+                    }
+                    _ => match n.kind {
+                        AstNodeKind::Name(ref name) => {
+                            if !table.contains_key(name) {
+                                issues_discovered.push(format!("Identifier {} used but not declared.", name));
+                            }
+                        }
+                        _ => (),
+                    },
+                    _ => (),
+                },
+                _ => (),
+            }
+        });
+        warn!("SBL_TBL: {:?}", table);
+        issues_discovered
+    }
+}
+
+#[derive(Debug)]
+enum IdentifierKind {
+    FunctionName,
+    FunctionParam(String),
+    Local,
 }
 
 type Nd = (usize, String);
@@ -574,230 +964,3 @@ impl<'a> dot::GraphWalk<'a, Nd, Ed> for Graph {
         e.1.clone()
     }
 }
-
-// pub fn render<W: Write>(ast: Box<AstNode>, output: &mut W) {
-//     let mut nodes: Vec<String> = Vec::new();
-//     let mut edges = VecDeque::new();
-
-//     nodes.push("Module".to_string());
-//     let mut stack: Vec<(Box<AstNode>, usize)> = vec![(ast, 0)];
-
-//     while let Some((current, id)) = stack.pop() {
-//         let mut push_node = |id, str: String, node: Box<AstNode>| {
-//             nodes.push(str);
-//             let child = nodes.len() - 1;
-//             edges.push_front((id, child));
-//             stack.push((node, child));
-//         };
-
-//         match *current {
-//             AstNode::Binary(left, _, right) => {
-//                 push_node(id, format!("{:?}", &left), left);
-//                 push_node(id, format!("{:?}", &right), right);
-//             }
-//             AstNode::Unary(_, expr) => {
-//                 push_node(id, format!("{:?}", &expr), expr);
-//             }
-//             AstNode::Number(_) => {}
-//             AstNode::String(_) => {}
-//             AstNode::Name(_) => {}
-//             AstNode::ExprList(expr_list) => {
-//                 for x in expr_list {
-//                     push_node(id, format!("{:?}", x), Box::from(x));
-//                 }
-//             }
-//             AstNode::Assign(name, expr) => {
-//                 push_node(id, format!("{:?}", name), name);
-//                 push_node(id, format!("{:?}", expr), expr);
-//             }
-//             AstNode::Let(name, _, expr) => {
-//                 push_node(id, format!("{:?}", name), name);
-//                 if let Some(expr) = expr {
-//                     push_node(id, format!("{:?}", expr), expr);
-//                 }
-//             }
-//             AstNode::Module(stmts) => {
-//                 push_node(id, format!("{:?}", stmts), stmts);
-//             }
-//             AstNode::Function(_, param, stmts) => {
-//                 if let Some(p) = param {
-//                     push_node(id, format!("Parameters: {:?}", p), p);
-//                 }
-//                 if let Some(stmts) = stmts {
-//                     push_node(id, format!("{:?}", stmts), stmts);
-//                 }
-//             }
-//             AstNode::FunctionCall(expr, args) => {
-//                 push_node(id, format!("{:?}", expr), expr);
-//                 if let Some(args) = args {
-//                     push_node(id, format!("{:?}", args), args);
-//                 }
-//             }
-//             AstNode::If(expr, stmts, else_or_elseif) => {
-//                 push_node(id, format!("<B>Condition</B><BR/>{:?}", expr), expr);
-//                 if let Some(stmts) = stmts {
-//                     push_node(id, format!("<B>If Body</B><BR/>{:?}", stmts), stmts);
-//                 }
-//                 if let Some(e) = else_or_elseif {
-//                     push_node(id, format!("{:?}", e), e);
-//                 }
-//             }
-//             AstNode::For(var, expr, stmts) => {
-//                 push_node(id, format!("Variable\n{:?}", var), var);
-//                 push_node(id, format!("List\n{:?}", expr), expr);
-//                 push_node(id, format!("{:?}", stmts), stmts);
-//             }
-//             AstNode::While(expr, stmts) => {
-//                 push_node(id, format!("Condition\n{:?}", expr), expr);
-//                 push_node(id, format!("{:?}", stmts), stmts);
-//             }
-//             AstNode::Return(expr) => {
-//                 if let Some(expr) = expr {
-//                     push_node(id, format!("{:?}", expr), expr);
-//                 }
-//             }
-//             AstNode::ElseIf(expr, stmts, else_or_elseif) => {
-//                 push_node(id, format!("<B>Condition</B><BR/>{:?}", expr), expr);
-//                 if let Some(stmts) = stmts {
-//                     push_node(id, format!("<B>Else If Body</B><BR/>{:?}", stmts), stmts);
-//                 }
-//                 if let Some(e) = else_or_elseif {
-//                     push_node(id, format!("{:?}", e), e);
-//                 }
-//             }
-//             AstNode::Else(stmts) => {
-//                 if let Some(stmts) = stmts {
-//                     push_node(id, format!("{:?}", stmts), stmts);
-//                 }
-//             }
-//             AstNode::StatList(stmts) => {
-//                 for x in stmts {
-//                     push_node(id, format!("{:?}", x), Box::from(x));
-//                 }
-//             }
-//             AstNode::ExprThen(expr, stmt) => {
-//                 push_node(id, format!("Condition\n{:?}", expr), expr);
-//                 if let Some(e) = stmt {
-//                     push_node(id, format!("{:?}", e), e);
-//                 }
-//             }
-//         }
-//     }
-
-//     let graph = Graph { nodes, edges };
-//     dot::render(&graph, output).unwrap()
-// }
-
-// pub fn render_block<W: Write>(ir: Block, w: &mut W) {
-//     w.write(
-//         r#"
-// digraph g {
-//     fontname="Helvetica,Arial,sans-serif"
-//     node [fontname="Helvetica,Arial,sans-serif"]
-//     edge [fontname="Helvetica,Arial,sans-serif"]
-//     graph [
-//         rankdir = "LR"
-//     ];
-//     node [
-//         fontsize = "16"
-//         shape = "ellipse"
-//         rankjustify=min
-//     ];
-//     edge [
-//     ];
-//     "root" [
-//     label = "root"
-//     shape = "record"
-//     ];
-// "#
-//         .as_bytes(),
-//     )
-//     .unwrap();
-//     let mut stack = VecDeque::new();
-//     stack.push_front(&ir);
-//     let print_b = |b: &Block, w: &mut W| {
-//         let mut builder = String::new();
-//         let label = match &b.block_type {
-//             BlockType::Code(ref stmts) => {
-//                 let mut stmt_to_string = |x: &Statement, first: bool| {
-//                     let mut prefix = "| ";
-//                     if first {
-//                         prefix = "";
-//                     }
-//                     match x {
-//                         crate::ir::Statement::Return(val) => {
-//                             if let Some(ref val) = val {
-//                                 builder.push_str(format!("{}return {}\\l", prefix, val).as_str())
-//                             } else {
-//                                 builder.push_str(format!("{}return\\l", prefix).as_str())
-//                             }
-//                         }
-//                         crate::ir::Statement::Let(l) => {
-//                             if let Some(ref val) = l.val {
-//                                 builder.push_str(format!("{}{} = {} \\l", prefix, l.ident.name, val).as_str())
-//                             } else {
-//                                 builder.push_str(format!("{}{}; \\l", prefix, l.ident.name).as_str())
-//                             }
-//                         }
-//                         _ => builder.push_str("?"),
-//                     }
-//                 };
-//                 let mut stmts = stmts.iter();
-//                 if let Some(x) = stmts.next() {
-//                     stmt_to_string(&x, true);
-//                 };
-//                 while let Some(x) = stmts.next() {
-//                     stmt_to_string(&x, false);
-//                 }
-//                 &builder
-//             }
-//             BlockType::If(cond) => {
-//                 builder = format!("{} ({})", &b.prefix, cond);
-//                 &builder
-//             }
-//             _ => {
-//                 println!("{}", &b.prefix);
-//                 &b.prefix
-//             }
-//         };
-
-//         w.write(format!("\"{}\" [label = \"{}\"\n shape = \"record\"];\n", b.prefix, label).as_bytes())
-//             .unwrap();
-//     };
-
-//     while !stack.is_empty() {
-//         let current = stack.pop_front().unwrap();
-//         print_b(current, w);
-
-//         for b in &current.children {
-//             stack.push_front(b);
-//             w.write(format!("\"{}\" -> \"{}\" [];\n", current.prefix, b.prefix).as_bytes()).unwrap();
-//         }
-//     }
-
-//     w.write("\n}\n".as_bytes()).unwrap();
-// }
-
-// use crate::grammar::{OpGrammar, Token};
-// use crate::lexer::fern::{FernData, FernTokens};
-// use crate::parser::fern_ast::Operator::{Add, Divide, Equal, GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Modulo, Multiply, NotEqual, Subtract};
-// use crate::parser::{Node, ParseTree};
-// use log::info;
-// use simple_error::SimpleError;
-// use std::borrow::Cow;
-// use std::cmp::max;
-// use std::collections::{HashMap, VecDeque};
-// use std::error::Error;
-// use std::fmt::{Debug, Formatter};
-// use std::io::Write;
-// use std::os::unix::fs::symlink;
-// use std::sync;
-
-// struct Module {}
-
-// impl Module {
-//     pub fn from(_: Box<AstNode>) -> Self {
-//         println!("Hello, World");
-//         return Self {};
-//     }
-// }

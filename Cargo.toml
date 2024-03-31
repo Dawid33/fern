@@ -8,12 +8,13 @@ name = "libfern"
 path = "src/lib.rs"
 crate-type = ["cdylib", "rlib"]
 
-# [features]
-# build-binary = ["memmap"]
+[features]
+build-binary = ["memmap"]
 
 [[bin]]
 name = "fern"
-path = "src/main.rs"
+path = "src/bin/main.rs"
+required-features = ["build-binary"]
 
 [dependencies]
 tinyrand = { version = "*", optional = false }
@@ -22,7 +23,7 @@ crossbeam-deque = { version = "*", optional = false }
 crossbeam-queue = { version = "*", optional = false }
 crossbeam-channel = { version = "*", optional = false }
 crossbeam-skiplist = { version = "*", optional = false }
-memmap = { version = "*" }
+memmap = { version = "*", optional = true }
 wasm-bindgen = { version = "0.2.90" }
 serde = { version = "*", features = ["derive"] }
 flexi_logger = { version = "*", features = ["specfile_without_notification", "colors"] }
@@ -34,6 +35,7 @@ wasm-logger = "0.2.0"
 bittyset = "*"
 console_error_panic_hook = "0.1.7"
 regex-syntax = "0.8.2"
+json = "0.12.4"
 
 [dev-dependencies]
 criterion = { version = "0.4", features = ["html_reports"] }

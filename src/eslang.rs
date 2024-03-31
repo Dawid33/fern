@@ -16,41 +16,41 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 pub fn compile() -> Result<(), Box<dyn Error>> {
-    let start = Instant::now();
+    // let start = Instant::now();
 
-    let lg = Instant::now();
-    let first_lg = Instant::now();
-    let mut file = File::open("data/grammar/eslang.lg").unwrap();
-    let mut buf = String::new();
-    file.read_to_string(&mut buf).unwrap();
-    let g = lg::LexicalGrammar::from(buf.clone());
-    let nfa = lg::StateGraph::from(g.clone());
-    let mut f = File::create("nfa.dot").unwrap();
-    lg::render(&nfa, &mut f);
-    let dfa = nfa.convert_to_dfa();
-    let mut f = File::create("dfa.dot").unwrap();
-    lg::render(&dfa, &mut f);
-    let mut table = dfa.build_table();
-    table.terminal_map.push("UMINUS".to_string());
-    let first_lg = first_lg.elapsed();
-    buf.clear();
+    // let lg = Instant::now();
+    // let first_lg = Instant::now();
+    // let mut file = File::open("data/grammar/eslang.lg").unwrap();
+    // let mut buf = String::new();
+    // file.read_to_string(&mut buf).unwrap();
+    // let g = lg::LexicalGrammar::from(buf);
+    // let nfa = lg::StateGraph::from(g.clone());
+    // let mut f = File::create("nfa.dot").unwrap();
+    // lg::render(&nfa, &mut f);
+    // let dfa = nfa.convert_to_dfa();
+    // let mut f = File::create("dfa.dot").unwrap();
+    // lg::render(&dfa, &mut f);
+    // let mut table = dfa.build_table();
+    // table.terminal_map.push("UMINUS".to_string());
+    // let first_lg = first_lg.elapsed();
+    // buf.clear();
 
-    let second_lg = Instant::now();
-    let mut file = File::open("data/grammar/eslang_keywords.lg").unwrap();
-    file.read_to_string(&mut buf).unwrap();
-    let g = lg::LexicalGrammar::from(buf.clone());
-    let nfa = lg::StateGraph::from(g.clone());
-    let mut f = File::create("keyword_nfa.dot").unwrap();
-    lg::render(&nfa, &mut f);
-    let dfa = nfa.convert_to_dfa();
-    let mut f = File::create("keyword_dfa.dot").unwrap();
-    lg::render(&dfa, &mut f);
-    let keywords = dfa.build_table();
-    let second_lg = second_lg.elapsed();
+    // let second_lg = Instant::now();
+    // let mut file = File::open("data/grammar/eslang_keywords.lg").unwrap();
+    // file.read_to_string(&mut buf).unwrap();
+    // let g = lg::LexicalGrammar::from(buf.clone());
+    // let nfa = lg::StateGraph::from(g.clone());
+    // let mut f = File::create("keyword_nfa.dot").unwrap();
+    // lg::render(&nfa, &mut f);
+    // let dfa = nfa.convert_to_dfa();
+    // let mut f = File::create("keyword_dfa.dot").unwrap();
+    // lg::render(&dfa, &mut f);
+    // let keywords = dfa.build_table();
+    // let second_lg = second_lg.elapsed();
 
-    for x in keywords.table {
-        println!("{:?}, {:?}", x.0 as char, x.1);
-    }
+    // for x in keywords.table {
+    //     println!("{:?}, {:?}", x.0 as char, x.1);
+    // }
 
     // let name_token = table.terminal_map.iter().position(|x| x == "TEXT").unwrap();
     // table.add_table(name_token, keywords);

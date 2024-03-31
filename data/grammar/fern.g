@@ -115,8 +115,10 @@ stat : baseExp EQ expr
 	| LBRACE RBRACE
 	| WHILE expr LBRACE statList RBRACE
 	| WHILE expr LBRACE RBRACE
-	| IF exprThen RBRACE
-	| IF exprThen RBRACE elseIfBlock
+	| IF expr LBRACE statList RBRACE
+	| IF expr LBRACE RBRACE 
+	| IF expr LBRACE statList RBRACE elseIfBlock
+	| IF expr LBRACE RBRACE elseIfBlock
 	| STRUCT baseExp LBRACE RBRACE
 	| STRUCT baseExp LBRACE fieldList RBRACE
 	| FUNCTION baseExp LBRACK RBRACK LBRACE statList RBRACE
@@ -150,10 +152,6 @@ elseIfBlock : ELSEIF expr LBRACE statList RBRACE
 	| ELSEIF expr LBRACE statList RBRACE elseIfBlock
 	| ELSE LBRACE RBRACE
 	| ELSE LBRACE statList RBRACE
-	;
-
-exprThen : expr LBRACE statList
-	| expr LBRACE
 	;
 
 exprList : expr COMMA expr
@@ -211,7 +209,6 @@ baseExp : NIL
 	| NUMBER
 	| STRING
 	| NAME
-	| functionDef
 	| prefixExp
 	;
 
@@ -231,7 +228,8 @@ fieldListBody : field
 field : baseExp COLON baseExp
 	;
 
-var : prefixExp DOT baseExp
+var : baseExp DOT baseExp
+	| prefixExp DOT baseExp
 	;
 
 varList : var COMMA var

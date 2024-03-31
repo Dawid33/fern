@@ -23,21 +23,28 @@
       <div id='editor'></div>
       <div id='bottom'>
         <button id="gen-graph" name="ggen">generate graph</button>
-        <p id="err"></p>
+        <sl-spinner id="spinner"></sl-spinner>
       </div>
     </div>
 
     <sl-tab-group id="tab-group">
       <sl-tab slot="nav" panel="out">Output</sl-tab>
-      <sl-tab slot="nav" panel="ast">AST</sl-tab>
-      <sl-tab slot="nav" panel="analysis">Semantic Analysis</sl-tab>
+      <sl-tab slot="nav" panel="lex">Lexemes</sl-tab>
+      <sl-tab slot="nav" id="ptree_tab" panel="ptree">Parse Tree</sl-tab>
+      <sl-tab slot="nav" id="ast_tab" panel="ast">Abstract Syntax Tree</sl-tab>
+      <sl-tab slot="nav" panel="analysis">Analysis</sl-tab>
 
-      <sl-tab-panel name="out" id="output"></sl-tab-panel>
-      <sl-tab-panel name="ast">
-        <canvas id="graph">
+      <sl-tab-panel name="out">Output: <code id="js_output"> </code></sl-tab-panel>
+      <sl-tab-panel name="lex" id="lexemes"></sl-tab-panel>
+      <sl-tab-panel name="ptree" id="ptreepanel">
+        <canvas id="ptree_graph">
         </canvas>
       </sl-tab-panel>
-      <sl-tab-panel name="analysis">This is the custom tab panel.</sl-tab-panel>
+      <sl-tab-panel name="ast">
+        <canvas id="ast_graph">
+        </canvas>
+      </sl-tab-panel>
+      <sl-tab-panel name="analysis" id="analysis"></sl-tab-panel>
     </sl-tab-group>
   </main>
 

@@ -13,7 +13,10 @@ use log::trace;
 use log::{info, warn}; // Use log crate when building application
 
 #[cfg(test)]
-use std::{println as info, println as warn}; // Workaround to use prinltn! for logs.
+use std::{println as info, println as warn};
+
+use crate::lexer::Data;
+use crate::parser::TokenGrammarTuple; // Workaround to use prinltn! for logs.
 
 type Token = usize;
 pub type Id = usize;
@@ -22,11 +25,12 @@ pub type Id = usize;
 pub struct Node {
     pub token: usize,
     pub child_count: usize,
+    pub data: Option<Data>,
 }
 
 impl Node {
-    fn new(token: usize) -> Self {
-        Self { token, child_count: 0 }
+    fn new(token: usize, data: Option<Data>) -> Self {
+        Self { token, child_count: 0, data }
     }
 }
 
@@ -41,29 +45,24 @@ impl ParseTree {
         Self { nodes: Vec::new(), token_map }
     }
 
-    pub fn push(&mut self, token: Token) -> Id {
-        self.nodes.push(Node::new(token));
+    pub fn push(&mut self, tuple: TokenGrammarTuple) -> Id {
+        self.nodes.push(Node::new(tuple.token, tuple.data));
         return self.nodes.len() - 1;
     }
 
     pub fn reduce(&mut self, parent: Token, children: &[Id]) -> Id {
-        let m = children.iter().max().unwrap();
-        let mut p = Node::new(parent);
+        let m = children.iter().min().unwrap();
+        let mut p = Node::new(parent, None);
         p.child_count = children.len();
 
-        if *m + 1 >= self.nodes.len() {
-            self.nodes.push(p);
-            self.nodes.len() - 1
-        } else {
-            self.nodes.insert(*m + 1, p);
-            m + 1
-        }
+        self.nodes.insert(*m, p);
+        *m
     }
 
     fn pre_order_traverse<F: FnMut(&Vec<(Option<usize>, usize)>, usize)>(&self, mut f: F) {
-        let mut stack = Vec::from(&[(None, self.nodes.last().unwrap().child_count)]);
+        let mut stack = Vec::from(&[(None, self.nodes.first().unwrap().child_count)]);
 
-        for (i, n) in self.nodes.iter().enumerate().rev() {
+        for (i, n) in self.nodes.iter().enumerate() {
             let last = stack.last_mut().unwrap();
             last.1 -= 1;
 
@@ -96,6 +95,12 @@ impl ParseTree {
         dot::render(&g, out)
     }
 
+    pub fn print_raw(&self) {
+        for n in &self.nodes {
+            info!("{}, {}", self.token_map.get(&n.token).unwrap(), n.child_count);
+        }
+    }
+
     pub fn print(&self) {
         self.pre_order_traverse(|stack, current| {
             let n = &self.nodes[current];
@@ -111,10 +116,15 @@ impl ParseTree {
             }
 
             let last = stack.last().unwrap();
-            if last.1 > 0 {
-                info!("{}├─{}", padding, self.token_map.get(&n.token).unwrap());
+            let data = if let Some(ref d) = n.data {
+                format!("(\"{}\")", d.raw.clone())
             } else {
-                info!("{}└─{}", padding, self.token_map.get(&n.token).unwrap());
+                String::new()
+            };
+            if last.1 > 0 {
+                info!("{}├─{}{}", padding, self.token_map.get(&n.token).unwrap(), data);
+            } else {
+                info!("{}└─{}{}", padding, self.token_map.get(&n.token).unwrap(), data);
             }
         });
     }

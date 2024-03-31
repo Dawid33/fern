@@ -8,7 +8,7 @@ use libfern::{
         opg::OpGrammar,
     },
     json::JsonLexer,
-    lexer::{split_mmap_into_chunks, ParallelLexer},
+    lexer::{split_file_into_chunks, ParallelLexer},
 };
 use std::error::Error;
 use std::fs::File;
@@ -30,7 +30,7 @@ fn bench_parallel_lexing(path: &str, threads: usize) {
 
     let file = File::open(path).unwrap();
     let mut memmap: memmap::Mmap = unsafe { MmapOptions::new().map(&file).unwrap() };
-    let chunks = split_mmap_into_chunks(&mut memmap, 6000).unwrap();
+    let chunks = split_file_into_chunks(&mut memmap, 6000).unwrap();
 
     let _ = thread::scope(|s| {
         let mut lexer: ParallelLexer<JsonLexer> = ParallelLexer::new(table.clone(), s, threads);

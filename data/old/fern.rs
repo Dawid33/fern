@@ -534,4 +534,229 @@ impl FernLexer {
         }
         return false;
     }
-}
+} // pub fn render<W: Write>(ast: Box<AstNode>, output: &mut W) {
+  //     let mut nodes: Vec<String> = Vec::new();
+  //     let mut edges = VecDeque::new();
+
+//     nodes.push("Module".to_string());
+//     let mut stack: Vec<(Box<AstNode>, usize)> = vec![(ast, 0)];
+
+//     while let Some((current, id)) = stack.pop() {
+//         let mut push_node = |id, str: String, node: Box<AstNode>| {
+//             nodes.push(str);
+//             let child = nodes.len() - 1;
+//             edges.push_front((id, child));
+//             stack.push((node, child));
+//         };
+
+//         match *current {
+//             AstNode::Binary(left, _, right) => {
+//                 push_node(id, format!("{:?}", &left), left);
+//                 push_node(id, format!("{:?}", &right), right);
+//             }
+//             AstNode::Unary(_, expr) => {
+//                 push_node(id, format!("{:?}", &expr), expr);
+//             }
+//             AstNode::Number(_) => {}
+//             AstNode::String(_) => {}
+//             AstNode::Name(_) => {}
+//             AstNode::ExprList(expr_list) => {
+//                 for x in expr_list {
+//                     push_node(id, format!("{:?}", x), Box::from(x));
+//                 }
+//             }
+//             AstNode::Assign(name, expr) => {
+//                 push_node(id, format!("{:?}", name), name);
+//                 push_node(id, format!("{:?}", expr), expr);
+//             }
+//             AstNode::Let(name, _, expr) => {
+//                 push_node(id, format!("{:?}", name), name);
+//                 if let Some(expr) = expr {
+//                     push_node(id, format!("{:?}", expr), expr);
+//                 }
+//             }
+//             AstNode::Module(stmts) => {
+//                 push_node(id, format!("{:?}", stmts), stmts);
+//             }
+//             AstNode::Function(_, param, stmts) => {
+//                 if let Some(p) = param {
+//                     push_node(id, format!("Parameters: {:?}", p), p);
+//                 }
+//                 if let Some(stmts) = stmts {
+//                     push_node(id, format!("{:?}", stmts), stmts);
+//                 }
+//             }
+//             AstNode::FunctionCall(expr, args) => {
+//                 push_node(id, format!("{:?}", expr), expr);
+//                 if let Some(args) = args {
+//                     push_node(id, format!("{:?}", args), args);
+//                 }
+//             }
+//             AstNode::If(expr, stmts, else_or_elseif) => {
+//                 push_node(id, format!("<B>Condition</B><BR/>{:?}", expr), expr);
+//                 if let Some(stmts) = stmts {
+//                     push_node(id, format!("<B>If Body</B><BR/>{:?}", stmts), stmts);
+//                 }
+//                 if let Some(e) = else_or_elseif {
+//                     push_node(id, format!("{:?}", e), e);
+//                 }
+//             }
+//             AstNode::For(var, expr, stmts) => {
+//                 push_node(id, format!("Variable\n{:?}", var), var);
+//                 push_node(id, format!("List\n{:?}", expr), expr);
+//                 push_node(id, format!("{:?}", stmts), stmts);
+//             }
+//             AstNode::While(expr, stmts) => {
+//                 push_node(id, format!("Condition\n{:?}", expr), expr);
+//                 push_node(id, format!("{:?}", stmts), stmts);
+//             }
+//             AstNode::Return(expr) => {
+//                 if let Some(expr) = expr {
+//                     push_node(id, format!("{:?}", expr), expr);
+//                 }
+//             }
+//             AstNode::ElseIf(expr, stmts, else_or_elseif) => {
+//                 push_node(id, format!("<B>Condition</B><BR/>{:?}", expr), expr);
+//                 if let Some(stmts) = stmts {
+//                     push_node(id, format!("<B>Else If Body</B><BR/>{:?}", stmts), stmts);
+//                 }
+//                 if let Some(e) = else_or_elseif {
+//                     push_node(id, format!("{:?}", e), e);
+//                 }
+//             }
+//             AstNode::Else(stmts) => {
+//                 if let Some(stmts) = stmts {
+//                     push_node(id, format!("{:?}", stmts), stmts);
+//                 }
+//             }
+//             AstNode::StatList(stmts) => {
+//                 for x in stmts {
+//                     push_node(id, format!("{:?}", x), Box::from(x));
+//                 }
+//             }
+//             AstNode::ExprThen(expr, stmt) => {
+//                 push_node(id, format!("Condition\n{:?}", expr), expr);
+//                 if let Some(e) = stmt {
+//                     push_node(id, format!("{:?}", e), e);
+//                 }
+//             }
+//         }
+//     }
+
+//     let graph = Graph { nodes, edges };
+//     dot::render(&graph, output).unwrap()
+// }
+
+// pub fn render_block<W: Write>(ir: Block, w: &mut W) {
+//     w.write(
+//         r#"
+// digraph g {
+//     fontname="Helvetica,Arial,sans-serif"
+//     node [fontname="Helvetica,Arial,sans-serif"]
+//     edge [fontname="Helvetica,Arial,sans-serif"]
+//     graph [
+//         rankdir = "LR"
+//     ];
+//     node [
+//         fontsize = "16"
+//         shape = "ellipse"
+//         rankjustify=min
+//     ];
+//     edge [
+//     ];
+//     "root" [
+//     label = "root"
+//     shape = "record"
+//     ];
+// "#
+//         .as_bytes(),
+//     )
+//     .unwrap();
+//     let mut stack = VecDeque::new();
+//     stack.push_front(&ir);
+//     let print_b = |b: &Block, w: &mut W| {
+//         let mut builder = String::new();
+//         let label = match &b.block_type {
+//             BlockType::Code(ref stmts) => {
+//                 let mut stmt_to_string = |x: &Statement, first: bool| {
+//                     let mut prefix = "| ";
+//                     if first {
+//                         prefix = "";
+//                     }
+//                     match x {
+//                         crate::ir::Statement::Return(val) => {
+//                             if let Some(ref val) = val {
+//                                 builder.push_str(format!("{}return {}\\l", prefix, val).as_str())
+//                             } else {
+//                                 builder.push_str(format!("{}return\\l", prefix).as_str())
+//                             }
+//                         }
+//                         crate::ir::Statement::Let(l) => {
+//                             if let Some(ref val) = l.val {
+//                                 builder.push_str(format!("{}{} = {} \\l", prefix, l.ident.name, val).as_str())
+//                             } else {
+//                                 builder.push_str(format!("{}{}; \\l", prefix, l.ident.name).as_str())
+//                             }
+//                         }
+//                         _ => builder.push_str("?"),
+//                     }
+//                 };
+//                 let mut stmts = stmts.iter();
+//                 if let Some(x) = stmts.next() {
+//                     stmt_to_string(&x, true);
+//                 };
+//                 while let Some(x) = stmts.next() {
+//                     stmt_to_string(&x, false);
+//                 }
+//                 &builder
+//             }
+//             BlockType::If(cond) => {
+//                 builder = format!("{} ({})", &b.prefix, cond);
+//                 &builder
+//             }
+//             _ => {
+//                 println!("{}", &b.prefix);
+//                 &b.prefix
+//             }
+//         };
+
+//         w.write(format!("\"{}\" [label = \"{}\"\n shape = \"record\"];\n", b.prefix, label).as_bytes())
+//             .unwrap();
+//     };
+
+//     while !stack.is_empty() {
+//         let current = stack.pop_front().unwrap();
+//         print_b(current, w);
+
+//         for b in &current.children {
+//             stack.push_front(b);
+//             w.write(format!("\"{}\" -> \"{}\" [];\n", current.prefix, b.prefix).as_bytes()).unwrap();
+//         }
+//     }
+
+//     w.write("\n}\n".as_bytes()).unwrap();
+// }
+
+// use crate::grammar::{OpGrammar, Token};
+// use crate::lexer::fern::{FernData, FernTokens};
+// use crate::parser::fern_ast::Operator::{Add, Divide, Equal, GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Modulo, Multiply, NotEqual, Subtract};
+// use crate::parser::{Node, ParseTree};
+// use log::info;
+// use simple_error::SimpleError;
+// use std::borrow::Cow;
+// use std::cmp::max;
+// use std::collections::{HashMap, VecDeque};
+// use std::error::Error;
+// use std::fmt::{Debug, Formatter};
+// use std::io::Write;
+// use std::os::unix::fs::symlink;
+// use std::sync;
+
+// struct Module {}
+
+// impl Module {
+//     pub fn from(_: Box<AstNode>) -> Self {
+//         println!("Hello, World");
+//         return Self {};
+//     }
+// }

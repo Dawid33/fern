@@ -1,4 +1,15 @@
 
+// struct Test {
+// 	x: int,
+// 	y: int32,
+// }
 
 
-	return (n * factorial(n - 1));
+fn main[] {
+	let y;
+	if x || (y && z) {
+		let y;
+		let x = 0;
+	}
+	return x;
+}

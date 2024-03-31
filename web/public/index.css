@@ -56,7 +56,34 @@ main {
 #tab-group {
   width: 100%;
   height: 95%;
+  max-height: 95%;
   border: 1px solid black;
   grid-column: 2;
   grid-row: 2;
+  overflow-y: scroll;
+}
+
+#ast_graph {
+  z-index: 100;
+}
+
+canvas {
+  width: 100%;
+  height: calc(100% - 55px);
+}
+
+#lexemes {
+  font-size: 16px;
+
+}
+
+#js_output {
+  height: 100%;
+  font-size: 16px;
+}
+
+sl-tab-panel {
+  position: relative;
+  height: 100%;
+  --padding: 0px;
 }
